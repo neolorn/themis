@@ -8,7 +8,8 @@ using System.Xml.Linq;
 namespace Themis.Repository.Tests;
 
 /// <summary>
-/// What each project may reference (<c>03</c> APR-LIB-001).
+/// What each project may reference (<c>03</c> APR-LIB-001) and the grants of
+/// <c>InternalsVisibleTo</c> (<c>05</c> APR-ENG-001).
 /// </summary>
 internal static class ReferenceRules
 {
@@ -158,6 +159,57 @@ internal static class ReferenceRules
     private static string Target(XElement item)
     {
         return item.Attribute("Include")?.Value ?? item.Attribute("Update")?.Value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Answers each grant of <c>InternalsVisibleTo</c> outside <c>05</c> APR-ENG-001's rule that
+    /// the built assembly of a project of the repository at <paramref name="root"/> carries,
+    /// whatever form declared it: an item, an attribute item or an attribute in a source file.
+    /// </summary>
+    internal static IReadOnlyList<string> GrantViolations(string root)
+    {
+        List<string> violations = [];
+        foreach (ProjectFile project in ProjectFile.ReadAll(root))
+        {
+            string assembly = Path.Combine(project.Folder, "bin", "Release", "net10.0", project.Name + ".dll");
+            if (!File.Exists(assembly))
+            {
+                violations.Add($"{project.RelativePath} has no built assembly at bin/Release/net10.0/, so its grants cannot be read.");
+                continue;
+            }
+
+            violations.AddRange(GrantViolations(project.RelativePath, project.Name, AssemblySurface.Grants(assembly)));
+        }
+
+        return violations;
+    }
+
+    /// <summary>Answers each of <paramref name="grantees"/> the project at <paramref name="relativePath"/> may not grant its internals to.</summary>
+    internal static IEnumerable<string> GrantViolations(string relativePath, string name, IEnumerable<string> grantees)
+    {
+        return grantees.Where(grantee => !IsAllowedGrant(relativePath, name, grantee))
+            .Select(grantee => $"{relativePath} grants its internals to {grantee}, which APR-ENG-001 does not allow.");
+    }
+
+    /// <summary>
+    /// A source project grants its own test project, and <c>Themis</c> grants <c>Themis.Cli</c>,
+    /// which applies the migrations it holds, and <c>Themis.Testing</c>, which removes the hosted
+    /// jobs by their types and applies the migrations for a test.
+    /// </summary>
+    private static bool IsAllowedGrant(string relativePath, string name, string grantee)
+    {
+        if (!relativePath.StartsWith("src/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (string.Equals(grantee, Packages.TestProject(name), StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        string[] allowed = string.Equals(name, Packages.Engine, StringComparison.Ordinal) ? [Packages.Cli, Packages.Testing] : [];
+        return allowed.Contains(grantee, StringComparer.Ordinal);
     }
 
     private static IReadOnlyList<string> AllowedTestProjects(string testProject)
