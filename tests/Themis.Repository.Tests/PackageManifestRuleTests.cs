@@ -20,6 +20,35 @@ public sealed class PackageManifestRuleTests
         </package>
         """;
 
+    [Theory]
+    [InlineData("1.2.3")]
+    [InlineData("[1.2.2]")]
+    [InlineData("[1.2.3, )")]
+    public void APR_LIB_001_AC2_DependencyOnALibraryPackageNotAtTheExactVersionPackedIsFound(string version)
+    {
+        PackageManifest[] manifests = [Parse(Core), Parse(Engine(version))];
+
+        Assert.Equal(
+            [$"Themis depends on Themis.Core at {version}, not the exact version packed, [1.2.3]."],
+            PackageRules.DependencyViolations(manifests));
+    }
+
+    [Fact]
+    public void APR_LIB_001_AC2_DependencyAtTheExactVersionPackedIsAccepted()
+    {
+        PackageManifest[] manifests = [Parse(Core), Parse(Engine("[1.2.3]"))];
+
+        Assert.Empty(PackageRules.DependencyViolations(manifests));
+    }
+
+    [Fact]
+    public void APR_LIB_001_AC2_DependencyOnALibraryPackageNotPackedWithItIsFound()
+    {
+        PackageManifest[] manifests = [Parse(Engine("[1.2.3]"))];
+
+        Assert.Equal(["Themis depends on Themis.Core, which was not packed with it."], PackageRules.DependencyViolations(manifests));
+    }
+
     [Fact]
     public void PackageTable_Descriptions_AreTheCellsWithoutMarkupOrReferences()
     {
@@ -53,6 +82,24 @@ public sealed class PackageManifestRuleTests
         PackageManifest manifest = Parse(Core.Replace(text, replacement, StringComparison.Ordinal));
 
         Assert.Equal([violation], PackageRules.ManifestViolations(manifest));
+    }
+
+    private static string Engine(string coreVersion)
+    {
+        return $"""
+            <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+              <metadata>
+                <id>Themis</id>
+                <version>1.2.3</version>
+                <dependencies>
+                  <group targetFramework="net10.0">
+                    <dependency id="Themis.Core" version="{coreVersion}" exclude="Build,Analyzers" />
+                    <dependency id="Npgsql.EntityFrameworkCore.PostgreSQL" version="10.0.0" exclude="Build,Analyzers" />
+                  </group>
+                </dependencies>
+              </metadata>
+            </package>
+            """;
     }
 
     private static PackageManifest Parse(string nuspec)

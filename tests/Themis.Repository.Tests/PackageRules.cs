@@ -34,6 +34,30 @@ internal static class PackageRules
         FrozenSet.Create(StringComparer.Ordinal, "id", "version", "authors", "description", "repository", "dependencies");
 
     /// <summary>
+    /// Answers each dependency of a packed package on another of the library's packages that is
+    /// not the exact version packed, <c>[v]</c> (<c>03</c> APR-LIB-001 criterion 2).
+    /// </summary>
+    internal static IEnumerable<string> DependencyViolations(IReadOnlyList<PackageManifest> manifests)
+    {
+        ArgumentNullException.ThrowIfNull(manifests);
+        Dictionary<string, string> packed = manifests.ToDictionary(manifest => manifest.Id, manifest => manifest.Version, StringComparer.Ordinal);
+        foreach (PackageManifest manifest in manifests)
+        {
+            foreach (PackageDependency dependency in manifest.Dependencies.Where(dependency => packed.ContainsKey(dependency.Id) || Packages.All.Contains(dependency.Id, StringComparer.Ordinal)))
+            {
+                if (!packed.TryGetValue(dependency.Id, out string? version))
+                {
+                    yield return $"{manifest.Id} depends on {dependency.Id}, which was not packed with it.";
+                }
+                else if (!string.Equals(dependency.Version, $"[{version}]", StringComparison.Ordinal))
+                {
+                    yield return $"{manifest.Id} depends on {dependency.Id} at {dependency.Version}, not the exact version packed, [{version}].";
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Answers each property of a packed package outside <c>05</c> APR-ENG-011: its description
     /// is its cell of <c>00</c> section 2.2, its authors and repository are those the lead's
     /// first message of phase 0 gives, and it carries no other package property.

@@ -199,6 +199,20 @@ public sealed class ProjectReferenceTests
         Assert.DoesNotContain(violations, violation => violation.Contains("MinVer", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("DependOnTheExactVersionPacked", "PackageReference")]
+    [InlineData("AnotherTarget", "_ProjectReferencesWithVersions")]
+    public void APR_LIB_001_AC1_ItemInATargetOtherThanTheExactVersionUpdateIsFound(string target, string item)
+    {
+        using RepositoryFixture fixture = new();
+        string props = File.ReadAllText(Path.Combine(fixture.Root, "Directory.Build.props"));
+        fixture.Write("Directory.Build.props", props.Replace("</Project>", $"  <Target Name=\"{target}\"><ItemGroup><{item} Include=\"Microsoft.EntityFrameworkCore\" /></ItemGroup></Target>\n</Project>", StringComparison.Ordinal));
+
+        Assert.Contains(
+            $"Directory.Build.props adds a {item} item Microsoft.EntityFrameworkCore; it adds no item but the CLSCompliant attribute.",
+            ReferenceRules.ReferenceViolations(fixture.Root));
+    }
+
     [Fact]
     public void APR_LIB_001_AC1_GlobalPackageReferenceIsFound()
     {

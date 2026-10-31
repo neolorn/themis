@@ -29,4 +29,13 @@
     </AssemblyAttribute>
   </ItemGroup>
 
+  <!-- A package depends on another of the library's packages at the exact version packed (05 APR-ENG-011). -->
+  <Target Name="DependOnTheExactVersionPacked" AfterTargets="_GetProjectReferenceVersions">
+    <ItemGroup>
+      <_ProjectReferencesWithVersions>
+        <ProjectVersion>[%(_ProjectReferencesWithVersions.ProjectVersion)]</ProjectVersion>
+      </_ProjectReferencesWithVersions>
+    </ItemGroup>
+  </Target>
+
 </Project>
