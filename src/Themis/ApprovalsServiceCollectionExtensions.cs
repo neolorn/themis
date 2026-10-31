@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.Metrics;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +40,15 @@ public static class ApprovalsServiceCollectionExtensions
         services.AddSingleton<ApprovalsReady>();
         services.AddSingleton<ApprovalsDatabase>();
         services.AddSingleton<IHostedService, ApprovalsStartup>();
+        services.AddSingleton(provider => new ApprovalsMetrics(provider.GetService<IMeterFactory>()));
+
+        // The value is read raw here, as the registration comes before any check; a value
+        // outside its rule stops the start whatever is registered.
+        if (!bool.TryParse(section["Jobs:Enabled"], out bool jobs) || jobs)
+        {
+            services.AddHealthChecks().AddCheck<ApprovalsHealthCheck>(ApprovalsHealthCheck.Name);
+        }
+
         return services;
     }
 }

@@ -17,3 +17,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `themis migrate`, the tool that applies the migrations and grants the application roles
 - The library's own transactions, run again after a deadlock or a serialization failure and bounded by a session timeout
 - The library's own alert sink, which logs each condition at the error level where the host registers none
+- The meter `Themis` with its counters, and the health check `themis` where the jobs run
