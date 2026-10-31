@@ -39,14 +39,28 @@ internal static partial class Reference
 
     /// <summary>
     /// The members and spellings, in order, of the enumeration <paramref name="enumeration"/>:
-    /// section 6's rows for <c>EventKind</c>, as section 2 gives, and section 2's row otherwise.
+    /// section 6's rows for <c>EventKind</c>, as section 2 gives, section 3's tables for the statuses, and section 2's row otherwise.
     /// </summary>
     internal static IReadOnlyList<(string Member, string Spelling)> Spellings(string enumeration)
     {
-        IEnumerable<string> lines = enumeration == "EventKind"
-            ? Section(6).Where(line => LeadingName().IsMatch(line)).Select(line => line.Split('|')[1])
-            : Section(2).Where(line => line.StartsWith($"| `{enumeration}` |", StringComparison.Ordinal)).Select(line => line.Split('|')[2]);
+        IEnumerable<string> lines = enumeration switch
+        {
+            "EventKind" => Section(6).Where(line => LeadingName().IsMatch(line)).Select(line => line.Split('|')[1]),
+            "RequestStatus" => Statuses("**A request's status**").Select(line => line.Split('|')[1]),
+            "StepStatus" => Statuses("**A step's status**").Select(line => line.Split('|')[1]),
+            _ => Section(2).Where(line => line.StartsWith($"| `{enumeration}` |", StringComparison.Ordinal)).Select(line => line.Split('|')[2]),
+        };
         return [.. lines.SelectMany(cell => Spelled().Matches(cell)).Select(member => (member.Groups["member"].Value, member.Groups["spelling"].Value))];
+    }
+
+    /// <summary>The rows of section 3's table of statuses that follows <paramref name="heading"/>.</summary>
+    private static IEnumerable<string> Statuses(string heading)
+    {
+        return Section(3)
+            .SkipWhile(line => !line.StartsWith(heading, StringComparison.Ordinal))
+            .Skip(1)
+            .TakeWhile(line => !line.StartsWith("**", StringComparison.Ordinal))
+            .Where(line => LeadingName().IsMatch(line));
     }
 
     private static IEnumerable<string> Section(int number)

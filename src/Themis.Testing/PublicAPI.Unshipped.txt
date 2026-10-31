@@ -1,1 +1,28 @@
 #nullable enable
+static Themis.Testing.ApprovalsTestDatabase.MigrateAsync(string! connection, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+static Themis.Testing.ApprovalsTestingServiceCollectionExtensions.AddThemisTesting(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Themis.Testing.FixedSecretSource!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Themis.Testing.ApprovalsTestDatabase
+Themis.Testing.ApprovalsTestingServiceCollectionExtensions
+Themis.Testing.FixedSecretSource
+Themis.Testing.FixedSecretSource.FixedSecretSource() -> void
+Themis.Testing.FixedSecretSource.ReadAsync(string! name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.SecretVersions?>
+Themis.Testing.FixedSecretSource.RemoveSecret(string! name) -> void
+Themis.Testing.FixedSecretSource.SetSecret(string! name, Themis.Core.SecretVersions! versions) -> void
+Themis.Testing.InMemoryApproverDirectory
+Themis.Testing.InMemoryApproverDirectory.Block(string! person) -> void
+Themis.Testing.InMemoryApproverDirectory.CanApproveAsync(Themis.Core.ApproverCheck! check, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Themis.Testing.InMemoryApproverDirectory.Checks.get -> System.Collections.Generic.IReadOnlyList<Themis.Core.ApproverCheck!>!
+Themis.Testing.InMemoryApproverDirectory.FailWith(System.Exception? failure) -> void
+Themis.Testing.InMemoryApproverDirectory.Grant(string! permission, string! person) -> void
+Themis.Testing.InMemoryApproverDirectory.InMemoryApproverDirectory() -> void
+Themis.Testing.InMemoryApproverDirectory.ResolveAsync(string! permission, Themis.Core.ApproverQuery! query, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<string!>!>
+Themis.Testing.InMemoryApproverDirectory.Revoke(string! permission, string! person) -> void
+Themis.Testing.InMemoryApproverDirectory.Unblock(string! person) -> void
+Themis.Testing.RecordingObserver
+Themis.Testing.RecordingObserver.FailWith(System.Func<Themis.Core.ApprovalEvent!, bool>! fails) -> void
+Themis.Testing.RecordingObserver.ObserveAsync(Themis.Core.ApprovalEvent! approvalEvent, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Themis.Testing.RecordingObserver.Received.get -> System.Collections.Generic.IReadOnlyList<Themis.Core.ApprovalEvent!>!
+Themis.Testing.RecordingObserver.RecordingObserver() -> void
+Themis.Testing.TestJobs
+Themis.Testing.TestJobs.RunUntilIdleAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<int>
+Themis.Testing.TestJobs.TestJobs(Themis.Core.IApprovalJobs! jobs) -> void

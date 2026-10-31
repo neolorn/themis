@@ -342,6 +342,13 @@
       "themis.core": {
         "type": "Project"
       },
+      "themis.testing": {
+        "type": "Project",
+        "dependencies": {
+          "Themis": "[1.0.0, )",
+          "Themis.Core": "[1.0.0, )"
+        }
+      },
       "Microsoft.EntityFrameworkCore": {
         "type": "CentralTransitive",
         "requested": "[10.0.14, )",

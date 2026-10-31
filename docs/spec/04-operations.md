@@ -187,16 +187,18 @@ name requests, decisions, delegations and events by identifier, type key, versio
 status, step number and reason code, never by a person reference, a target, a role, a
 field value or a reason's text. Metrics are published on the .NET meter of `06` section
 7, with its instruments. The health check of `06` section 7, registered by `AddThemis`
-in an application where the jobs run, reports unhealthy while the oldest undelivered
-event is older than `Themis:Observer:LagThreshold` or a job is stalled (APR-OPS-006).
+in an application where the jobs run, reports unhealthy while a job is stalled
+(APR-OPS-006) or, in an application whose `Themis:Observer:Enabled` is on, while the
+oldest undelivered event is older than `Themis:Observer:LagThreshold` (T-022).
 
-*Source: T-019*
+*Source: T-019, T-022*
 
 **Acceptance criteria**
 1. A test capturing every log entry of a request's life, from create to completion, its
    refusals included, finds no person reference, target, role, field value or reason.
 2. The meter counts requests created and closed by status, and the health check turns
-   unhealthy past the lag threshold.
+   unhealthy past the lag threshold, and stays healthy past it in an application whose
+   `Themis:Observer:Enabled` is off.
 
 ---
 

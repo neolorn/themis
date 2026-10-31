@@ -18,7 +18,7 @@ namespace Themis.Tests;
 public sealed class ObservabilityTests
 {
     [Fact]
-    public async Task AddThemis_Meter_PublishesTheReferencesCountersUnderTheMeterThemis()
+    public async Task AddThemis_Meter_PublishesTheReferencesInstrumentsUnderTheMeterThemis()
     {
         List<Instrument> published = [];
         using MeterListener listener = new();
@@ -44,9 +44,9 @@ public sealed class ObservabilityTests
             own = [.. published.Where(instrument => ReferenceEquals(instrument.Meter, meter))];
         }
 
-        string[] counters = [.. Reference.Rows(7).Where(row => row[1] == "Counter").Select(row => row[0])];
-        Assert.Equal(counters.Order(StringComparer.Ordinal), own.Select(instrument => instrument.Name).Order(StringComparer.Ordinal));
-        Assert.All(own, instrument => Assert.IsType<Counter<long>>(instrument));
+        IReadOnlyList<string>[] instruments = [.. Reference.Rows(7).Where(row => row[1] is "Counter" or "Observable gauge")];
+        Assert.Equal(instruments.Select(row => row[0]).Order(StringComparer.Ordinal), own.Select(instrument => instrument.Name).Order(StringComparer.Ordinal));
+        Assert.All(own, instrument => Assert.Equal(instruments.Single(row => row[0] == instrument.Name)[1] == "Counter" ? typeof(Counter<long>) : typeof(ObservableGauge<long>), instrument.GetType()));
     }
 
     [Fact]

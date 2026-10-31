@@ -134,6 +134,12 @@ public sealed class StartTests(PostgresFixture postgres) : IClassFixture<Postgre
         Assert.Contains(("approvals", "alerts"), found);
         Assert.Contains(("approvals", "types"), found);
         Assert.Contains(("approvals", "versions"), found);
+        Assert.Contains(("approvals", "requests"), found);
+        Assert.Contains(("approvals", "steps"), found);
+        Assert.Contains(("approvals", "assignments"), found);
+        Assert.Contains(("approvals", "decisions"), found);
+        Assert.Contains(("approvals", "events"), found);
+        Assert.Contains(("approvals", "jobs"), found);
         Assert.All(found, table => Assert.Equal("approvals", table.Schema));
     }
 

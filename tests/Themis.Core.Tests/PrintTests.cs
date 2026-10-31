@@ -22,6 +22,8 @@ public sealed class PrintTests
 
     private const string Role = "role-c41d";
 
+    private const string Reason = "reason-3b7e";
+
     private const string Unprintable = $"{Person}|{Other}|{Role}|value-e2b4|4711";
 
     private static readonly Target KnownTarget = new() { Kind = "order", Id = TargetId };
@@ -208,5 +210,47 @@ public sealed class PrintTests
         Assert.Equal("approvals.startup.seammissing", failure.Code);
         Assert.Equal(new Dictionary<string, string> { ["key"] = "secretSource" }, failure.Details);
         Assert.Contains("approvals.startup.seammissing", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void APR_LIB_002_AC3_FormattingAnApprovalRequestOrADecisionRequestWritesNoPersonRoleTargetValueOrReason()
+    {
+        ApprovalRequest request = new() { Type = "purchase", Target = KnownTarget, Snapshot = new Dictionary<string, FieldValue> { ["note"] = new FieldValue.PlainText("value-e2b4"), ["amount"] = new FieldValue.WholeNumber(4711) }, Requester = Person, Subject = Other, RequesterRoles = [Role], SubjectRoles = [Role] };
+        DecisionRequest decision = new() { Request = new RequestId(Guid.CreateVersion7()), Decider = Person, ActingFor = Other, Outcome = DecisionOutcome.Reject, Reason = Reason };
+
+        Assert.All([request.ToString(), decision.ToString()], printed => Assert.DoesNotMatch(Unprintable + "|" + TargetId + "|" + Reason, printed));
+        Assert.Contains("Type = purchase", request.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Outcome = Reject", decision.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RequestRecordsAndCancelRequest_ToString_WriteNoPersonRoleTargetValueOrReason()
+    {
+        DecisionId decided = new(Guid.CreateVersion7());
+        StepRecord step = new() { Number = 1, Name = "review", Mode = ApprovalMode.All, Status = StepStatus.Done, Assignments = [new AssignmentRecord { Person = Person, Origin = AssignmentOrigin.Fallback, Decision = decided }] };
+        DecisionRecord decision = new() { Decision = decided, Step = 1, Decider = Person, ActingFor = Other, Outcome = DecisionOutcome.Approve, Reason = Reason, At = DateTimeOffset.UnixEpoch };
+        RequestRecord record = new()
+        {
+            Request = new RequestId(Guid.CreateVersion7()),
+            Type = "purchase",
+            Version = 2,
+            Target = KnownTarget,
+            Snapshot = new Dictionary<string, FieldValue> { ["note"] = new FieldValue.PlainText("value-e2b4") },
+            Requester = Person,
+            Subject = Other,
+            RequesterRoles = [Role],
+            Status = RequestStatus.Cancelled,
+            CreatedAt = DateTimeOffset.UnixEpoch,
+            ClosedBy = Person,
+            ClosedFor = Other,
+            Reason = Reason,
+            Steps = [step],
+            Decisions = [decision],
+        };
+        CancelRequest cancel = new() { Request = record.Request, Actor = Person, OnBehalfOf = Other, Reason = Reason };
+        PendingItem item = new() { Request = record.Request, Type = "purchase", Target = KnownTarget, Step = 1, StepName = "review", CreatedAt = DateTimeOffset.UnixEpoch, ActingFor = Other };
+
+        Assert.All([record.ToString(), step.ToString(), step.Assignments[0].ToString(), decision.ToString(), cancel.ToString(), item.ToString()], printed => Assert.DoesNotMatch(Unprintable + "|" + TargetId + "|" + Reason, printed));
+        Assert.Contains("Version = 2", record.ToString(), StringComparison.Ordinal);
     }
 }

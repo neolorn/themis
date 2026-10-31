@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 using Themis.Core;
@@ -15,6 +16,8 @@ namespace Themis.Types;
     UseStringEnumConverter = true,
     Converters = [typeof(DecimalWithoutTrailingZerosConverter), typeof(WholeSecondsConverter)])]
 [JsonSerializable(typeof(ApprovalTypeDefinition))]
+[JsonSerializable(typeof(Dictionary<string, FieldValue>))]
+[JsonSerializable(typeof(ApproverReference))]
 [JsonSerializable(typeof(Condition.AllOf))]
 [JsonSerializable(typeof(Condition.AnyOf))]
 [JsonSerializable(typeof(Condition.Negate))]

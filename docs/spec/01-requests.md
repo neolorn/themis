@@ -49,9 +49,10 @@ its first step whose condition holds (APR-REQ-003), and writes its `requested` e
 it on the host's open `NpgsqlTransaction`, so it commits or rolls back with the host's
 own write, the library committing nothing; without a transaction, the call records it in
 a transaction of its own. Either answers a `Result<CreatedRequest>`: the request's
-identifier and its status, `pending`, or `approved` where the type approved it at once.
+identifier and its status, `pending`; `approved` where the type approved it at once; or
+`cancelled` where its first step leaves no one to decide it (APR-REQ-007, T-022).
 
-*Source: T-003, T-007*
+*Source: T-003, T-007, T-022*
 
 **Acceptance criteria**
 1. A request created in a host transaction that rolls back leaves no request, no

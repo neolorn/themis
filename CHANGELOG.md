@@ -27,3 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The tables of approval types and their versions, a version's definition kept as text beside its hash
 - `IApprovalTypes`, which publishes numbered versions under the type's lock, reads them and retires a type
 - The rule that a definition's canonical form is at most 64 KiB, a larger one naming the empty path
+- The request, decision and step types, their statuses, `IApprovals` and `IApprovalJobs`
+- The tables of requests, steps, assignments, decisions, events and jobs, each status a closed set the database holds
+- `Themis.Testing`: an in-memory approver directory, a recording observer, fixed secrets and a test database's migration
+- `IApprovals`: a request created, decided, cancelled and read, on the library's own transaction or the host's, its steps' assignments fixed at their start and each move writing its event
+- The jobs `deadlines`, `observer` and `watch`, each run under its claim on the hosted timer or through `IApprovalJobs`, the observer told each event in order for each request
+- The alerts `observer-failing` and `request-unassignable`, the gauge `approvals.events.pending` and the health check's judgement of the observer's lag where the application runs the observer
+- `Themis.Testing`: `AddThemisTesting`, which removes the hosted jobs, and `TestJobs`, which runs them until idle
