@@ -35,6 +35,7 @@ public static class ApprovalsServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<ApprovalsOptions>, ApprovalsOptionsValidator>();
         services.AddSingleton(new ApprovalsConfiguration(section));
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IAlertSink, LoggingAlertSink>();
         services.AddSingleton<ApprovalsReady>();
         services.AddSingleton<ApprovalsDatabase>();
         services.AddSingleton<IHostedService, ApprovalsStartup>();
