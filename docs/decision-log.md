@@ -556,6 +556,138 @@ its row allows.
 
 ---
 
+## T-025 — Release 2: what each designed-for row builds
+
+**Date:** 2026-11-01 · **Status:** accepted · **Amends:** APR-REQ-009, APR-REQ-015, APR-TYPE-004, APR-LIB-001, APR-LIB-004, APR-OPS-002, APR-OVR-003
+
+**TL;DR.** Release 2 builds the four rows APR-OVR-003 designed for and did not build
+(plan section 4). Their designs were one sentence each; this entry fixes every choice the
+implementer asked about (2026-11-01), and its criteria are the phases' criteria until the
+chapters carry them. Nothing on release 1's surface breaks: every addition is a new member,
+a new case or a new package.
+
+### 25.1 Phase 6: retention and erasure (APR-REQ-015, APR-OPS-002)
+
+- **The period.** One setting, `Themis:Retention:ClosedRequests`, a duration from 30 days to
+  30 years in whole days; unset (the default) keeps everything, as release 1 does. It counts
+  from the request's `ClosedAt`. Closed is `completed`, `rejected`, `cancelled` or `void`; an
+  `approved` request is not closed.
+- **What goes.** A closed request past its period goes with its steps, assignments,
+  decisions, events and snapshot, in one transaction per request. It is held back while any
+  of its events is undelivered, and while a request that names it as `Previous` is not itself
+  due; a chain goes together. An ended delegation goes once its end is past the same period.
+  Approval-type versions always stay.
+- **The job.** A new `ApprovalJob.Retention`, idempotent, deleting at most 1,000 requests per
+  run.
+- **Erasure.** A new interface `IRecordRetention` with
+  `EraseAsync(string person, CancellationToken)`, acting at once in one transaction and
+  answering how many rows it changed. Every reference to the person in requests, steps,
+  assignments, decisions, delegations and events becomes one pseudonym drawn for that call,
+  `erased:` followed by 128 random bits in base64url, so the person's rows stay linked to
+  each other and to no one. The reasons the person wrote are cleared. A second erasure of
+  the same reference changes nothing and answers 0.
+- **What erasure refuses.** `erasure.pending` while the person is requester, subject,
+  assignee or delegate of an open request (it is decided or cancelled first);
+  `erasure.typeversion` while the newest version of any approval type names the person (the
+  host publishes one without them first). Older versions that name the person are kept as
+  published, and named in the answer, so the host knows what it still holds: versions are
+  the host's configuration, immutable by APR-TYPE-002.
+- **Export.** `ExportAsync` for an erased reference answers nothing.
+- **The grant.** `themis migrate` creates the role `themis_retention`, holding `DELETE` on the
+  request and delegation tables and `UPDATE` on their person and reason columns; its input
+  gains `retentionRoles`, the logins it grants that role to. The application roles keep
+  APR-OPS-002 otherwise. Without the grant, the job and `EraseAsync` refuse with
+  `retention.notgranted`.
+- **Telemetry.** Counters `themis.retention.deleted` and `themis.erasures`; no event kind,
+  since an event would carry the person. A `Retention` run that fails raises `job-stalled`
+  as every job does.
+- **Criteria.** (1) A request closed one day less than the period stays; one closed a day
+  more goes with every row of it, and nothing else does. (2) An undelivered event, or a later
+  request naming it as `Previous` that is not due, holds it. (3) Erasure replaces every
+  reference with one pseudonym, clears the person's reasons, and a second call answers 0.
+  (4) Each refusal fires on its condition, and `retention.notgranted` without the role.
+  (5) Export of an erased reference is empty. (6) With the period unset, nothing is deleted.
+
+### 25.2 Phase 7: a number out of a list (APR-TYPE-004)
+
+- **Surface.** `ApprovalMode` gains `AtLeast` (spelled `atleast`), and `StepDefinition` and
+  `StepRecord` gain `Required` (`int?`), required for `AtLeast` and refused for any other
+  mode. The canonical form leaves `Required` out when it is absent, so every published
+  version keeps its hash.
+- **Range.** `Required` is 2 to 16 (one is `AnyOne`). Where every approver is a `Person`,
+  publish refuses a `Required` above the number of distinct persons; where any is a
+  `Permission`, the count is checked when the step starts.
+- **Too few assignments.** A step that starts with fewer assignments than `Required`, after
+  its exclusions, is treated as one with none: its fallback is assigned, whose first approval
+  completes it (APR-REQ-007, T-023), else `request-unassignable`.
+- **Counting.** The step completes at `Required` approvals counted per distinct person: a
+  person holding two assignments, their own and one through a delegation, counts once. Any
+  rejection rejects the request, as in every mode (APR-REQ-005). An escalation or fallback
+  assignee's first approval completes the step whatever its mode (T-023).
+- **Criteria.** (1) Publish refuses `AtLeast` without `Required`, `Required` with another
+  mode, a value outside 2 to 16, and one above the distinct persons named. (2) Two of five
+  completes at the second approval by two persons, not by one person twice. (3) A rejection
+  rejects. (4) Too few assignments goes to the fallback, else `request-unassignable`.
+  (5) Published versions keep their hashes.
+
+### 25.3 Phase 8: reminders before a deadline (APR-REQ-009)
+
+- **Definition.** `Deadline` gains `RemindBefore`: up to three durations, each at least one
+  hour, shorter than `After` and distinct; only on a step with a deadline.
+- **Who.** A new event kind `reminded`, naming the step and its open assignments, each with
+  the delegate who holds it if any. Watchers and the requester are not reminded. Assignments
+  added by an escalation are open assignments like any other.
+- **The job.** The `deadlines` job sends them on its clock. The step row records the
+  reminders sent (a new column, by migration), so each fires once, survives a restart, and
+  none fires after the step closes.
+- **Telemetry.** A counter `themis.reminders`.
+- **Criteria.** (1) Publish refuses a reminder without a deadline, one under an hour, one
+  not shorter than `After`, a fourth, and duplicates. (2) Each fires once at its time, with
+  its open assignments. (3) None after the step closes. (4) A restart sends none twice and
+  misses none.
+
+### 25.4 Phase 9: HTTP endpoints (APR-LIB-004, APR-LIB-001)
+
+- **Package.** A new `Themis.Endpoints`, referencing `Themis` and the ASP.NET Core shared
+  framework; it is the only shipped project that may reference ASP.NET Core. Described as
+  "HTTP endpoints for an approver's queue, decisions and delegations, mapped by the host".
+- **The person.** A seam `ICurrentPerson` with
+  `ValueTask<string?> ReadAsync(HttpContext context, CancellationToken)`, required where the
+  endpoints are mapped (start fails without it); `null` answers 401.
+- **Mapping.** `MapThemisApprovals(this IEndpointRouteBuilder routes, string prefix)` answers
+  the `RouteGroupBuilder`, so the host adds its own authorization and antiforgery:
+  - `GET {prefix}/pending?cursor=&size=`: the person's pending list, delegations included;
+  - `GET {prefix}/requests/{id}`: a request whose requester, subject, assignee, delegate or
+    watcher the person is, else 404;
+  - `POST {prefix}/requests/{id}/decisions` with `outcome`, `reason` and `actingFor`;
+  - `GET {prefix}/delegations`, `POST {prefix}/delegations`,
+    `POST {prefix}/delegations/{id}/end`.
+- **Errors.** RFC 9457 problem details carrying the library's `code` and `details`: a code
+  naming something not found is 404, one refusing the person 403, one refusing the input 400,
+  one refusing the state (closed, decided, changed, concurrent) 409; anything else 500 with
+  no details. The report lists every code with its status.
+- **JSON.** The library's types as they are, camelCase, identifiers as strings, enums by
+  their spellings; a body that is not `application/json` answers 415.
+- **Sample host.** Its own approval endpoints give way to these; it supplies the person
+  from its `X-Person` header through `ICurrentPerson`, in the sample only.
+- **Criteria.** (1) No person answers 401 on every route. (2) Each route does what its
+  library call does, for the person only. (3) A request of which the person is no party
+  answers 404. (4) Each error class maps as above. (5) The sample host serves them in the
+  gate.
+
+*Rejected:* a retention period per approval type (one setting serves every host met so
+far); a host-supplied pseudonym (the library must not depend on the host to unlink);
+`AtLeast` rejecting only once the number cannot be reached (APR-REQ-005's rule is the same
+in every mode); reminders to watchers (they never decide).
+
+**Propagated to:** `00` section 2.2 (the new package), APR-OVR-003 (built in release 2);
+`01` APR-REQ-009, APR-REQ-015; `02` APR-TYPE-004 and the step's values; `03` APR-LIB-001,
+APR-LIB-002, APR-LIB-004, APR-LIB-005 (`ICurrentPerson`); `04` APR-OPS-002, APR-OPS-004 (the
+jobs), APR-OPS-005 (the counters); `05` APR-ENG-001; `06` the settings, codes, event kinds
+and counters; `implementation-plan.md` section 4.
+
+---
+
 # Index
 
 | Title | Entry |
@@ -584,3 +716,4 @@ its row allows.
 | Phase 3's questions: the lag where no observer runs, and a create with no one | T-022 |
 | The fallback an escalation assigns | T-023 |
 | Phase 5's readings: the release notes' commit, and the sample host's tests | T-024 |
+| Release 2: what each designed-for row builds | T-025 |
