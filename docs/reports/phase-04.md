@@ -10,8 +10,8 @@ The tests of `Themis.Tests`, `Themis.Core.Tests`, `Themis.Cli.Tests` and `Themis
 **`01` APR-REQ-004**: criterion 2, left by phase 3.
 - DelegationTests: APR_REQ_004_AC2_DelegateWhoIsTheRequestsSubjectIsRefusedSeparation
 
-**`01` APR-REQ-009**: criteria 1 to 3; the `deadlines` job's actions: `Reject` and `Cancel` with the reason code `deadline`, `Escalate` with its escalation assignments, the fallbacks after them, and `request-unassignable` where both are excluded.
-- DeadlineTests: APR_REQ_009_AC1_StepWithAOneHourDeadlineAndRejectIsRejectedWithDeadlineOnceTheClockPassesTheHourAndNotBefore, APR_REQ_009_AC2_EscalatedAllStepCompletesAtTheFirstApprovalOfItsEscalationAssignee, APR_REQ_009_AC3_StepEscalatedOnceIsNotEscalatedAgain; Deadline_Cancel_CancelsTheRequestWithDeadline, Deadline_EscalateToExcludedOrAlreadyAssigned_AddsOnlyThePersonsLeft, Deadline_EscalationLeavingNoOne_GoesToTheStepsFallback, Deadline_EscalationWithBothFallbacksExcluded_KeepsTheStepsAssigneesAndRaisesRequestUnassignable, Deadline_DirectoryFailing_LeavesTheStepForTheJobsNextRun, Deadline_RequestAHostTransactionHolds_IsLeftForALaterRunRatherThanWaitedFor
+**`01` APR-REQ-009**: criteria 1 to 4; the `deadlines` job's actions: `Reject` and `Cancel` with the reason code `deadline`, `Escalate` with its escalation assignments, the fallbacks after them, and `request-unassignable` where both are excluded.
+- DeadlineTests: APR_REQ_009_AC1_StepWithAOneHourDeadlineAndRejectIsRejectedWithDeadlineOnceTheClockPassesTheHourAndNotBefore, APR_REQ_009_AC2_EscalatedAllStepCompletesAtTheFirstApprovalOfItsEscalationAssignee, APR_REQ_009_AC3_StepEscalatedOnceIsNotEscalatedAgain, APR_REQ_009_AC4_EscalatedAllStepWhoseEscalationLeavesNoOneCompletesAtTheFirstApprovalOfTheStepsFallbackAssignedInItsPlace; Decide_StepStartFallbackOfAnAllStepEscalatedToAPerson_CompletesItOnlyWithTheEscalationAssigneesApproval, Deadline_Cancel_CancelsTheRequestWithDeadline, Deadline_EscalateToExcludedOrAlreadyAssigned_AddsOnlyThePersonsLeft, Deadline_EscalationLeavingNoOne_GoesToTheStepsFallback, Deadline_EscalationWithBothFallbacksExcluded_KeepsTheStepsAssigneesAndRaisesRequestUnassignable, Deadline_DirectoryFailing_LeavesTheStepForTheJobsNextRun, Deadline_RequestAHostTransactionHolds_IsLeftForALaterRunRatherThanWaitedFor
 
 **`01` APR-REQ-010**: criterion 2, left by phase 3.
 - CompleteTests: APR_REQ_010_AC2_ApprovedRequestNotYetCompletedCanBeCancelledAndACompletedOneCannot
@@ -67,7 +67,7 @@ None of row 4.
 - `05` APR-ENG-008, tests written first: met for each item, with these exceptions.
   - The print test of `DelegationDefinition` and `DelegationRecord` came with the export item, after the delegation item had built the two records; it was written before the export item's own records.
   - The `ArgumentNullException` that `CompleteAsync`, `IDelegations.EndAsync` and `ListAsync` now throw for a null person, as their documentation says, has no test of its own.
-  - The tests of `07` APR-THR-002, `04` APR-OPS-005 criterion 1 and `03` APR-LIB-003 criterion 3 prove code built before them, and no code came with them.
+  - The tests of `07` APR-THR-002, `04` APR-OPS-005 criterion 1 and `03` APR-LIB-003 criterion 3 prove code built before them, and no code came with them. So does `Decide_StepStartFallbackOfAnAllStepEscalatedToAPerson_CompletesItOnlyWithTheEscalationAssigneesApproval`, which holds the behaviour T-023 keeps: it passed before the change and after it.
 - `05` APR-ENG-011, the commit messages of `phase-04` read and checked by `gate-commit-messages.ps1`.
 - `04` APR-OPS-005: every integration test of this phase captures every log entry and asserts none holds a person reference, role, target, value or reason it used.
 
@@ -84,6 +84,7 @@ None added.
 - The plan's row 4 (`fea16c9`) names the `observer` job's criterion phase 3 proved.
 - The health check (T-022): restructured so that a stalled job turns it unhealthy whatever `Themis:Observer:Enabled` says, and only the lag is gated by it.
 - `04` APR-OPS-004 criterion 4 stays in `build/gates/built-items.txt`, proven in phase 3.
+- The fallback an escalation assigns (T-023, `4267268`): where an escalation leaves no one, the fallback assigned in its place is recorded as a fallback assignment and stands in for the escalation, its first approval completing the step whatever its mode. Phase 4 had read it by rule as completing the step by its mode; the lead's review reversed that. The engine knows it as a fallback assignment on a step whose deadline has run and which holds no escalation assignment; a fallback assigned at the step's start keeps its behaviour beside the persons an escalation adds. Where the escalation instead adds the type's fallback beside the step's, assigned at the start, the first approval of either completes the step, as the step's alone did before. Governs: `01` APR-REQ-004, APR-REQ-009 criterion 4.
 
 ## Resolved by rule
 
@@ -92,7 +93,6 @@ None added.
 - A decision through a delegation reads the delegation in the decision's transaction, without locking it; the directory is asked first for the delegate, with `ActingFor` the lender, then for the lender, with no `ActingFor`, both through the lender's assignment's `Via`. Governs: `01` APR-REQ-004, APR-REQ-008.
 - The pending list holds one item for each request: the person's own assignment where they hold one, and otherwise the first lender's, in ordinal order; a request whose current step the person has decided in their own name is left out, as `01` APR-REQ-013 criterion 2 gives. Governs: `01` APR-REQ-013.
 - An escalation adds no one who already holds an assignment of the step, and no earlier approval satisfies an escalation assignment under `Skip`, so a deadline never approves. Governs: `01` APR-REQ-009, `07` APR-THR-002.
-- A fallback an escalation assigns is a fallback assignment, as `01` APR-REQ-007 gives, not an escalation one, so it completes the step by the step's mode; its `escalated` event names it. Governs: `01` APR-REQ-009, "tried as APR-REQ-007 gives".
 - An escalation whose `EscalateTo` resolves to more than 200 persons changes nothing and leaves the step for the next run, as a directory call that fails does. Governs: `01` APR-REQ-003, APR-REQ-009.
 - Where both fallbacks are excluded at an escalation, the action has still run: the step records the instant, and no later run tries it again. Governs: `01` APR-REQ-009, "the action runs once".
 - A run of the `deadlines` job tries each request once, a request a host's transaction holds being left for the next run and not counted; it takes batches until none is left. Its items are the actions run. Governs: `04` APR-OPS-004.
