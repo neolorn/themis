@@ -28,4 +28,8 @@
     <ProjectReference Include="..\Themis.Core\Themis.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Themis.Tests" />
+  </ItemGroup>
+
 </Project>
