@@ -31,6 +31,24 @@ internal static partial class Reference
         return [.. Section(number).Where(line => !line.StartsWith('|')).SelectMany(line => Backticked().Matches(line)).Select(name => name.Groups["name"].Value)];
     }
 
+    /// <summary>The first name in backticks of each row of the tables of section <paramref name="number"/> whose first cell starts with one, as <c>`name` (startup)</c>.</summary>
+    internal static IReadOnlyList<string> LeadingNames(int number)
+    {
+        return [.. Section(number).Select(line => LeadingName().Match(line)).Where(name => name.Success).Select(name => name.Groups["name"].Value)];
+    }
+
+    /// <summary>
+    /// The members and spellings, in order, of the enumeration <paramref name="enumeration"/>:
+    /// section 6's rows for <c>EventKind</c>, as section 2 gives, and section 2's row otherwise.
+    /// </summary>
+    internal static IReadOnlyList<(string Member, string Spelling)> Spellings(string enumeration)
+    {
+        IEnumerable<string> lines = enumeration == "EventKind"
+            ? Section(6).Where(line => LeadingName().IsMatch(line)).Select(line => line.Split('|')[1])
+            : Section(2).Where(line => line.StartsWith($"| `{enumeration}` |", StringComparison.Ordinal)).Select(line => line.Split('|')[2]);
+        return [.. lines.SelectMany(cell => Spelled().Matches(cell)).Select(member => (member.Groups["member"].Value, member.Groups["spelling"].Value))];
+    }
+
     private static IEnumerable<string> Section(int number)
     {
         return Lines.Value
@@ -58,4 +76,10 @@ internal static partial class Reference
 
     [GeneratedRegex(@"`(?<name>[^`]+)`", RegexOptions.CultureInvariant)]
     private static partial Regex Backticked();
+
+    [GeneratedRegex(@"^\| `(?<name>[^`]+)`", RegexOptions.CultureInvariant)]
+    private static partial Regex LeadingName();
+
+    [GeneratedRegex(@"`(?<member>[A-Za-z]+)` \(`(?<spelling>[a-z]+)`", RegexOptions.CultureInvariant)]
+    private static partial Regex Spelled();
 }
