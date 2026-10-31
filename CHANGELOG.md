@@ -21,3 +21,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Result`, `Result<T>` and `Failure`, and the enumerations of approval types
 - The definitions of approval types with their policies, steps and conditions, their versions, and `IApprovalTypes`
 - The canonical form of a definition, one exact sequence of bytes whose SHA-256 is its version's hash
+- The rules a definition is checked by at publish, each naming the path of the first member outside it
