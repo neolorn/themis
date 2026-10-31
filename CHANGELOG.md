@@ -37,3 +37,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IDelegations`: a delegation created, ended and listed, a delegate deciding for the lender while it is live and seeing the lender's assignments in their pending list
 - `IApprovals.CompleteAsync`, on the library's own transaction or the host's, which ends an approved request `completed`
 - `IApprovals.ProtectionAsync` and `RecordChangeAsync`: a pending request's protected field reads locked, and a change recorded to an approved one's voids it
+- `IApprovals.ByTargetAsync`, a target's requests newest first, and `ExportAsync`, what the record holds that names a person

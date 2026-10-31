@@ -186,6 +186,16 @@ internal sealed class RequestHost : IAsyncDisposable
         return CallAsync<IApprovals, Result<IReadOnlyList<RequestId>>>(approvals => approvals.RecordChangeAsync(target, field, actor, transaction, TestContext.Current.CancellationToken));
     }
 
+    internal Task<IReadOnlyList<RequestSummary>> ByTargetAsync(Target target)
+    {
+        return CallAsync<IApprovals, IReadOnlyList<RequestSummary>>(approvals => approvals.ByTargetAsync(target, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<PersonExport> ExportAsync(string person)
+    {
+        return CallAsync<IApprovals, PersonExport>(approvals => approvals.ExportAsync(person, TestContext.Current.CancellationToken));
+    }
+
     internal Task<Result<CreatedRequest>> CreateAsync(ApprovalRequest request, DbTransaction transaction)
     {
         return CallAsync<IApprovals, Result<CreatedRequest>>(approvals => approvals.CreateAsync(request, transaction, TestContext.Current.CancellationToken));

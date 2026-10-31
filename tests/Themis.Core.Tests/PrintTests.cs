@@ -253,4 +253,20 @@ public sealed class PrintTests
         Assert.All([record.ToString(), step.ToString(), step.Assignments[0].ToString(), decision.ToString(), cancel.ToString(), item.ToString()], printed => Assert.DoesNotMatch(Unprintable + "|" + TargetId + "|" + Reason, printed));
         Assert.Contains("Version = 2", record.ToString(), StringComparison.Ordinal);
     }
+    [Fact]
+    public void DelegationsSummariesAndExports_ToString_WriteNoPersonTargetOrReason()
+    {
+        DelegationDefinition definition = new() { From = Person, To = Other, Starts = DateTimeOffset.UnixEpoch, Ends = DateTimeOffset.UnixEpoch.AddDays(1), Types = ["purchase"], CreatedBy = Person };
+        DelegationRecord delegation = new() { Delegation = new DelegationId(Guid.CreateVersion7()), From = Person, To = Other, Starts = DateTimeOffset.UnixEpoch, Ends = DateTimeOffset.UnixEpoch.AddDays(1), Types = [], CreatedBy = Person, CreatedAt = DateTimeOffset.UnixEpoch, EndedAt = DateTimeOffset.UnixEpoch, EndedBy = Other };
+        RequestId request = new(Guid.CreateVersion7());
+        DecisionExport decision = new() { Request = request, Decision = new DecisionId(Guid.CreateVersion7()), Step = 1, Decider = Person, ActingFor = Other, Outcome = DecisionOutcome.Reject, Reason = Reason, At = DateTimeOffset.UnixEpoch };
+        AssignmentExport assignment = new() { Request = request, Step = 1, Origin = AssignmentOrigin.Escalation, Decision = decision.Decision };
+        RequestSummary summary = new() { Request = request, Type = "purchase", Version = 2, Status = RequestStatus.Approved, CreatedAt = DateTimeOffset.UnixEpoch };
+        PersonExport export = new() { Requests = [], Assignments = [assignment], Decisions = [decision], Delegations = [delegation] };
+
+        Assert.All([definition.ToString(), delegation.ToString(), decision.ToString(), assignment.ToString(), summary.ToString(), export.ToString()], printed => Assert.DoesNotMatch(Unprintable + "|" + TargetId + "|" + Reason, printed));
+        Assert.Contains("Outcome = Reject", decision.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Version = 2", summary.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Decisions = 1", export.ToString(), StringComparison.Ordinal);
+    }
 }

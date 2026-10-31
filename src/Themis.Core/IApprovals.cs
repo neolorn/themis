@@ -127,6 +127,24 @@ public interface IApprovals
     /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
     ValueTask<Result<RequestRecord>> ReadAsync(RequestId request, CancellationToken cancellationToken);
 
+    /// <summary>Reads the requests on <paramref name="target"/>, newest first, at most 100 (<c>01</c> APR-REQ-013).</summary>
+    /// <param name="target">The target.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The requests' summaries.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> is null.</exception>
+    /// <exception cref="ArgumentException">The target is outside its rule.</exception>
+    /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
+    ValueTask<IReadOnlyList<RequestSummary>> ByTargetAsync(Target target, CancellationToken cancellationToken);
+
+    /// <summary>Reads what the record holds that names <paramref name="person"/> (<c>01</c> APR-REQ-015): the requests they made or are the subject of, their assignments, the decisions they made or that were made for them, and the delegations from and to them.</summary>
+    /// <param name="person">The person reference.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The export.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="person"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="person"/> is outside its rule.</exception>
+    /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
+    ValueTask<PersonExport> ExportAsync(string person, CancellationToken cancellationToken);
+
     /// <summary>Reads a page of the requests <paramref name="person"/> may decide now, oldest request first (<c>01</c> APR-REQ-013).</summary>
     /// <param name="person">The person reference.</param>
     /// <param name="cursor">The cursor a page answered as its next, or none for the first page.</param>

@@ -80,6 +80,57 @@ public sealed class MigrateTests(PostgresFixture postgres) : IClassFixture<Postg
     }
 
     [Fact]
+    public async Task APR_REQ_015_AC1_ApplicationRoleCannotDeleteOrTruncateTheRowsOfAnyOfTheLibrarysTables()
+    {
+        (_, string connection) = await postgres.NewDatabaseAsync();
+        string role = NewName("app");
+        await postgres.RunAsync($"CREATE ROLE {role} LOGIN PASSWORD 'test';");
+        Tool.ToolRun run = await Tool.RunAsync(Tool.Input(connection, role));
+        Assert.Equal((0, string.Empty), (run.Exit, run.Error));
+        await using NpgsqlConnection database = new(new NpgsqlConnectionStringBuilder(connection) { Username = role, Password = "test" }.ConnectionString);
+        await database.OpenAsync(TestContext.Current.CancellationToken);
+
+        await using (NpgsqlCommand attempt = new(
+            """
+            DO $$
+            DECLARE
+                item record;
+                verb text;
+                refused text[] := '{}';
+                allowed text[] := '{}';
+            BEGIN
+                FOR item IN SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'approvals' AND c.relkind IN ('r', 'p') ORDER BY c.relname LOOP
+                    FOREACH verb IN ARRAY ARRAY['DELETE FROM', 'TRUNCATE'] LOOP
+                        BEGIN
+                            EXECUTE format('%s approvals.%I', verb, item.relname);
+                            allowed := allowed || (verb || ' ' || item.relname);
+                        EXCEPTION WHEN insufficient_privilege THEN
+                            refused := refused || (verb || ' ' || item.relname);
+                        END;
+                    END LOOP;
+                END LOOP;
+                PERFORM set_config('themis.refused', array_to_string(refused, ','), false);
+                PERFORM set_config('themis.allowed', array_to_string(allowed, ','), false);
+            END
+            $$;
+            """,
+            database))
+        {
+            await attempt.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using NpgsqlCommand read = new("SELECT current_setting('themis.refused'), current_setting('themis.allowed')", database);
+        await using NpgsqlDataReader reader = await read.ExecuteReaderAsync(TestContext.Current.CancellationToken);
+        await reader.ReadAsync(TestContext.Current.CancellationToken);
+        string[] refused = reader.GetString(0).Split(',');
+        Assert.Equal(string.Empty, reader.GetString(1));
+        Assert.Contains("DELETE FROM delegations", refused);
+        Assert.Contains("TRUNCATE requests", refused);
+        Assert.Contains("DELETE FROM __migrations_history", refused);
+        Assert.Equal(refused.Length / 2, refused.Count(entry => entry.StartsWith("TRUNCATE ", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public async Task APR_OPS_002_AC4_RoleTheDatabaseLacksExitsOneWithInputInvalidAndAppliesNothing()
     {
         (_, string connection) = await postgres.NewDatabaseAsync();

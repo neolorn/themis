@@ -248,6 +248,58 @@ internal sealed partial class ApprovalService(
         }
     }
 
+    public async ValueTask<IReadOnlyList<RequestSummary>> ByTargetAsync(Target target, CancellationToken cancellationToken)
+    {
+        CheckTarget(target, nameof(target));
+        ready.ThrowIfNotReady();
+        ApprovalsContext context = database.Context();
+        await using (context.ConfigureAwait(false))
+        {
+            return await context.Requests.AsNoTracking()
+                .Where(row => row.TargetKind == target.Kind && row.TargetId == target.Id)
+                .OrderByDescending(row => row.CreatedAt)
+                .ThenByDescending(row => row.Id)
+                .Take(LargestPage)
+                .Select(row => new RequestSummary { Request = new RequestId(row.Id), Type = row.Type, Version = row.Version, Status = row.Status, CreatedAt = row.CreatedAt, ClosedAt = row.ClosedAt })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    public async ValueTask<PersonExport> ExportAsync(string person, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+        CheckReference(person, nameof(person));
+        ready.ThrowIfNotReady();
+        ApprovalsContext context = database.Context();
+        await using (context.ConfigureAwait(false))
+        {
+            List<RequestRow> requests = await context.Requests.AsNoTracking().Where(row => row.Requester == person || row.Subject == person).OrderBy(row => row.CreatedAt).ThenBy(row => row.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+            List<Guid> ids = [.. requests.Select(row => row.Id)];
+            List<StepRow> steps = await context.Steps.AsNoTracking().Where(row => ids.Contains(row.Request)).OrderBy(row => row.Number).ToListAsync(cancellationToken).ConfigureAwait(false);
+            List<AssignmentRow> assignments = await context.Assignments.AsNoTracking().Where(row => ids.Contains(row.Request) || row.Person == person).ToListAsync(cancellationToken).ConfigureAwait(false);
+            List<DecisionRow> decisions = await context.Decisions.AsNoTracking().Where(row => ids.Contains(row.Request) || row.Decider == person || row.ActingFor == person).OrderBy(row => row.At).ThenBy(row => row.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+            List<DelegationRow> delegations = await context.Delegations.AsNoTracking().Where(row => row.From == person || row.To == person).OrderBy(row => row.CreatedAt).ThenBy(row => row.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+            return new PersonExport
+            {
+                Requests = [.. requests.Select(row => Record(row, [.. steps.Where(step => step.Request == row.Id)], [.. assignments.Where(assignment => assignment.Request == row.Id)], [.. decisions.Where(decision => decision.Request == row.Id)]))],
+                Assignments = [.. assignments.Where(row => row.Person == person).OrderBy(row => row.Request).ThenBy(row => row.Step).Select(row => new AssignmentExport { Request = new RequestId(row.Request), Step = row.Step, Origin = row.Origin, Decision = row.Decision is Guid decision ? new DecisionId(decision) : null })],
+                Decisions = [.. decisions.Where(row => row.Decider == person || row.ActingFor == person).Select(row => new DecisionExport
+                {
+                    Request = new RequestId(row.Request),
+                    Decision = new DecisionId(row.Id),
+                    Step = row.Step,
+                    Decider = row.Decider,
+                    ActingFor = row.ActingFor,
+                    Outcome = row.Outcome,
+                    Reason = row.Reason,
+                    At = row.At,
+                })],
+                Delegations = [.. delegations.Select(DelegationService.Record)],
+            };
+        }
+    }
+
     private static Result<T> Answer<T>(Result<(T Value, RequestMoves Moves)> outcome)
     {
         if (outcome.Failure is { } failure)
