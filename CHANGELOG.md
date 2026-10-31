@@ -29,3 +29,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The rule that a definition's canonical form is at most 64 KiB, a larger one naming the empty path
 - The request, decision and step types, their statuses, `IApprovals` and `IApprovalJobs`
 - The tables of requests, steps, assignments, decisions, events and jobs, each status a closed set the database holds
+- `Themis.Testing`: an in-memory approver directory, a recording observer, fixed secrets and a test database's migration
