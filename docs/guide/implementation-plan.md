@@ -47,9 +47,21 @@ before the first phase, then `01-requests` and `02-approval-types` before phase 
   after the review; a final release, the owner's (T-020). The release attaches the
   packages to the tag's release and publishes them to no feed.
 
-## 4. Later releases
+## 4. Release 2
 
-Planned after release 1, from the rows of `00` APR-OVR-003 the lead names.
+The lead names every row of `00` APR-OVR-003 (2026-11-01): what release 1 was designed for and
+did not build. Each phase builds one row from the design its requirement holds, keeps
+APR-LIB-006 (nothing breaks on the public surface), and gives every criterion it builds a test
+carrying its identifier. Where a design leaves a choice or names no criterion for what the
+phase builds, the phase asks the lead before it builds that part.
+
+| # | Phase | Items | Proves |
+|---|---|---|---|
+| 6 | Retention and erasure | `01` APR-REQ-015: deleting closed requests after a retention period, and erasing a person | A closed request past its period goes with its record, and nothing else does; an erased person's references leave every request, decision, delegation and event that held them, the record staying append-only otherwise; both run as jobs and are idempotent |
+| 7 | Some approvers out of a list | `02` APR-TYPE-004: a step approved by a number out of a list (two of five) | A version publishes such a step and refuses an impossible one; the step completes at the number, rejects as its design says, and assignments, delegation and deadlines work for it as for any step |
+| 8 | Reminders | `01` APR-REQ-009: reminders before a deadline | A reminder fires once at its time before the deadline, to whom its design names, never after the step closes, and survives a restart |
+| 9 | HTTP endpoints | `03` APR-LIB-004: an approver's queue, decisions and delegations over HTTP | The endpoints answer only for the signed-in person through the host's seams, refuse what the library refuses with its errors, and the sample host serves them in the gate |
+| 10 | Release 1.0.0-rc.2 | As phase 5's release step | The release commit's checks, the compatibility gate and the release, on the lead's message |
 
 ## 5. Phase report
 
