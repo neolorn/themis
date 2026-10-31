@@ -7,14 +7,15 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Themis.Core;
+using Themis.Requests;
 
 namespace Themis.Operations;
 
 /// <summary>
 /// Runs the library's jobs (<c>04</c> APR-OPS-004), on demand through
 /// <see cref="IApprovalJobs"/> and on the hosted timer, each run under its job's claim. The
-/// <c>deadlines</c> job takes and releases its claim and handles no step until the deadline
-/// actions are built; the <c>observer</c> job delivers the events, completing at once where
+/// <c>deadlines</c> job runs the action of each step whose deadline has passed; the
+/// <c>observer</c> job delivers the events, completing at once where
 /// <c>Themis:Observer:Enabled</c> is off; the <c>watch</c> job judges the alert conditions.
 /// The seams are resolved when a run needs them, so a host without one is stopped by the
 /// start's seam check (<c>03</c> APR-LIB-005).
@@ -60,6 +61,7 @@ internal sealed partial class JobRunner(
         {
             handled = job switch
             {
+                ApprovalJob.Deadlines => await new DeadlineRun(database, settings, services.GetRequiredService<IApproverDirectory>(), metrics, clock).RunAsync(claim, cancellationToken).ConfigureAwait(false),
                 ApprovalJob.Observer when settings.Observer.Enabled => await new ObserverDelivery(database, settings, services.GetRequiredService<IApprovalObserver>(), metrics, clock, logger).RunAsync(claim, cancellationToken).ConfigureAwait(false),
                 ApprovalJob.Watch => await new AlertWatch(database, settings, services.GetRequiredService<IAlertSink>(), metrics, clock, logger).RunAsync(claim, cancellationToken).ConfigureAwait(false),
                 _ => 0,

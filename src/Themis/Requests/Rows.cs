@@ -158,6 +158,31 @@ internal sealed class EventRow
     public DateTimeOffset? TakenAt { get; set; }
 }
 
+/// <summary>A row of the delegation table: a lending of authority, ended by recording its actor and instant, never deleted (<c>01</c> APR-REQ-008).</summary>
+internal sealed class DelegationRow
+{
+    public required Guid Id { get; set; }
+
+    public required string From { get; set; }
+
+    public required string To { get; set; }
+
+    public required DateTimeOffset Starts { get; set; }
+
+    public required DateTimeOffset Ends { get; set; }
+
+    /// <summary>The keys of the types it covers; none covers every type.</summary>
+    public required List<string> Types { get; set; }
+
+    public required string CreatedBy { get; set; }
+
+    public required DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset? EndedAt { get; set; }
+
+    public string? EndedBy { get; set; }
+}
+
 /// <summary>A row of the job table: a job's claim and its runs (<c>04</c> APR-OPS-004).</summary>
 internal sealed class JobRow
 {

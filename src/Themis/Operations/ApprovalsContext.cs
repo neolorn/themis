@@ -42,6 +42,8 @@ internal sealed class ApprovalsContext(DbContextOptions<ApprovalsContext> option
 
     internal DbSet<DecisionRow> Decisions => Set<DecisionRow>();
 
+    internal DbSet<DelegationRow> Delegations => Set<DelegationRow>();
+
     internal DbSet<EventRow> Events => Set<EventRow>();
 
     internal DbSet<JobRow> Jobs => Set<JobRow>();
@@ -199,6 +201,28 @@ internal sealed class ApprovalsContext(DbContextOptions<ApprovalsContext> option
             decision.Property(row => row.At).HasColumnName("at");
         });
 
+        modelBuilder.Entity<DelegationRow>(delegation =>
+        {
+            delegation.ToTable("delegations", table =>
+            {
+                table.HasCheckConstraint("ck_delegations_period", "ends > starts");
+                table.HasCheckConstraint("ck_delegations_persons", "to_person <> from_person");
+            });
+            delegation.HasKey(row => row.Id).HasName("pk_delegations");
+            delegation.HasIndex(row => row.From).HasDatabaseName("ix_delegations_from").HasFilter("ended_at IS NULL");
+            delegation.HasIndex(row => row.To).HasDatabaseName("ix_delegations_to").HasFilter("ended_at IS NULL");
+            delegation.Property(row => row.Id).HasColumnName("id").ValueGeneratedNever();
+            delegation.Property(row => row.From).HasColumnName("from_person");
+            delegation.Property(row => row.To).HasColumnName("to_person");
+            delegation.Property(row => row.Starts).HasColumnName("starts");
+            delegation.Property(row => row.Ends).HasColumnName("ends");
+            delegation.Property(row => row.Types).HasColumnName("types");
+            delegation.Property(row => row.CreatedBy).HasColumnName("created_by");
+            delegation.Property(row => row.CreatedAt).HasColumnName("created_at");
+            delegation.Property(row => row.EndedAt).HasColumnName("ended_at");
+            delegation.Property(row => row.EndedBy).HasColumnName("ended_by");
+        });
+
         modelBuilder.Entity<EventRow>(approvalEvent =>
         {
             approvalEvent.ToTable("events", table =>
@@ -209,6 +233,7 @@ internal sealed class ApprovalsContext(DbContextOptions<ApprovalsContext> option
             });
             approvalEvent.HasKey(row => row.Id).HasName("pk_events");
             approvalEvent.HasOne<RequestRow>().WithMany().HasForeignKey(row => row.Request).HasConstraintName("fk_events_requests").OnDelete(DeleteBehavior.Restrict);
+            approvalEvent.HasOne<DelegationRow>().WithMany().HasForeignKey(row => row.Delegation).HasConstraintName("fk_events_delegations").OnDelete(DeleteBehavior.Restrict);
             approvalEvent.HasIndex(row => new { row.Request, row.Sequence }).HasDatabaseName("ux_events_sequence").IsUnique();
             approvalEvent.HasIndex(row => row.At).HasDatabaseName("ix_events_untaken").HasFilter("taken_at IS NULL");
             approvalEvent.Property(row => row.Id).HasColumnName("id").ValueGeneratedNever();

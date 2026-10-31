@@ -37,6 +37,10 @@ internal static class Codes
 
     internal const string RequestClosed = "approvals.request.closed";
 
+    internal const string NotApproved = "approvals.request.notapproved";
+
+    internal const string FieldLocked = "approvals.field.locked";
+
     internal const string CursorInvalid = "approvals.request.cursorinvalid";
 
     internal const string NotAssigned = "approvals.decision.notassigned";
@@ -54,4 +58,10 @@ internal static class Codes
     internal const string DirectoryUnavailable = "approvals.directory.unavailable";
 
     internal const string DirectoryTooMany = "approvals.directory.toomany";
+
+    internal const string DelegationInvalid = "approvals.delegation.invalid";
+
+    internal const string DelegationUnknown = "approvals.delegation.unknown";
+
+    internal const string DelegationEnded = "approvals.delegation.ended";
 }

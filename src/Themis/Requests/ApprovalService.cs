@@ -13,6 +13,8 @@ using Microsoft.Extensions.Options;
 
 using Npgsql;
 
+using NpgsqlTypes;
+
 using Themis.Core;
 using Themis.Operations;
 using Themis.Types;
@@ -46,6 +48,34 @@ internal sealed partial class ApprovalService(
     private const int PageSize = 20;
 
     private const int LargestPage = 100;
+
+    /// <summary>
+    /// The pending list's query (<c>01</c> APR-REQ-013): the undecided assignments of current
+    /// steps of pending requests held by the person, or by a person who lent them a delegation
+    /// live now covering the type, one item for each request (the person's own assignment where
+    /// they hold one, and otherwise the first lender's in ordinal order), oldest request first,
+    /// after the cursor's request where one is given.
+    /// </summary>
+    private const string PendingQuery = """
+        SELECT DISTINCT ON (request.created_at, request.id)
+            request.id AS "Request", request.type AS "Type", request.target_kind AS "TargetKind", request.target_id AS "TargetId",
+            step.number AS "Step", step.name AS "StepName", request.created_at AS "CreatedAt",
+            CASE WHEN assignment.person = @person THEN NULL ELSE assignment.person END AS "ActingFor"
+        FROM approvals.assignments AS assignment
+        JOIN approvals.steps AS step ON step.request = assignment.request AND step.number = assignment.step
+        JOIN approvals.requests AS request ON request.id = assignment.request
+        WHERE assignment.decision IS NULL AND step.status = 'current' AND request.status = 'pending'
+            AND request.requester <> @person AND (request.subject IS NULL OR request.subject <> @person)
+            AND NOT EXISTS (SELECT 1 FROM approvals.decisions AS decision WHERE decision.request = step.request AND decision.step = step.number AND decision.decider = @person)
+            AND (assignment.person = @person OR EXISTS (
+                SELECT 1 FROM approvals.delegations AS delegation
+                WHERE delegation.from_person = assignment.person AND delegation.to_person = @person AND delegation.ended_at IS NULL
+                    AND delegation.starts <= @now AND delegation.ends > @now
+                    AND (cardinality(delegation.types) = 0 OR request.type = ANY (delegation.types))))
+            AND (@after_at IS NULL OR (request.created_at, request.id) > (@after_at, @after_id))
+        ORDER BY request.created_at, request.id, assignment.person = @person DESC, assignment.person COLLATE "C"
+        LIMIT @take
+        """;
 
     public ValueTask<Result<CreatedRequest>> CreateAsync(ApprovalRequest request, CancellationToken cancellationToken)
     {
@@ -102,6 +132,56 @@ internal sealed partial class ApprovalService(
         return CancelOnAsync(cancel, host, cancellationToken);
     }
 
+    public ValueTask<Result> CompleteAsync(RequestId request, string actor, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        CheckReference(actor, nameof(actor));
+        ready.ThrowIfNotReady();
+        return CompleteOnAsync(request, actor, host: null, cancellationToken);
+    }
+
+    public ValueTask<Result> CompleteAsync(RequestId request, string actor, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        CheckReference(actor, nameof(actor));
+        NpgsqlTransaction host = HostTransactions.Check(transaction);
+        ready.ThrowIfNotReady();
+        return CompleteOnAsync(request, actor, host, cancellationToken);
+    }
+
+    public async ValueTask<FieldProtection> ProtectionAsync(Target target, string field, CancellationToken cancellationToken)
+    {
+        CheckTarget(target, nameof(target));
+        CheckField(field);
+        ready.ThrowIfNotReady();
+        ApprovalsContext context = database.Context();
+        await using (context.ConfigureAwait(false))
+        {
+            var open = await context.Requests.AsNoTracking()
+                .Where(row => row.TargetKind == target.Kind && row.TargetId == target.Id && (row.Status == RequestStatus.Pending || row.Status == RequestStatus.Approved))
+                .Select(row => new { row.Status, row.Snapshot })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            List<RequestStatus> covering = [.. open.Where(row => Covers(row.Snapshot, field)).Select(row => row.Status)];
+            return covering.Contains(RequestStatus.Pending) ? FieldProtection.Locked : covering.Count > 0 ? FieldProtection.Approved : FieldProtection.Free;
+        }
+    }
+
+    public ValueTask<Result<IReadOnlyList<RequestId>>> RecordChangeAsync(Target target, string field, string actor, CancellationToken cancellationToken)
+    {
+        CheckChange(target, field, actor);
+        ready.ThrowIfNotReady();
+        return RecordChangeOnAsync(target, field, actor, host: null, cancellationToken);
+    }
+
+    public ValueTask<Result<IReadOnlyList<RequestId>>> RecordChangeAsync(Target target, string field, string actor, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        CheckChange(target, field, actor);
+        NpgsqlTransaction host = HostTransactions.Check(transaction);
+        ready.ThrowIfNotReady();
+        return RecordChangeOnAsync(target, field, actor, host, cancellationToken);
+    }
+
     public async ValueTask<Result<RequestRecord>> ReadAsync(RequestId request, CancellationToken cancellationToken)
     {
         ready.ThrowIfNotReady();
@@ -144,20 +224,16 @@ internal sealed partial class ApprovalService(
         ApprovalsContext context = database.Context();
         await using (context.ConfigureAwait(false))
         {
-            IQueryable<PendingRow> pending =
-                from assignment in context.Assignments
-                join step in context.Steps on new { assignment.Request, Number = assignment.Step } equals new { step.Request, step.Number }
-                join request in context.Requests on assignment.Request equals request.Id
-                where assignment.Person == person && assignment.Decision == null
-                    && step.Status == StepStatus.Current && request.Status == RequestStatus.Pending
-                    && request.Requester != person && (request.Subject == null || request.Subject != person)
-                select new PendingRow { Request = request.Id, Type = request.Type, TargetKind = request.TargetKind, TargetId = request.TargetId, Step = step.Number, StepName = step.Name, CreatedAt = request.CreatedAt };
-            if (after is { } from)
-            {
-                pending = pending.Where(row => EF.Functions.GreaterThan(ValueTuple.Create(row.CreatedAt, row.Request), ValueTuple.Create(from.At, from.Id)));
-            }
-
-            List<PendingRow> rows = await pending.OrderBy(row => row.CreatedAt).ThenBy(row => row.Request).Take(take + 1).AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+            List<PendingRow> rows = await context.Database
+                .SqlQueryRaw<PendingRow>(
+                    PendingQuery,
+                    new NpgsqlParameter("person", person),
+                    LibraryTransactions.Now(clock),
+                    new NpgsqlParameter("after_at", NpgsqlDbType.TimestampTz) { Value = after is { } at ? (object)at.At.UtcDateTime : DBNull.Value },
+                    new NpgsqlParameter("after_id", NpgsqlDbType.Uuid) { Value = after is { } id ? (object)id.Id : DBNull.Value },
+                    new NpgsqlParameter("take", NpgsqlDbType.Integer) { Value = take + 1 })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
             List<PendingItem> items = [.. rows.Take(take).Select(row => new PendingItem
             {
                 Request = new RequestId(row.Request),
@@ -166,9 +242,62 @@ internal sealed partial class ApprovalService(
                 Step = row.Step,
                 StepName = row.StepName,
                 CreatedAt = row.CreatedAt,
+                ActingFor = row.ActingFor,
             })];
             string? next = rows.Count > take ? PendingCursor.Write(rows[take - 1].CreatedAt, rows[take - 1].Request) : null;
             return Result.Success(new PendingPage { Items = items, Next = next });
+        }
+    }
+
+    public async ValueTask<IReadOnlyList<RequestSummary>> ByTargetAsync(Target target, CancellationToken cancellationToken)
+    {
+        CheckTarget(target, nameof(target));
+        ready.ThrowIfNotReady();
+        ApprovalsContext context = database.Context();
+        await using (context.ConfigureAwait(false))
+        {
+            return await context.Requests.AsNoTracking()
+                .Where(row => row.TargetKind == target.Kind && row.TargetId == target.Id)
+                .OrderByDescending(row => row.CreatedAt)
+                .ThenByDescending(row => row.Id)
+                .Take(LargestPage)
+                .Select(row => new RequestSummary { Request = new RequestId(row.Id), Type = row.Type, Version = row.Version, Status = row.Status, CreatedAt = row.CreatedAt, ClosedAt = row.ClosedAt })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    public async ValueTask<PersonExport> ExportAsync(string person, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+        CheckReference(person, nameof(person));
+        ready.ThrowIfNotReady();
+        ApprovalsContext context = database.Context();
+        await using (context.ConfigureAwait(false))
+        {
+            List<RequestRow> requests = await context.Requests.AsNoTracking().Where(row => row.Requester == person || row.Subject == person).OrderBy(row => row.CreatedAt).ThenBy(row => row.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+            List<Guid> ids = [.. requests.Select(row => row.Id)];
+            List<StepRow> steps = await context.Steps.AsNoTracking().Where(row => ids.Contains(row.Request)).OrderBy(row => row.Number).ToListAsync(cancellationToken).ConfigureAwait(false);
+            List<AssignmentRow> assignments = await context.Assignments.AsNoTracking().Where(row => ids.Contains(row.Request) || row.Person == person).ToListAsync(cancellationToken).ConfigureAwait(false);
+            List<DecisionRow> decisions = await context.Decisions.AsNoTracking().Where(row => ids.Contains(row.Request) || row.Decider == person || row.ActingFor == person).OrderBy(row => row.At).ThenBy(row => row.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+            List<DelegationRow> delegations = await context.Delegations.AsNoTracking().Where(row => row.From == person || row.To == person).OrderBy(row => row.CreatedAt).ThenBy(row => row.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+            return new PersonExport
+            {
+                Requests = [.. requests.Select(row => Record(row, [.. steps.Where(step => step.Request == row.Id)], [.. assignments.Where(assignment => assignment.Request == row.Id)], [.. decisions.Where(decision => decision.Request == row.Id)]))],
+                Assignments = [.. assignments.Where(row => row.Person == person).OrderBy(row => row.Request).ThenBy(row => row.Step).Select(row => new AssignmentExport { Request = new RequestId(row.Request), Step = row.Step, Origin = row.Origin, Decision = row.Decision is Guid decision ? new DecisionId(decision) : null })],
+                Decisions = [.. decisions.Where(row => row.Decider == person || row.ActingFor == person).Select(row => new DecisionExport
+                {
+                    Request = new RequestId(row.Request),
+                    Decision = new DecisionId(row.Id),
+                    Step = row.Step,
+                    Decider = row.Decider,
+                    ActingFor = row.ActingFor,
+                    Outcome = row.Outcome,
+                    Reason = row.Reason,
+                    At = row.At,
+                })],
+                Delegations = [.. delegations.Select(DelegationService.Record)],
+            };
         }
     }
 
@@ -345,6 +474,83 @@ internal sealed partial class ApprovalService(
         return answer;
     }
 
+    private async ValueTask<Result> CompleteOnAsync(RequestId request, string actor, NpgsqlTransaction? host, CancellationToken cancellationToken)
+    {
+        Result<(bool Completed, RequestMoves Moves)> completed = await RunAsync(host, (context, cancel) => CompleteInAsync(context, request, actor, cancel), cancellationToken).ConfigureAwait(false);
+        Result<bool> answer = Answer(completed);
+        return answer.Failure is { } failure ? Result.Fail(failure) : Result.Success();
+    }
+
+    private async ValueTask<Result<IReadOnlyList<RequestId>>> RecordChangeOnAsync(Target target, string field, string actor, NpgsqlTransaction? host, CancellationToken cancellationToken)
+    {
+        Result<(IReadOnlyList<RequestId> Voided, RequestMoves Moves)> changed = await RunAsync(host, (context, cancel) => RecordChangeInAsync(context, target, field, actor, cancel), cancellationToken).ConfigureAwait(false);
+        return Answer(changed);
+    }
+
+    /// <summary>
+    /// Locks the open requests on the target in identifier order, refuses with
+    /// <c>approvals.field.locked</c> where a pending one covers the field, and otherwise voids
+    /// each approved one covering it, writing its <c>voided</c> event with the actor.
+    /// </summary>
+    private async Task<(IReadOnlyList<RequestId>, RequestMoves)> RecordChangeInAsync(ApprovalsContext context, Target target, string field, string actor, CancellationToken cancellationToken)
+    {
+        RequestMoves moves = Moves(context);
+        List<RequestRow> open = await context.Requests
+            .FromSqlRaw(
+                "SELECT * FROM approvals.requests WHERE target_kind = @kind AND target_id = @id AND status IN ('pending', 'approved') ORDER BY id FOR UPDATE",
+                new NpgsqlParameter("kind", target.Kind),
+                new NpgsqlParameter("id", target.Id))
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        List<RequestRow> covering = [.. open.Where(row => Covers(row.Snapshot, field))];
+        if (covering.Any(row => row.Status == RequestStatus.Pending))
+        {
+            throw Refusal.Of(Codes.FieldLocked);
+        }
+
+        foreach (RequestRow request in covering)
+        {
+            ApprovalTypeDefinition definition = await DefinitionAsync(context, request, cancellationToken).ConfigureAwait(false);
+            request.ChangedField = field;
+            await moves.CloseAsync(request, definition, RequestStatus.Void, EventKind.Voided, actor, actingFor: null, reason: null, ReasonCode.FieldChanged, cancellationToken).ConfigureAwait(false);
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return ([.. covering.Select(row => new RequestId(row.Id))], moves);
+    }
+
+    /// <summary>Whether a request of <paramref name="snapshot"/> covers <paramref name="field"/>: its snapshot holds its version's protected fields, and those alone (<c>01</c> APR-REQ-001).</summary>
+    private static bool Covers(string snapshot, string field)
+    {
+        return CanonicalForm.ReadSnapshot(snapshot).ContainsKey(field);
+    }
+
+    private static void CheckTarget(Target target, string argument)
+    {
+        ArgumentNullException.ThrowIfNull(target, argument);
+        if (!TextRules.IsName(target.Kind) || !TextRules.IsReference(target.Id))
+        {
+            throw new ArgumentException("The target is outside its rule.", argument);
+        }
+    }
+
+    private static void CheckField(string field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        if (!TextRules.IsName(field))
+        {
+            throw new ArgumentException("The field's name is outside its rule.", nameof(field));
+        }
+    }
+
+    private static void CheckChange(Target target, string field, string actor)
+    {
+        CheckTarget(target, nameof(target));
+        CheckField(field);
+        ArgumentNullException.ThrowIfNull(actor);
+        CheckReference(actor, nameof(actor));
+    }
+
     private async ValueTask<Result> CancelOnAsync(CancelRequest cancel, NpgsqlTransaction? host, CancellationToken cancellationToken)
     {
         if (!ReasonWithinRule(cancel.Reason))
@@ -468,10 +674,8 @@ internal sealed partial class ApprovalService(
             throw Refusal.Of(Codes.RequestClosed);
         }
 
-        // A delegation lends an assignment (01 APR-REQ-008); until delegations are recorded none
-        // is live, so a decision acting for another holds no assignment.
-        AssignmentRow? assignment = decision.ActingFor is null
-            ? await context.Assignments.SingleOrDefaultAsync(row => row.Request == request.Id && row.Step == current && row.Person == decision.Decider && row.Decision == null, cancellationToken).ConfigureAwait(false)
+        AssignmentRow? assignment = decision.ActingFor is null || await LentAsync(context, decision, request.Type, moves.Now, cancellationToken).ConfigureAwait(false)
+            ? await context.Assignments.SingleOrDefaultAsync(row => row.Request == request.Id && row.Step == current && row.Person == (decision.ActingFor ?? decision.Decider) && row.Decision == null, cancellationToken).ConfigureAwait(false)
             : null;
         if (assignment is null)
         {
@@ -501,7 +705,8 @@ internal sealed partial class ApprovalService(
             ActingFor = decision.ActingFor,
             Query = RequestMoves.Query(request, snapshot, current),
         };
-        if (!await moves.Directory.CanApproveAsync(check, cancellationToken).ConfigureAwait(false))
+        if (!await moves.Directory.CanApproveAsync(check, cancellationToken).ConfigureAwait(false)
+            || (decision.ActingFor is not null && !await moves.Directory.CanApproveAsync(check with { Person = decision.ActingFor, ActingFor = null }, cancellationToken).ConfigureAwait(false)))
         {
             throw Refusal.Of(Codes.NotPermitted);
         }
@@ -529,7 +734,7 @@ internal sealed partial class ApprovalService(
         {
             StepRow step = await context.Steps.SingleAsync(found => found.Request == request.Id && found.Number == current, cancellationToken).ConfigureAwait(false);
             List<AssignmentRow> assignments = await context.Assignments.Where(found => found.Request == request.Id && found.Step == current).ToListAsync(cancellationToken).ConfigureAwait(false);
-            if (RequestMoves.Satisfied(step.Mode, assignments))
+            if (RequestMoves.Satisfied(step.Mode, step.DeadlineRanAt is not null, assignments))
             {
                 step.Status = StepStatus.Done;
                 await moves.StartAsync(request, definition, StepsOf(definition, request), current + 1, created: false, cancellationToken).ConfigureAwait(false);
@@ -555,6 +760,34 @@ internal sealed partial class ApprovalService(
         return (true, moves);
     }
 
+    /// <summary>Whether a delegation from the decision's <c>ActingFor</c> to its decider is live at <paramref name="now"/> and covers <paramref name="type"/>: one made to the lender lends nothing on (<c>01</c> APR-REQ-008).</summary>
+    private static Task<bool> LentAsync(ApprovalsContext context, DecisionRequest decision, string type, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        return context.Delegations.AnyAsync(
+            row => row.From == decision.ActingFor && row.To == decision.Decider && row.EndedAt == null && row.Starts <= now && row.Ends > now && (row.Types.Count == 0 || row.Types.Contains(type)),
+            cancellationToken);
+    }
+
+    private async Task<(bool, RequestMoves)> CompleteInAsync(ApprovalsContext context, RequestId id, string actor, CancellationToken cancellationToken)
+    {
+        RequestMoves moves = Moves(context);
+        RequestRow request = await LockAsync(context, id.Value, cancellationToken).ConfigureAwait(false);
+        if (request.Status == RequestStatus.Pending)
+        {
+            throw Refusal.Of(Codes.NotApproved);
+        }
+
+        if (request.Status != RequestStatus.Approved)
+        {
+            throw Refusal.Of(Codes.RequestClosed);
+        }
+
+        ApprovalTypeDefinition definition = await DefinitionAsync(context, request, cancellationToken).ConfigureAwait(false);
+        await moves.CloseAsync(request, definition, RequestStatus.Completed, EventKind.Completed, actor, actingFor: null, reason: null, reasonCode: null, cancellationToken).ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return (true, moves);
+    }
+
     /// <summary>Locks the request's row, <c>SELECT ... FOR UPDATE</c>, before any other row of it is read for change, and answers it; or refuses with <c>approvals.request.unknown</c>.</summary>
     private static async Task<RequestRow> LockAsync(ApprovalsContext context, Guid id, CancellationToken cancellationToken)
     {
@@ -565,14 +798,14 @@ internal sealed partial class ApprovalService(
         return request ?? throw Refusal.Of(Codes.RequestUnknown);
     }
 
-    private static async Task<ApprovalTypeDefinition> DefinitionAsync(ApprovalsContext context, RequestRow request, CancellationToken cancellationToken)
+    internal static async Task<ApprovalTypeDefinition> DefinitionAsync(ApprovalsContext context, RequestRow request, CancellationToken cancellationToken)
     {
         string definition = await context.Versions.Where(version => version.Key == request.Type && version.Version == request.Version).Select(version => version.Definition).SingleAsync(cancellationToken).ConfigureAwait(false);
         return CanonicalForm.Read(System.Text.Encoding.UTF8.GetBytes(definition));
     }
 
     /// <summary>The steps the request took: its policy's, or the type's fallback step where it took none.</summary>
-    private static IReadOnlyList<StepDefinition> StepsOf(ApprovalTypeDefinition definition, RequestRow request)
+    internal static IReadOnlyList<StepDefinition> StepsOf(ApprovalTypeDefinition definition, RequestRow request)
     {
         return request.Policy is null ? [PolicyChoice.FallbackStep(definition)] : definition.Policies.Single(policy => policy.Name == request.Policy).Steps;
     }
@@ -580,22 +813,24 @@ internal sealed partial class ApprovalService(
     [LoggerMessage(EventId = 1, EventName = "RequestRecorded", Level = LogLevel.Information, Message = "Request {Request} of type {Type} recorded, {Status}.")]
     private partial void Recorded(string type, Guid request, string status);
 
-    /// <summary>A row of a pending list's query, its members set by initialisers so the query can order and filter on them.</summary>
+    /// <summary>A row of the pending list's query, its members named as the query names its columns.</summary>
     private sealed class PendingRow
     {
-        internal Guid Request { get; init; }
+        public Guid Request { get; init; }
 
-        internal required string Type { get; init; }
+        public required string Type { get; init; }
 
-        internal required string TargetKind { get; init; }
+        public required string TargetKind { get; init; }
 
-        internal required string TargetId { get; init; }
+        public required string TargetId { get; init; }
 
-        internal int Step { get; init; }
+        public int Step { get; init; }
 
-        internal required string StepName { get; init; }
+        public required string StepName { get; init; }
 
-        internal DateTimeOffset CreatedAt { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
+
+        public string? ActingFor { get; init; }
     }
 
     /// <summary>A pending list's cursor: the creation instant and identifier of a page's last request, as base64url.</summary>

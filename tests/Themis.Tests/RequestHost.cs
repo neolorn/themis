@@ -161,6 +161,41 @@ internal sealed class RequestHost : IAsyncDisposable
         return CallAsync<IApprovals, Result>(approvals => approvals.CancelAsync(cancel, TestContext.Current.CancellationToken));
     }
 
+    internal Task<Result> CompleteAsync(RequestId request, string actor)
+    {
+        return CallAsync<IApprovals, Result>(approvals => approvals.CompleteAsync(request, actor, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<Result> CompleteAsync(RequestId request, string actor, DbTransaction transaction)
+    {
+        return CallAsync<IApprovals, Result>(approvals => approvals.CompleteAsync(request, actor, transaction, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<FieldProtection> ProtectionAsync(Target target, string field)
+    {
+        return CallAsync<IApprovals, FieldProtection>(approvals => approvals.ProtectionAsync(target, field, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<Result<IReadOnlyList<RequestId>>> RecordChangeAsync(Target target, string field, string actor)
+    {
+        return CallAsync<IApprovals, Result<IReadOnlyList<RequestId>>>(approvals => approvals.RecordChangeAsync(target, field, actor, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<Result<IReadOnlyList<RequestId>>> RecordChangeAsync(Target target, string field, string actor, DbTransaction transaction)
+    {
+        return CallAsync<IApprovals, Result<IReadOnlyList<RequestId>>>(approvals => approvals.RecordChangeAsync(target, field, actor, transaction, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<IReadOnlyList<RequestSummary>> ByTargetAsync(Target target)
+    {
+        return CallAsync<IApprovals, IReadOnlyList<RequestSummary>>(approvals => approvals.ByTargetAsync(target, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<PersonExport> ExportAsync(string person)
+    {
+        return CallAsync<IApprovals, PersonExport>(approvals => approvals.ExportAsync(person, TestContext.Current.CancellationToken));
+    }
+
     internal Task<Result<CreatedRequest>> CreateAsync(ApprovalRequest request, DbTransaction transaction)
     {
         return CallAsync<IApprovals, Result<CreatedRequest>>(approvals => approvals.CreateAsync(request, transaction, TestContext.Current.CancellationToken));
@@ -169,6 +204,42 @@ internal sealed class RequestHost : IAsyncDisposable
     internal Task<Result> CancelAsync(CancelRequest cancel, DbTransaction transaction)
     {
         return CallAsync<IApprovals, Result>(approvals => approvals.CancelAsync(cancel, transaction, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<Result<DelegationId>> DelegateAsync(DelegationDefinition delegation)
+    {
+        return CallAsync<IDelegations, Result<DelegationId>>(delegations => delegations.CreateAsync(delegation, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>Records <paramref name="delegation"/>, which must be recorded, and answers its identifier.</summary>
+    internal async Task<DelegationId> DelegatedAsync(DelegationDefinition delegation)
+    {
+        Result<DelegationId> created = await DelegateAsync(delegation);
+        return created.IsSuccess ? created.Value : throw new InvalidOperationException($"The delegation was refused: {created.Failure?.Code}");
+    }
+
+    internal Task<Result> EndDelegationAsync(DelegationId delegation, string actor)
+    {
+        return CallAsync<IDelegations, Result>(delegations => delegations.EndAsync(delegation, actor, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<IReadOnlyList<DelegationRecord>> DelegationsAsync(string person)
+    {
+        return CallAsync<IDelegations, IReadOnlyList<DelegationRecord>>(delegations => delegations.ListAsync(person, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>The instant and actor of the delegation's ending as the database holds them, or none where it was not ended.</summary>
+    internal async Task<(DateTimeOffset? At, string? By)> DelegationEndAsync(DelegationId delegation)
+    {
+        await using NpgsqlConnection database = new(Connection);
+        await database.OpenAsync(TestContext.Current.CancellationToken);
+        await using NpgsqlCommand select = new("SELECT ended_at, ended_by FROM approvals.delegations WHERE id = @delegation", database);
+        select.Parameters.AddWithValue("delegation", delegation.Value);
+        await using NpgsqlDataReader reader = await select.ExecuteReaderAsync(TestContext.Current.CancellationToken);
+        await reader.ReadAsync(TestContext.Current.CancellationToken);
+        return (
+            await reader.IsDBNullAsync(0, TestContext.Current.CancellationToken) ? null : await reader.GetFieldValueAsync<DateTimeOffset>(0, TestContext.Current.CancellationToken),
+            await reader.IsDBNullAsync(1, TestContext.Current.CancellationToken) ? null : reader.GetString(1));
     }
 
     /// <summary>Opens a connection of the host's own to the database, with the table <c>host_orders</c> it writes beside the library.</summary>
