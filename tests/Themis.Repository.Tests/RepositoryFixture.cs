@@ -16,7 +16,7 @@ internal sealed class RepositoryFixture : IDisposable
     private static readonly IReadOnlyList<string> SharedFiles =
     [
         "Themis.sln", "Directory.Build.props", "Directory.Packages.props", "global.json", "nuget.config", ".gitignore",
-        ".config/dotnet-tools.json",
+        ".config/dotnet-tools.json", "build/gates/gitleaks.toml",
     ];
 
     private readonly ScratchFolder _folder = new();
