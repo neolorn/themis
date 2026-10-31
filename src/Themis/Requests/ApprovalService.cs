@@ -734,7 +734,7 @@ internal sealed partial class ApprovalService(
         {
             StepRow step = await context.Steps.SingleAsync(found => found.Request == request.Id && found.Number == current, cancellationToken).ConfigureAwait(false);
             List<AssignmentRow> assignments = await context.Assignments.Where(found => found.Request == request.Id && found.Step == current).ToListAsync(cancellationToken).ConfigureAwait(false);
-            if (RequestMoves.Satisfied(step.Mode, assignments))
+            if (RequestMoves.Satisfied(step.Mode, step.DeadlineRanAt is not null, assignments))
             {
                 step.Status = StepStatus.Done;
                 await moves.StartAsync(request, definition, StepsOf(definition, request), current + 1, created: false, cancellationToken).ConfigureAwait(false);

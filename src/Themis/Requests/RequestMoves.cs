@@ -91,7 +91,7 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
                 requested = true;
             }
 
-            if (!Satisfied(step.Mode, assignments))
+            if (!Satisfied(step.Mode, deadlineRan: false, assignments))
             {
                 return;
             }
@@ -203,10 +203,15 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
         counts.Add(() => metrics.RequestsCreated.Add(1, new KeyValuePair<string, object?>("type", type)));
     }
 
-    /// <summary>Whether a step of <paramref name="mode"/> is complete with <paramref name="assignments"/>: any satisfied for <c>AnyOne</c>, every one for <c>All</c>, or an escalation assignment satisfied.</summary>
-    internal static bool Satisfied(ApprovalMode mode, IReadOnlyCollection<AssignmentRow> assignments)
+    /// <summary>
+    /// Whether a step of <paramref name="mode"/> is complete with <paramref name="assignments"/>: any satisfied for <c>AnyOne</c>,
+    /// every one for <c>All</c>, or an escalation assignment satisfied, or, where the step's deadline has run (<paramref name="deadlineRan"/>)
+    /// and it holds no escalation assignment, a fallback assignment satisfied, which the escalation assigned in its place (<c>01</c> APR-REQ-009, T-023).
+    /// </summary>
+    internal static bool Satisfied(ApprovalMode mode, bool deadlineRan, IReadOnlyCollection<AssignmentRow> assignments)
     {
-        return assignments.Any(assignment => assignment.Decision is not null && assignment.Origin == AssignmentOrigin.Escalation)
+        bool standsIn = deadlineRan && !assignments.Any(assignment => assignment.Origin == AssignmentOrigin.Escalation);
+        return assignments.Any(assignment => assignment.Decision is not null && (assignment.Origin == AssignmentOrigin.Escalation || (standsIn && assignment.Origin == AssignmentOrigin.Fallback)))
             || (mode == ApprovalMode.AnyOne ? assignments.Any(assignment => assignment.Decision is not null) : assignments.All(assignment => assignment.Decision is not null));
     }
 

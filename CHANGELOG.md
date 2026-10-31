@@ -40,4 +40,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IApprovals.ProtectionAsync` and `RecordChangeAsync`: a pending request's protected field reads locked, and a change recorded to an approved one's voids it
 - `IApprovals.ByTargetAsync`, a target's requests newest first, and `ExportAsync`, what the record holds that names a person
 - The `deadlines` job's actions: a step past its deadline escalated, rejected or cancelled once, its request taken `FOR UPDATE SKIP LOCKED`
+- The fallback an escalation assigns in place of anyone completing its step at its first approval
 - The alert `job-stalled`, and the health check turning unhealthy while a job is stalled whatever `Themis:Observer:Enabled` says

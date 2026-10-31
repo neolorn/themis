@@ -109,6 +109,43 @@ public sealed class DeadlineTests(PostgresFixture postgres) : IClassFixture<Post
     }
 
     [Fact]
+    public async Task APR_REQ_009_AC4_EscalatedAllStepWhoseEscalationLeavesNoOneCompletesAtTheFirstApprovalOfTheStepsFallbackAssignedInItsPlace()
+    {
+        ClockFake clock = new(Midnight);
+        await using RequestHost host = await RequestHost.StartAsync(postgres, clock: clock);
+        await host.PublishAsync(Type(Due(Step("review", ApprovalMode.All, Person(A), Person(B)), DeadlineAction.Escalate, Person(Requester))));
+        RequestId request = await host.CreatedAsync(Request());
+
+        clock.Advance(Hour);
+        await host.RunAsync(ApprovalJob.Deadlines);
+        RequestRecord escalated = await host.ReadAsync(request);
+        Result<DecisionReceipt> fallback = await host.DecideAsync(request, StepFallback);
+
+        Assert.Equal([(A, AssignmentOrigin.Approver), (B, AssignmentOrigin.Approver), (StepFallback, AssignmentOrigin.Fallback)], Origins(escalated));
+        Assert.Equal(RequestStatus.Approved, fallback.Value?.Status);
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Fact]
+    public async Task Decide_StepStartFallbackOfAnAllStepEscalatedToAPerson_CompletesItOnlyWithTheEscalationAssigneesApproval()
+    {
+        ClockFake clock = new(Midnight);
+        await using RequestHost host = await RequestHost.StartAsync(postgres, clock: clock);
+        await host.PublishAsync(Type(Due(Step("review", ApprovalMode.All, Person(Requester)), DeadlineAction.Escalate, Person(C))));
+        RequestId request = await host.CreatedAsync(Request());
+
+        clock.Advance(Hour);
+        await host.RunAsync(ApprovalJob.Deadlines);
+        RequestRecord escalated = await host.ReadAsync(request);
+        Result<DecisionReceipt> fallback = await host.DecideAsync(request, StepFallback);
+        Result<DecisionReceipt> escalation = await host.DecideAsync(request, C);
+
+        Assert.Equal([(C, AssignmentOrigin.Escalation), (StepFallback, AssignmentOrigin.Fallback)], Origins(escalated));
+        Assert.Equal((RequestStatus.Pending, RequestStatus.Approved), (fallback.Value?.Status, escalation.Value?.Status));
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Fact]
     public async Task Deadline_EscalateToExcludedOrAlreadyAssigned_AddsOnlyThePersonsLeft()
     {
         ClockFake clock = new(Midnight);
