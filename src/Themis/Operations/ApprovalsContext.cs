@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 
 using Microsoft.EntityFrameworkCore;
@@ -55,6 +56,12 @@ internal sealed class ApprovalsContext(DbContextOptions<ApprovalsContext> option
     internal static DbContextOptions<ApprovalsContext> Options(NpgsqlDataSource source)
     {
         return new DbContextOptionsBuilder<ApprovalsContext>().UseNpgsql(source, Provider).Options;
+    }
+
+    /// <summary>A context on the connection of a host's transaction, which the context never opens, closes or commits (<c>03</c> APR-LIB-008).</summary>
+    internal static ApprovalsContext OnConnection(DbConnection connection)
+    {
+        return new ApprovalsContext(new DbContextOptionsBuilder<ApprovalsContext>().UseNpgsql(connection, Provider).Options);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Themis\Themis.csproj" />
+    <ProjectReference Include="..\..\src\Themis.Testing\Themis.Testing.csproj" />
   </ItemGroup>
 
 </Project>
