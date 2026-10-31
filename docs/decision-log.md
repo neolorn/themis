@@ -285,6 +285,9 @@ characters; a resubmission is a new request naming the previous one.
 
 ## T-012 — Escalation
 
+> **Amended.** T-023: the fallback an escalation assigns completes the step at its first
+> approval, as an escalation assignee does.
+
 **Date:** 2026-10-31 · **Status:** accepted
 
 **TL;DR.** A deadline's escalation adds the target's persons to the step; the first
@@ -502,6 +505,31 @@ type's rules by).
 
 ---
 
+## T-023 — The fallback an escalation assigns
+
+**Date:** 2026-10-31 · **Status:** accepted · **Amends:** T-012
+
+**TL;DR.** Where an escalation leaves no one and a fallback is assigned in its place,
+that fallback stands in for the escalation: its first approval completes the step
+whatever its mode. It is still recorded as a fallback assignment (`01` APR-REQ-007).
+
+- **Why.** An escalation exists because the step's own assignees let its deadline pass.
+  Read as an ordinary assignment, the fallback of an escalated `All` step would complete
+  nothing while those assignees stay silent, and the escalation would change nothing.
+  Phase 4 built that reading by rule from APR-REQ-007's "fallback assignment"; the
+  lead's review reversed it.
+- **No new origin.** A fallback assigned at a step's start is the step's only
+  assignment, so its approval completes the step under either mode already; only the
+  fallback an escalation adds beside other assignments needs the rule.
+
+*Rejected:* the fallback completing the step by its mode (the escalation would be void
+for an `All` step); a fourth `AssignmentOrigin` for it (the record already says it is a
+fallback, and the escalation's run instant on the step says when it came).
+
+**Propagated to:** `01` APR-REQ-004, APR-REQ-009 (criterion 4).
+
+---
+
 # Index
 
 | Title | Entry |
@@ -528,3 +556,4 @@ type's rules by).
 | Release candidates until the final 1.0.0 | T-020 |
 | Phase 2's question: the member a definition too large names | T-021 |
 | Phase 3's questions: the lag where no observer runs, and a create with no one | T-022 |
+| The fallback an escalation assigns | T-023 |

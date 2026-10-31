@@ -139,15 +139,15 @@ this order, answering the first failure and changing nothing:
 It then writes the decision (its identifier, the step, the assignment, the decider,
 `ActingFor`, the outcome, the reason and the instant), marks the assignment decided, and
 moves the request: an approval completes the step where its mode is met (`AnyOne`: this
-approval; `All`: every assignment approved) or where an escalation assignee approved
-(APR-REQ-009), and the next step starts or the request is `approved`; a rejection
-rejects the request (APR-REQ-005). The directory's calls are made inside the
-transaction, each bounded by `Themis:Timeout`; one that throws or does not answer within
-it answers `approvals.directory.unavailable` and changes nothing. Of two decisions on
-one request at once, the second is checked after the first's transaction ends, against
-what it left.
+approval; `All`: every assignment approved) or where an escalation assignee, or the
+fallback an escalation assigned, approved (APR-REQ-009, T-023), and the next step starts
+or the request is `approved`; a rejection rejects the request (APR-REQ-005). The
+directory's calls are made inside the transaction, each bounded by `Themis:Timeout`; one
+that throws or does not answer within it answers `approvals.directory.unavailable` and
+changes nothing. Of two decisions on one request at once, the second is checked after
+the first's transaction ends, against what it left.
 
-*Source: T-007, T-008, T-016*
+*Source: T-007, T-008, T-016, T-023*
 
 **Acceptance criteria**
 1. A decision by a person with no assignment of the current step is refused with
@@ -277,8 +277,10 @@ its request's lock, one at a time:
   and its `escalated` event names them; the first approval by an escalation assignee
   completes the step whatever its mode, and the step's own assignees may still decide.
   Where no one is left, the step's fallback and then the type's are tried as APR-REQ-007
-  gives; where both are excluded, the step keeps its own assignees and the
-  `request-unassignable` alert is raised.
+  gives, the one assigned recorded as a fallback assignment and standing in for the
+  escalation: its first approval completes the step whatever its mode, as an
+  escalation assignee's does (T-023). Where both are excluded, the step keeps its own
+  assignees and the `request-unassignable` alert is raised.
 
 The action runs once: the step records the instant it ran, and no later deadline applies
 to it. A directory call that fails leaves the step for the job's next run.
@@ -286,13 +288,15 @@ to it. A directory call that fails leaves the step for the job's next run.
 *Designed for, not built:* reminders before a deadline, as events a later release writes
 from the same step record.
 
-*Source: T-005, T-012*
+*Source: T-005, T-012, T-023*
 
 **Acceptance criteria**
 1. A step with a one-hour deadline and the action `Reject` is rejected with `deadline`
    once the clock passes the hour, and not before.
 2. An escalated `All` step completes at the first approval of its escalation assignee.
 3. A step escalated once is not escalated again.
+4. An escalated `All` step whose escalation leaves no one completes at the first
+   approval of the step's fallback assigned in its place.
 
 ---
 
