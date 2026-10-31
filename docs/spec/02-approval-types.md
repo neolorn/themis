@@ -56,9 +56,10 @@ member outside its rule (`policies[1].steps[0].fallback`), where:
 - `Fallback`, the type's fallback approver, is a person reference, and
   `AllowAutoApprove` is a boolean, false by default (APR-TYPE-003);
 - every condition is within APR-TYPE-005's rule;
-- the canonical form is at most 64 KiB.
+- the canonical form is at most 64 KiB, checked once every member above is within its
+  rule; a larger one names the empty path, the definition itself (T-021).
 
-*Source: T-003*
+*Source: T-003, T-021*
 
 **Acceptance criteria**
 1. Each condition listed above refuses the publish, naming the member, and writes no

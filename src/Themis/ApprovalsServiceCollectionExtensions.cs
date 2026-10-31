@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 
 using Themis.Core;
 using Themis.Operations;
+using Themis.Types;
 
 namespace Themis;
 
@@ -40,6 +41,7 @@ public static class ApprovalsServiceCollectionExtensions
         services.AddSingleton<ApprovalsReady>();
         services.AddSingleton<ApprovalsDatabase>();
         services.AddSingleton<IHostedService, ApprovalsStartup>();
+        services.AddScoped<IApprovalTypes, ApprovalTypeService>();
         services.AddSingleton(provider => new ApprovalsMetrics(provider.GetService<IMeterFactory>()));
 
         // The value is read raw here, as the registration comes before any check; a value

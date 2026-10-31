@@ -18,3 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The library's own transactions, run again after a deadlock or a serialization failure and bounded by a session timeout
 - The library's own alert sink, which logs each condition at the error level where the host registers none
 - The meter `Themis` with its counters, and the health check `themis` where the jobs run
+- `Result`, `Result<T>` and `Failure`, and the enumerations of approval types
+- The definitions of approval types with their policies, steps and conditions, their versions, and `IApprovalTypes`
+- The canonical form of a definition, one exact sequence of bytes whose SHA-256 is its version's hash
+- The rules a definition is checked by at publish, each naming the path of the first member outside it
+- A condition on a request's snapshot and roles, a whole number and a decimal compared as decimals
+- The choice of a request's policy, and the fallback step of a type where no policy holds
+- The tables of approval types and their versions, a version's definition kept as text beside its hash
+- `IApprovalTypes`, which publishes numbered versions under the type's lock, reads them and retires a type
+- The rule that a definition's canonical form is at most 64 KiB, a larger one naming the empty path

@@ -70,6 +70,9 @@ every new member; the canonical form does it once).
 
 ## T-003 — What a version holds
 
+> **Amended.** T-021: a definition past 64 KiB names the empty path, the definition
+> itself, and is checked once every member is within its rule.
+
 **Date:** 2026-10-31 · **Status:** accepted
 
 **TL;DR.** A key; protected fields with their kinds; ordered policies, each a start
@@ -361,6 +364,9 @@ pending is refused; one decision per person per assignment; one lock order every
 
 ## T-017 — How the library is built
 
+> **Amended.** T-020: release candidates of 1.0.0 until the owner calls a release final;
+> the compatibility rule binds from the first final release.
+
 **Date:** 2026-10-31 · **Status:** accepted
 
 **TL;DR.** The owner's other libraries' way: .NET 10, EF Core with Npgsql on
@@ -410,6 +416,58 @@ through `IAlertSink` for a lagging observer, an unassignable request and a stall
 
 ---
 
+## T-020 — Release candidates until the final 1.0.0
+
+**Date:** 2026-10-31 · **Status:** accepted · **Amends:** T-017
+
+**TL;DR.** The owner, 2026-10-31: none of his libraries is final or stable enough yet
+for the compatibility rule to bind, so each ships release candidates, `1.0.0-rc.N`,
+until he calls a release final.
+
+- **A release candidate is `X.Y.Z-rc.N`,** a SemVer 2.0.0 pre-release numbered from 1
+  for each version, tagged `vX.Y.Z-rc.N`, its release marked as a pre-release. MinVer
+  reads such a tag as it is. Phase 5's release is `1.0.0-rc.1`. A release candidate is
+  made on the lead's message; a final release on the owner's.
+- **Before the first final release, nothing binds.** A release candidate of 1.0.0 may
+  change or remove anything, the canonical form included: SemVer says a pre-release may
+  not meet what its version will promise. Each release candidate's release notes name
+  every change and removal since the release before it, so a host knows what to adapt.
+  From the first final release on, `03` APR-LIB-006 binds against the newest final
+  release; a release candidate is never that baseline, and `X.Y.Z-rc.N` is held to what
+  `X.Y.Z` needs.
+- **Why the rule itself stays.** A host takes a final release's minor and patch versions
+  without reading the library's code, and the rule, enforced by the gate, is what makes
+  that safe. A break is not forbidden: it is a new major version.
+
+*Rejected:* versions `0.y.z` (the owner asked for release candidates of 1.0.0, which
+carry the version the first final release will have).
+
+**Propagated to:** `03` APR-LIB-006; `05` APR-ENG-011; `implementation-plan.md` (phase
+5 and the inputs waited on).
+
+---
+
+## T-021 — Phase 2's question: the member a definition too large names
+
+**Date:** 2026-10-31 · **Status:** accepted · **Amends:** T-003
+
+**TL;DR.** A definition whose canonical form passes 64 KiB is refused with
+`approvals.type.invalid` and `details.member` the empty path: the size belongs to the
+definition itself, not to one member. The size is checked once every member is within
+its rule, since a definition outside its rules has no canonical form to measure.
+
+- **The empty path is the definition itself,** as the empty JSON Pointer (RFC 6901) is
+  the whole document, so a host reads every refusal of the code the same way and
+  `details.member` is always present.
+
+*Rejected:* leaving `member` out for this one refusal (a detail a host reads present on
+every other refusal of the code); a fixed name such as `definition` (a name that could
+one day be a member's).
+
+**Propagated to:** `02` APR-TYPE-002; `06` section 1.
+
+---
+
 # Index
 
 | Title | Entry |
@@ -433,3 +491,5 @@ through `IAlertSink` for a lagging observer, an unassignable request and a stall
 | How the library is built | T-017 |
 | Calls into the host's directory | T-018 |
 | Background work, observability and alerts | T-019 |
+| Release candidates until the final 1.0.0 | T-020 |
+| Phase 2's question: the member a definition too large names | T-021 |

@@ -232,7 +232,8 @@ called by the `observer` job alone, outside any transaction (`01` APR-REQ-014).
 
 ---
 
-**APR-LIB-006** — The library SHALL follow Semantic Versioning 2.0.0: a release that
+**APR-LIB-006** — The library SHALL follow Semantic Versioning 2.0.0, and SHALL release
+candidates of 1.0.0 until its first final release: from that release on, a release that
 changes or removes a public member, a code, a configuration key, a value of an
 enumeration or status, an event kind, or a metric's name, or that adds to an interface a
 host implements a member without a default implementation, is a major release.
@@ -248,20 +249,38 @@ APR-ENG-006). The release gate's baseline is `build/gates/release-baseline.json`
 written in each release commit beside `PublicAPI.Shipped.txt`: the codes, the
 configuration keys, the spellings of the enumerations, statuses and event kinds, and the
 metric names and kinds. The gate takes the current set as the contract tests read it
-(`05` APR-ENG-007) and compares it with the baseline as the previous release tag holds
-it (on a pull request, as its base holds it); before the first release no tag holds
-one, so the baseline is empty. An addition is minor; a change or a removal is major.
+(`05` APR-ENG-007) and compares it with the baseline as the tag of the newest final
+release holds it, on a pull request as on a release tag, a release candidate's tag never
+being one; before the first final release no such tag holds one, so the baseline is
+empty. An addition is minor; a change or a removal is major.
 
-*Source: T-017*
+**Release candidates (T-020).** A version is final only on the owner's word. Until then
+each release of it is a release candidate, `X.Y.Z-rc.N`, `N` counting from 1 for each
+version (SemVer 2.0.0 compares it numerically, so `rc.10` follows `rc.9`). The first
+final release is 1.0.0, so every release before it is `1.0.0-rc.N`, and nothing in this
+rule binds those: a release candidate of 1.0.0 may change or remove anything, a stored
+definition's canonical form included, as SemVer leaves a pre-release free to fall short
+of what its version will promise. The release notes of each release candidate name every
+change and removal since the release before it, so a host knows what to adapt. From the
+first final release on, a release candidate `X.Y.Z-rc.N` is held to what `X.Y.Z` needs
+against the newest final release.
+
+*Source: T-017, T-020*
 
 **Acceptance criteria**
 1. The release gate compares the public surface, the codes, the configuration keys, the
-   enumerations, statuses and event kinds and the metric names with the previous
+   enumerations, statuses and event kinds and the metric names with the newest final
    release's, and fails a release whose version is below what changed needs, a member
    added to a host-implemented interface without a default implementation counted as a
-   break (`05` APR-ENG-012). On a pull request, whose version is a pre-release, it fails
-   a change that needs a major release where no commit since the last release carries
-   `!` or `BREAKING CHANGE:` (`05` APR-ENG-011).
+   break (`05` APR-ENG-012). That rule is applied to the version of a release tag, a
+   release candidate's included; on a pull request, whose version is a pre-release, the
+   gate fails a change that needs a major release where no commit since the newest final
+   release carries `!` or `BREAKING CHANGE:` (`05` APR-ENG-011); before the first final
+   release its baseline is empty, so nothing is a break.
+2. With no final release tagged, a pull request and a release candidate's tag that
+   remove a public member pass the release gate; with a final release `1.0.0` tagged,
+   the same removal fails it in a pull request carrying neither `!` nor
+   `BREAKING CHANGE:`, and in a tag `v1.1.0-rc.1`.
 
 ---
 

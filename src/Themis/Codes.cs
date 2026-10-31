@@ -20,4 +20,8 @@ internal static class Codes
     internal const string MigrateFailed = "approvals.migrate.failed";
 
     internal const string MigrateGrantFailed = "approvals.migrate.grantfailed";
+
+    internal const string TypeInvalid = "approvals.type.invalid";
+
+    internal const string TypeUnknown = "approvals.type.unknown";
 }

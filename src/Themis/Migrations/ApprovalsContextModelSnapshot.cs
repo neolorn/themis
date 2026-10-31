@@ -63,6 +63,67 @@ namespace Themis.Migrations
                             t.HasCheckConstraint("ck_alerts_step", "step IS NULL OR step >= 1");
                         });
                 });
+
+            modelBuilder.Entity("Themis.Types.StoredVersion", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasColumnType("text")
+                        .HasColumnName("key");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<string>("Definition")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("definition");
+
+                    b.Property<byte[]>("Hash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("hash");
+
+                    b.Property<DateTimeOffset>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.HasKey("Key", "Version")
+                        .HasName("pk_versions");
+
+                    b.ToTable("versions", "approvals", t =>
+                        {
+                            t.HasCheckConstraint("ck_versions_hash", "octet_length(hash) = 32");
+
+                            t.HasCheckConstraint("ck_versions_version", "version >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("Themis.Types.TypeState", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasColumnType("text")
+                        .HasColumnName("key");
+
+                    b.Property<bool>("Retired")
+                        .HasColumnType("boolean")
+                        .HasColumnName("retired");
+
+                    b.HasKey("Key")
+                        .HasName("pk_types");
+
+                    b.ToTable("types", "approvals");
+                });
+
+            modelBuilder.Entity("Themis.Types.StoredVersion", b =>
+                {
+                    b.HasOne("Themis.Types.TypeState", null)
+                        .WithMany()
+                        .HasForeignKey("Key")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_versions_types");
+                });
 #pragma warning restore 612, 618
         }
     }
