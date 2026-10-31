@@ -1,0 +1,55 @@
+name: gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    runs-on: ubuntu-24.04
+    steps:
+      # The gates check the commit they are given, a pull request's head and not the merge
+      # the platform would make, and run-gates.ps1 refuses any other working tree.
+      - name: Check out the whole history at the commit the gates check
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up the SDK of global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Run the gates
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          PULL_REQUEST_BASE: ${{ github.event.pull_request.base.sha }}
+          PULL_REQUEST_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          # The commit-message gate checks the commits a pull request or a push brings, and a
+          # release tag the commits since the previous release tag (the whole history for the first).
+          if ($env:EVENT_NAME -eq 'pull_request') {
+            $base = $env:PULL_REQUEST_BASE
+            $head = $env:PULL_REQUEST_HEAD
+          }
+          elseif ($env:REF_TYPE -eq 'tag') {
+            $head = $env:PUSH_AFTER
+            $base = [string](./build/gates/previous-release-tag.ps1 -Head $head)
+          }
+          else {
+            $base = $env:PUSH_BEFORE
+            $head = $env:PUSH_AFTER
+          }
+          ./build/gates/run-gates.ps1 -Base $base -Head $head

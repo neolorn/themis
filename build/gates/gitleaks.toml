@@ -1,0 +1,4 @@
+title = "Secret scanning of the whole history"
+
+[extend]
+useDefault = true

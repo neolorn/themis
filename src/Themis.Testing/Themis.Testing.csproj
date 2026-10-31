@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>An in-memory approver directory, a recording observer, fixed secrets, an on-demand run of the background work and a test database's migration</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Themis.Core\Themis.Core.csproj" />
+    <ProjectReference Include="..\Themis\Themis.csproj" />
+  </ItemGroup>
+
+</Project>
