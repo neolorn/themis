@@ -177,6 +177,9 @@ the host's tables, which T-001 rules out).
 
 ## T-007 — Requests and their operations
 
+> **Amended.** T-022: a create whose first step leaves no one to decide it answers the
+> status `cancelled`.
+
 **Date:** 2026-10-31 · **Status:** accepted
 
 **TL;DR.** Create (optionally in the host's transaction), decide, cancel, complete,
@@ -403,6 +406,9 @@ permission revoked a moment later, before the write).
 
 ## T-019 — Background work, observability and alerts
 
+> **Amended.** T-022: the health check judges the event lag only in an application whose
+> `Themis:Observer:Enabled` is on.
+
 **Date:** 2026-10-31 · **Status:** accepted
 
 **TL;DR.** Three jobs (`deadlines`, `observer`, `watch`), each claimed so it runs once
@@ -468,6 +474,34 @@ one day be a member's).
 
 ---
 
+## T-022 — Phase 3's questions: the lag where no observer runs, and a create with no one
+
+**Date:** 2026-10-31 · **Status:** accepted · **Amends:** T-007, T-019
+
+**TL;DR.** The health check judges the event lag only in an application whose
+`Themis:Observer:Enabled` is on, as the `observer-failing` condition does. A create
+whose first step leaves no one to decide it is recorded and cancelled with `noapprover`,
+and answers the status `cancelled`.
+
+- **The lag where no observer runs.** A deployment that turns the observer off lets its
+  events pile up by design (`04` APR-OPS-007), so judging their age would hold its
+  health check unhealthy for good with no fault to mend. An application judges the lag
+  only where its own `Themis:Observer:Enabled` is on, the reading `06` section 5's
+  `observer-failing` already takes; a stalled job is judged as before.
+- **A create with no one to decide it.** `01` APR-REQ-007 cancels a request whose step
+  leaves no one, writes its `cancelled` event and raises `request-unassignable`, and its
+  criterion 2 finds the request `cancelled`, so the request is recorded: the create
+  answers a success whose status is `cancelled`, beside `pending` and `approved`.
+
+*Rejected:* judging the lag wherever the jobs run (unhealthy for good where the
+deployment chose no observer); refusing such a create with a failure (it would record
+nothing, leaving no request for the alert to name and the host no trace to mend its
+type's rules by).
+
+**Propagated to:** `01` APR-REQ-001; `04` APR-OPS-005.
+
+---
+
 # Index
 
 | Title | Entry |
@@ -493,3 +527,4 @@ one day be a member's).
 | Background work, observability and alerts | T-019 |
 | Release candidates until the final 1.0.0 | T-020 |
 | Phase 2's question: the member a definition too large names | T-021 |
+| Phase 3's questions: the lag where no observer runs, and a create with no one | T-022 |
