@@ -19,3 +19,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The library's own alert sink, which logs each condition at the error level where the host registers none
 - The meter `Themis` with its counters, and the health check `themis` where the jobs run
 - `Result`, `Result<T>` and `Failure`, and the enumerations of approval types
+- The definitions of approval types with their policies, steps and conditions, their versions, and `IApprovalTypes`
