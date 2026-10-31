@@ -18,6 +18,12 @@ internal static class Packages
 
     internal const string Cli = "Themis.Cli";
 
+    /// <summary>The packages' authors, the name the lead's first message of phase 0 gives (<c>05</c> APR-ENG-011).</summary>
+    internal const string Authors = "Hossam Ismail";
+
+    /// <summary>The repository's address, which every package carries (<c>05</c> APR-ENG-011).</summary>
+    internal const string RepositoryUrl = "https://github.com/neolorn/themis";
+
     /// <summary>The test project over the whole repository, the one with no source project.</summary>
     internal const string RepositoryTests = "Themis.Repository.Tests";
 

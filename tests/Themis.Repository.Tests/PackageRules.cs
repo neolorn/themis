@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,8 +9,8 @@ using System.Xml.Linq;
 namespace Themis.Repository.Tests;
 
 /// <summary>
-/// The third-party packages of <c>05</c> APR-ENG-009, the local tools, and the packages no
-/// test may use (APR-ENG-008).
+/// The third-party packages of <c>05</c> APR-ENG-009, the local tools, the packages no
+/// test may use (APR-ENG-008), and the packed packages' properties (APR-ENG-011).
 /// </summary>
 internal static class PackageRules
 {
@@ -27,6 +28,39 @@ internal static class PackageRules
     /// <summary>Mocking packages, none of which a project may take, directly or not.</summary>
     internal static IReadOnlyList<string> Mocking { get; } =
         ["Moq", "NSubstitute", "FakeItEasy", "RhinoMocks", "Rhino.Mocks", "JustMock", "Telerik.JustMock", "NMock", "NMock3", "Typemock.Isolator", "Microsoft.QualityTools.Testing.Fakes"];
+
+    /// <summary>The elements of a packed package's metadata: its identifier, version, authors, description, repository and dependencies.</summary>
+    private static readonly FrozenSet<string> ManifestElements =
+        FrozenSet.Create(StringComparer.Ordinal, "id", "version", "authors", "description", "repository", "dependencies");
+
+    /// <summary>
+    /// Answers each property of a packed package outside <c>05</c> APR-ENG-011: its description
+    /// is its cell of <c>00</c> section 2.2, its authors and repository are those the lead's
+    /// first message of phase 0 gives, and it carries no other package property.
+    /// </summary>
+    internal static IEnumerable<string> ManifestViolations(PackageManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        foreach (string element in manifest.Elements.Where(element => !ManifestElements.Contains(element)))
+        {
+            yield return $"{manifest.Id} carries the package property {element}, which is left unset.";
+        }
+
+        if (!string.Equals(manifest.Authors, Packages.Authors, StringComparison.Ordinal))
+        {
+            yield return $"{manifest.Id}'s authors are {manifest.Authors}, not {Packages.Authors}.";
+        }
+
+        if (!PackageTable.Descriptions.TryGetValue(manifest.Id, out string? description) || !string.Equals(manifest.Description, description, StringComparison.Ordinal))
+        {
+            yield return $"{manifest.Id}'s description is not its cell of 00 section 2.2.";
+        }
+
+        if (!string.Equals(manifest.RepositoryUrl, Packages.RepositoryUrl, StringComparison.Ordinal))
+        {
+            yield return $"{manifest.Id}'s repository is {manifest.RepositoryUrl}, not {Packages.RepositoryUrl}.";
+        }
+    }
 
     /// <summary>Answers each package or tool of the repository at <paramref name="root"/> outside APR-ENG-009.</summary>
     internal static IReadOnlyList<string> AllowListViolations(string root)
