@@ -27,3 +27,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The tables of approval types and their versions, a version's definition kept as text beside its hash
 - `IApprovalTypes`, which publishes numbered versions under the type's lock, reads them and retires a type
 - The rule that a definition's canonical form is at most 64 KiB, a larger one naming the empty path
+- The request, decision and step types, their statuses, `IApprovals` and `IApprovalJobs`
