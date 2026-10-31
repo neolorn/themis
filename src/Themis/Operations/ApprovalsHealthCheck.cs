@@ -9,10 +9,11 @@ namespace Themis.Operations;
 
 /// <summary>
 /// The health check <c>themis</c> (<c>04</c> APR-OPS-005; <c>06</c> section 7), registered
-/// where the jobs run. It turns unhealthy while the oldest event not yet taken was written
-/// longer ago than <c>Themis:Observer:LagThreshold</c>; a job judged stalled comes with the
-/// condition <c>job-stalled</c>, and until then none is. Before the start has opened the
-/// library's database, nothing is judged.
+/// where the jobs run. In an application whose own <c>Themis:Observer:Enabled</c> is on, it
+/// turns unhealthy while the oldest event not yet taken was written longer ago than
+/// <c>Themis:Observer:LagThreshold</c>, as <c>observer-failing</c> holds (T-022); a job judged
+/// stalled comes with the condition <c>job-stalled</c>, and until then none is. Before the start
+/// has opened the library's database, nothing is judged.
 /// </summary>
 internal sealed class ApprovalsHealthCheck(ApprovalsReady ready, ApprovalsDatabase database, IOptions<ApprovalsOptions> options, TimeProvider clock) : IHealthCheck
 {
@@ -20,7 +21,7 @@ internal sealed class ApprovalsHealthCheck(ApprovalsReady ready, ApprovalsDataba
 
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
-        if (!ready.IsReady)
+        if (!ready.IsReady || !options.Value.Observer.Enabled)
         {
             return HealthCheckResult.Healthy();
         }

@@ -272,7 +272,7 @@ public sealed class JobTests(PostgresFixture postgres) : IClassFixture<PostgresF
     }
 
     [Fact]
-    public async Task APR_OPS_005_AC2_MeterCountsRequestsCreatedAndClosedByStatusAndTheHealthCheckTurnsUnhealthyPastTheLagThreshold()
+    public async Task APR_OPS_005_AC2_MeterCountsRequestsCreatedAndClosedByStatusAndTheHealthCheckTurnsUnhealthyPastTheLagThresholdWithTheObserverOn()
     {
         ClockFake clock = new(Midnight);
         List<(string Name, long Value, string Tags)> measured = [];
@@ -330,6 +330,31 @@ public sealed class JobTests(PostgresFixture postgres) : IClassFixture<PostgresF
         Assert.Equal(6, seen.Single(found => found.Name == "approvals.events.pending").Value);
         Assert.Equal(6, seen.Where(found => found.Name == "approvals.events.delivered").Sum(found => found.Value));
         host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Fact]
+    public async Task APR_OPS_005_AC2_HealthCheckStaysHealthyPastTheLagThresholdInAnApplicationWhoseObserverIsOff()
+    {
+        ClockFake clock = new(Midnight);
+        await using RequestHost host = await RequestHost.StartAsync(postgres, new Dictionary<string, string?> { ["Themis:Observer:Enabled"] = "false" }, clock: clock);
+        HealthCheckService health = host.Services.GetRequiredService<HealthCheckService>();
+        await host.PublishAsync(OneStep);
+        await host.CreatedAsync(Request());
+
+        clock.Advance(TimeSpan.FromHours(1));
+        HealthReport report = await health.CheckHealthAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HealthStatus.Healthy, report.Status);
+        Assert.Equal("1", await PendingAsync(host));
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    private static async Task<string> PendingAsync(RequestHost host)
+    {
+        await using NpgsqlConnection database = new(host.Connection);
+        await database.OpenAsync(TestContext.Current.CancellationToken);
+        await using NpgsqlCommand count = new("SELECT count(*)::text FROM approvals.events WHERE taken_at IS NULL", database);
+        return (string)(await count.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
     }
 
     private static async Task HoldClaimAsync(RequestHost host, string job, string holder, DateTimeOffset expires)
