@@ -73,8 +73,8 @@ The tests of `Themis.Tests`, `Themis.Core.Tests` and `Themis.Testing.Tests` are 
 **`04` APR-OPS-004**: criteria 3 and 4; the `deadlines`, `observer` and `watch` jobs on their rows of the job table, the hosted timer and `IApprovalJobs.RunAsync`.
 - JobTests: APR_OPS_004_AC3_ProcessThatDiesHoldingAJobsClaimLeavesItToAnotherProcessAfterTheClaimTimeout, APR_OPS_004_AC4_ObserverFailingOnOneRequestsEventStillReceivesTheEventsOfOtherRequestsInTheSameRun; RunAsync_Deadlines_TakesAndReleasesItsClaimRecordingItsCompletionAndHandlesNothing, RunAsync_ClaimHeldByAnother_AnswersNothingAndLeavesTheClaim, RunAsync_JobsDisabled_ThrowsInvalidOperationException, RunAsync_ObserverDisabled_CompletesAtOnceDeliveringNothing, HostedJobs_JobsEnabledAndHosted_RunEachJobOnTheTimerAndDeliverTheEvents, HostedJobs_AddThemisTestingOrHostedOff_RunNoJob
 
-**`04` APR-OPS-005**: criterion 2; the gauge `approvals.events.pending` and the health check's judgement of the observer's lag.
-- JobTests: APR_OPS_005_AC2_MeterCountsRequestsCreatedAndClosedByStatusAndTheHealthCheckTurnsUnhealthyPastTheLagThreshold
+**`04` APR-OPS-005**: criterion 2; the gauge `approvals.events.pending` and the health check's judgement of the observer's lag where the application runs it (T-022).
+- JobTests: APR_OPS_005_AC2_MeterCountsRequestsCreatedAndClosedByStatusAndTheHealthCheckTurnsUnhealthyPastTheLagThresholdWithTheObserverOn, APR_OPS_005_AC2_HealthCheckStaysHealthyPastTheLagThresholdInAnApplicationWhoseObserverIsOff
 - CancelAndReadTests: Logs_RequestsLifeToItsCancelAndItsRefusals_HoldNoPersonTargetRoleValueOrReason
 - ObservabilityTests: AddThemis_Meter_PublishesTheReferencesInstrumentsUnderTheMeterThemis, now with the gauge
 
@@ -108,13 +108,14 @@ The tests of `Themis.Tests`, `Themis.Core.Tests` and `Themis.Testing.Tests` are 
 
 ## Resolved by the lead
 
-- The `deadlines` job in phase 3 (reading a): a real job on its row of the job table, taking, renewing and releasing its claim as `04` APR-OPS-004 gives, handling no step and answering 0 items; it throws only where `Themis:Jobs:Enabled` is off. `TestJobs` is built in full. Moved to phase 4: `03` APR-LIB-007 criterion 2, `04` APR-OPS-004 criteria 1 and 2.
+- The `deadlines` job in phase 3 (reading a): a real job on its row of the job table, taking, renewing and releasing its claim as `04` APR-OPS-004 gives, handling no step and answering 0 items; it throws only where `Themis:Jobs:Enabled` is off. `TestJobs` is built in full. The plan's rows 3 and 4 now read so (`98994d6`): `03` APR-LIB-007 criterion 2 and `04` APR-OPS-004 criteria 1 and 2 are phase 4's.
+- The health check (T-022, reading b): it judges the event lag only in an application whose own `Themis:Observer:Enabled` is on, as `observer-failing` holds, and stays healthy past the threshold where it is off. Built in `8b6c089`, with `04` APR-OPS-005 criterion 2's new text proven by both its tests.
+- A create whose first step leaves no one to decide it (T-022): recorded, cancelled with `noapprover`, and answered as a success whose status is `cancelled`, as `01` APR-REQ-001 now lists. The code already answered so; nothing changed.
 
 ## Resolved by rule
 
 - Where several snapshot fields are wrong, the first protected field of the version, in the version's order, that is missing, of another kind or too long is named, and then the first field the version does not protect, in ordinal order. Governs: `01` APR-REQ-001, which names one field.
 - A reason over 2,000 characters, and then a rejection without one, are refused before anything is read. Governs: `01` APR-REQ-004 ("before anything is read") and APR-REQ-005.
-- A create whose first step finds no one is recorded, cancelled with `noapprover`, and answered as a success whose status is `cancelled`. Governs: `01` APR-REQ-007, under which the request is recorded with its event and its alert, so the create cannot answer a failure, whose rule is that nothing is recorded; `01` APR-REQ-001 lists `pending` and `approved` alone.
 - A step that finds no one keeps `waiting`, never having started; the request has no current step once cancelled. Governs: `06` section 3.
 - `stepstarted` names every assignee of the step, a satisfied one under `Skip` included; `requested` names the unsatisfied alone, as `01` APR-REQ-014 says. Governs: `01` APR-REQ-014, "the step's new assignees".
 - The 200 persons are counted over the union of the approvers before the exclusions. Governs: `01` APR-REQ-003.
@@ -130,11 +131,11 @@ The tests of `Themis.Tests`, `Themis.Core.Tests` and `Themis.Testing.Tests` are 
 
 ## Open questions
 
-- `04` APR-OPS-005 says the health check turns unhealthy while the oldest undelivered event is older than `Themis:Observer:LagThreshold`, with no exception for a deployment that turns `Themis:Observer:Enabled` off, whose events pile up undelivered (`04` APR-OPS-007). `observer-failing` holds only where the observer runs. We built the health check as the text reads: (a) it stays so, and such a deployment reads unhealthy once its first event is older than the threshold; (b) the health check judges the lag only where `Themis:Observer:Enabled` is on, as the alert does.
+None. The question on the health check is answered by T-022.
 
 ## Checks
 
-- The commits: `0b35169` to the report's own, the head of `phase-03`, cut from `main` at `73fd97b`.
+- The commits: `0b35169` to the report's own, the head of `phase-03`, cut from `main` at `73fd97b`, the coordinator's `6713826` (T-022) and `98994d6` (the plan's rows 3 and 4) among them.
 - Fast checks on every commit: the build of `Themis.sln` in Release with warnings as errors, the analysers, `dotnet format Themis.sln --verify-no-changes`, the unit tests and the contract tests: green.
 - Integration tests: every class of `Themis.Tests` of the category: green.
 - Before the push: `run-gates.ps1 -Base origin/main -Head HEAD`, every gate passed, and the full-history secret scan: green.
