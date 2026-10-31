@@ -97,6 +97,11 @@ internal sealed partial class ApprovalsStartup(
             ISecretSource secrets = scope.ServiceProvider.GetRequiredService<ISecretSource>();
             database.Open(await SecretCheck.ConnectionAsync(secrets, current.Timeout, clock, cancellationToken).ConfigureAwait(false));
         }
+
+        if (await SchemaCheck.MissingAsync(database, cancellationToken).ConfigureAwait(false) is { } migration)
+        {
+            throw Failure(Codes.SchemaMismatch, "migration", migration);
+        }
     }
 
     private static string Describe(IReadOnlyDictionary<string, string> details)

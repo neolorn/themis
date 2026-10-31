@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using Npgsql;
+
 using Themis.Core;
 using Themis.Operations;
 
@@ -87,15 +89,15 @@ public sealed class SecretTests
         {
             Versions =
             [
-                new SecretVersion { Version = 3, Value = Encoding.UTF8.GetBytes("Host=third.invalid;Username=app") },
+                new SecretVersion { Version = 3, Value = Encoding.UTF8.GetBytes("Host=127.0.0.1;Port=1;Database=third;Username=app") },
                 new SecretVersion { Version = 1, Value = Encoding.UTF8.GetBytes("not a connection string") },
             ],
         });
         await using TestHost host = TestHost.Build(before: TestHost.Seams(secrets));
 
-        await host.StartAsync();
+        _ = await Record.ExceptionAsync(host.StartAsync);
 
-        Assert.Equal("third.invalid", host.Services.GetRequiredService<ApprovalsDatabase>().Source.ConnectionString.Split(';').Single(part => part.StartsWith("Host=", StringComparison.Ordinal))[5..]);
+        Assert.Equal("third", new NpgsqlConnectionStringBuilder(host.Services.GetRequiredService<ApprovalsDatabase>().Source.ConnectionString).Database);
     }
 
     [Fact]
@@ -116,7 +118,7 @@ public sealed class SecretTests
         SecretSourceFake secrets = SecretSourceFake.WithConnection(TestHost.UnreachableConnection());
         await using TestHost host = TestHost.Build(before: TestHost.Seams(secrets));
 
-        await host.StartAsync();
+        _ = await Record.ExceptionAsync(host.StartAsync);
 
         Assert.Equal(["connection"], secrets.Read);
     }

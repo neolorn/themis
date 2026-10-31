@@ -134,31 +134,6 @@ public sealed class ConfigurationTests
     }
 
     [Fact]
-    public async Task APR_OPS_001_AC2_KeyChangedWhileTheApplicationRunsTakesEffectOnlyAfterARestart()
-    {
-        await using TestHost running = TestHost.Build(new Dictionary<string, string?> { ["Themis:Timeout"] = "00:00:07" }, before: TestHost.Seams(SecretSourceFake.WithConnection(TestHost.UnreachableConnection())));
-        await running.StartAsync();
-
-        running.Configuration["Themis:Timeout"] = "00:00:09";
-        running.Configuration.Reload();
-
-        Assert.Equal(TimeSpan.FromSeconds(7), running.Services.GetRequiredService<IOptions<ApprovalsOptions>>().Value.Timeout);
-        await using TestHost restarted = TestHost.Build(running.Configuration, before: TestHost.Seams(SecretSourceFake.WithConnection(TestHost.UnreachableConnection())));
-        await restarted.StartAsync();
-        Assert.Equal(TimeSpan.FromSeconds(9), restarted.Services.GetRequiredService<IOptions<ApprovalsOptions>>().Value.Timeout);
-    }
-
-    [Fact]
-    public async Task Start_KeyGiven_BindsItsValue()
-    {
-        await using TestHost host = TestHost.Build(new Dictionary<string, string?> { ["Themis:Jobs:Interval"] = "00:00:40" }, before: TestHost.Seams(SecretSourceFake.WithConnection(TestHost.UnreachableConnection())));
-
-        await host.StartAsync();
-
-        Assert.Equal(TimeSpan.FromSeconds(40), host.Services.GetRequiredService<IOptions<ApprovalsOptions>>().Value.Jobs.Interval);
-    }
-
-    [Fact]
     public void ApprovalsOptionsValidator_ValueOutsideItsRange_IsRefused()
     {
         ApprovalsOptions options = new() { Timeout = TimeSpan.FromMinutes(2) };

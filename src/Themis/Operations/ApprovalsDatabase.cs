@@ -1,6 +1,8 @@
 using System;
 using System.Threading.Tasks;
 
+using Microsoft.EntityFrameworkCore;
+
 using Npgsql;
 
 namespace Themis.Operations;
@@ -13,6 +15,8 @@ internal sealed class ApprovalsDatabase : IAsyncDisposable
 {
     private NpgsqlDataSource? source;
 
+    private DbContextOptions<ApprovalsContext>? options;
+
     /// <summary>The data source, once the start has opened it.</summary>
     internal NpgsqlDataSource Source => source ?? throw new InvalidOperationException("The library's database is used before the startup checks opened it.");
 
@@ -20,6 +24,13 @@ internal sealed class ApprovalsDatabase : IAsyncDisposable
     internal void Open(ReadOnlyMemory<byte> connection)
     {
         source = new NpgsqlDataSourceBuilder(SecretCheck.Text(connection.Span)).Build();
+        options = ApprovalsContext.Options(source);
+    }
+
+    /// <summary>A new context on the data source.</summary>
+    internal ApprovalsContext Context()
+    {
+        return new ApprovalsContext(options ?? throw new InvalidOperationException("The library's database is used before the startup checks opened it."));
     }
 
     public ValueTask DisposeAsync()
