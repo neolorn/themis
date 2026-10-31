@@ -29,6 +29,9 @@ override Themis.Core.ApproverReference.Person.GetHashCode() -> int
 override Themis.Core.ApproverReference.Person.ToString() -> string!
 override Themis.Core.ApproverReference.ToString() -> string!
 override Themis.Core.DelegationId.GetHashCode() -> int
+override Themis.Core.Failure.Equals(object? obj) -> bool
+override Themis.Core.Failure.GetHashCode() -> int
+override Themis.Core.Failure.ToString() -> string!
 override Themis.Core.FieldValue.DecimalNumber.<Clone>$() -> Themis.Core.FieldValue.DecimalNumber!
 override Themis.Core.FieldValue.DecimalNumber.Equals(object? obj) -> bool
 override Themis.Core.FieldValue.DecimalNumber.GetHashCode() -> int
@@ -49,6 +52,12 @@ override Themis.Core.FieldValue.WholeNumber.Equals(object? obj) -> bool
 override Themis.Core.FieldValue.WholeNumber.GetHashCode() -> int
 override Themis.Core.FieldValue.WholeNumber.ToString() -> string!
 override Themis.Core.RequestId.GetHashCode() -> int
+override Themis.Core.Result.Equals(object? obj) -> bool
+override Themis.Core.Result.GetHashCode() -> int
+override Themis.Core.Result.ToString() -> string!
+override Themis.Core.Result<T>.Equals(object? obj) -> bool
+override Themis.Core.Result<T>.GetHashCode() -> int
+override Themis.Core.Result<T>.ToString() -> string!
 override Themis.Core.SecretVersion.Equals(object? obj) -> bool
 override Themis.Core.SecretVersion.GetHashCode() -> int
 override Themis.Core.SecretVersion.ToString() -> string!
@@ -74,6 +83,8 @@ static Themis.Core.ApproverReference.Person.operator !=(Themis.Core.ApproverRefe
 static Themis.Core.ApproverReference.Person.operator ==(Themis.Core.ApproverReference.Person? left, Themis.Core.ApproverReference.Person? right) -> bool
 static Themis.Core.DelegationId.operator !=(Themis.Core.DelegationId left, Themis.Core.DelegationId right) -> bool
 static Themis.Core.DelegationId.operator ==(Themis.Core.DelegationId left, Themis.Core.DelegationId right) -> bool
+static Themis.Core.Failure.operator !=(Themis.Core.Failure? left, Themis.Core.Failure? right) -> bool
+static Themis.Core.Failure.operator ==(Themis.Core.Failure? left, Themis.Core.Failure? right) -> bool
 static Themis.Core.FieldValue.DecimalNumber.operator !=(Themis.Core.FieldValue.DecimalNumber? left, Themis.Core.FieldValue.DecimalNumber? right) -> bool
 static Themis.Core.FieldValue.DecimalNumber.operator ==(Themis.Core.FieldValue.DecimalNumber? left, Themis.Core.FieldValue.DecimalNumber? right) -> bool
 static Themis.Core.FieldValue.Flag.operator !=(Themis.Core.FieldValue.Flag? left, Themis.Core.FieldValue.Flag? right) -> bool
@@ -86,6 +97,14 @@ static Themis.Core.FieldValue.WholeNumber.operator !=(Themis.Core.FieldValue.Who
 static Themis.Core.FieldValue.WholeNumber.operator ==(Themis.Core.FieldValue.WholeNumber? left, Themis.Core.FieldValue.WholeNumber? right) -> bool
 static Themis.Core.RequestId.operator !=(Themis.Core.RequestId left, Themis.Core.RequestId right) -> bool
 static Themis.Core.RequestId.operator ==(Themis.Core.RequestId left, Themis.Core.RequestId right) -> bool
+static Themis.Core.Result.Fail(Themis.Core.Failure! failure) -> Themis.Core.Result!
+static Themis.Core.Result.Fail<T>(Themis.Core.Failure! failure) -> Themis.Core.Result<T>!
+static Themis.Core.Result.operator !=(Themis.Core.Result? left, Themis.Core.Result? right) -> bool
+static Themis.Core.Result.operator ==(Themis.Core.Result? left, Themis.Core.Result? right) -> bool
+static Themis.Core.Result.Success() -> Themis.Core.Result!
+static Themis.Core.Result.Success<T>(T value) -> Themis.Core.Result<T>!
+static Themis.Core.Result<T>.operator !=(Themis.Core.Result<T>? left, Themis.Core.Result<T>? right) -> bool
+static Themis.Core.Result<T>.operator ==(Themis.Core.Result<T>? left, Themis.Core.Result<T>? right) -> bool
 static Themis.Core.SecretVersion.operator !=(Themis.Core.SecretVersion? left, Themis.Core.SecretVersion? right) -> bool
 static Themis.Core.SecretVersion.operator ==(Themis.Core.SecretVersion? left, Themis.Core.SecretVersion? right) -> bool
 static Themis.Core.SecretVersions.operator !=(Themis.Core.SecretVersions? left, Themis.Core.SecretVersions? right) -> bool
@@ -131,6 +150,9 @@ Themis.Core.ApprovalEventId.Deconstruct(out System.Guid Value) -> void
 Themis.Core.ApprovalEventId.Equals(Themis.Core.ApprovalEventId other) -> bool
 Themis.Core.ApprovalEventId.Value.get -> System.Guid
 Themis.Core.ApprovalEventId.Value.init -> void
+Themis.Core.ApprovalMode
+Themis.Core.ApprovalMode.All = 1 -> Themis.Core.ApprovalMode
+Themis.Core.ApprovalMode.AnyOne = 0 -> Themis.Core.ApprovalMode
 Themis.Core.ApprovalsStartupException
 Themis.Core.ApprovalsStartupException.ApprovalsStartupException(string! code, System.Collections.Generic.IReadOnlyDictionary<string!, string!>! details) -> void
 Themis.Core.ApprovalsStartupException.Code.get -> string!
@@ -181,6 +203,17 @@ Themis.Core.ApproverReference.Person.Equals(Themis.Core.ApproverReference.Person
 Themis.Core.ApproverReference.Person.Person(string! Reference) -> void
 Themis.Core.ApproverReference.Person.Reference.get -> string!
 Themis.Core.ApproverReference.Person.Reference.init -> void
+Themis.Core.CompareOperator
+Themis.Core.CompareOperator.Equal = 0 -> Themis.Core.CompareOperator
+Themis.Core.CompareOperator.Greater = 2 -> Themis.Core.CompareOperator
+Themis.Core.CompareOperator.GreaterOrEqual = 3 -> Themis.Core.CompareOperator
+Themis.Core.CompareOperator.Less = 4 -> Themis.Core.CompareOperator
+Themis.Core.CompareOperator.LessOrEqual = 5 -> Themis.Core.CompareOperator
+Themis.Core.CompareOperator.NotEqual = 1 -> Themis.Core.CompareOperator
+Themis.Core.DeadlineAction
+Themis.Core.DeadlineAction.Cancel = 2 -> Themis.Core.DeadlineAction
+Themis.Core.DeadlineAction.Escalate = 0 -> Themis.Core.DeadlineAction
+Themis.Core.DeadlineAction.Reject = 1 -> Themis.Core.DeadlineAction
 Themis.Core.DelegationId
 Themis.Core.DelegationId.Deconstruct(out System.Guid Value) -> void
 Themis.Core.DelegationId.DelegationId() -> void
@@ -188,6 +221,9 @@ Themis.Core.DelegationId.DelegationId(System.Guid Value) -> void
 Themis.Core.DelegationId.Equals(Themis.Core.DelegationId other) -> bool
 Themis.Core.DelegationId.Value.get -> System.Guid
 Themis.Core.DelegationId.Value.init -> void
+Themis.Core.DuplicateRule
+Themis.Core.DuplicateRule.RequireOther = 1 -> Themis.Core.DuplicateRule
+Themis.Core.DuplicateRule.Skip = 0 -> Themis.Core.DuplicateRule
 Themis.Core.EventKind
 Themis.Core.EventKind.Approved = 3 -> Themis.Core.EventKind
 Themis.Core.EventKind.Cancelled = 5 -> Themis.Core.EventKind
@@ -198,6 +234,19 @@ Themis.Core.EventKind.Rejected = 4 -> Themis.Core.EventKind
 Themis.Core.EventKind.Requested = 0 -> Themis.Core.EventKind
 Themis.Core.EventKind.StepStarted = 1 -> Themis.Core.EventKind
 Themis.Core.EventKind.Voided = 6 -> Themis.Core.EventKind
+Themis.Core.Failure
+Themis.Core.Failure.<Clone>$() -> Themis.Core.Failure!
+Themis.Core.Failure.Code.get -> string!
+Themis.Core.Failure.Code.init -> void
+Themis.Core.Failure.Details.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+Themis.Core.Failure.Details.init -> void
+Themis.Core.Failure.Equals(Themis.Core.Failure? other) -> bool
+Themis.Core.Failure.Failure() -> void
+Themis.Core.FieldKind
+Themis.Core.FieldKind.DecimalNumber = 2 -> Themis.Core.FieldKind
+Themis.Core.FieldKind.Flag = 3 -> Themis.Core.FieldKind
+Themis.Core.FieldKind.Text = 0 -> Themis.Core.FieldKind
+Themis.Core.FieldKind.WholeNumber = 1 -> Themis.Core.FieldKind
 Themis.Core.FieldValue
 Themis.Core.FieldValue.DecimalNumber
 Themis.Core.FieldValue.DecimalNumber.DecimalNumber(decimal Value) -> void
@@ -245,6 +294,17 @@ Themis.Core.RequestId.RequestId() -> void
 Themis.Core.RequestId.RequestId(System.Guid Value) -> void
 Themis.Core.RequestId.Value.get -> System.Guid
 Themis.Core.RequestId.Value.init -> void
+Themis.Core.Result
+Themis.Core.Result.<Clone>$() -> Themis.Core.Result!
+Themis.Core.Result.Equals(Themis.Core.Result? other) -> bool
+Themis.Core.Result.Failure.get -> Themis.Core.Failure?
+Themis.Core.Result.IsSuccess.get -> bool
+Themis.Core.Result<T>
+Themis.Core.Result<T>.<Clone>$() -> Themis.Core.Result<T>!
+Themis.Core.Result<T>.Equals(Themis.Core.Result<T>? other) -> bool
+Themis.Core.Result<T>.Failure.get -> Themis.Core.Failure?
+Themis.Core.Result<T>.IsSuccess.get -> bool
+Themis.Core.Result<T>.Value.get -> T?
 Themis.Core.SecretVersion
 Themis.Core.SecretVersion.<Clone>$() -> Themis.Core.SecretVersion!
 Themis.Core.SecretVersion.Equals(Themis.Core.SecretVersion? other) -> bool
