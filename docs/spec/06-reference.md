@@ -23,7 +23,7 @@ failure by an operation.
 | `approvals.migrate.connectionfailed` (migrate) | | The tool cannot connect |
 | `approvals.migrate.failed` (migrate) | `migration` | A migration fails |
 | `approvals.migrate.grantfailed` (migrate) | `role` | A grant fails or is not found (`04` APR-OPS-002) |
-| `approvals.type.invalid` | `member` | A definition outside its rule (`02` APR-TYPE-002) |
+| `approvals.type.invalid` | `member` | A definition outside its rule, `member` the empty path where its canonical form is too large (`02` APR-TYPE-002) |
 | `approvals.type.unknown` | | No such type, or no such version (`02` APR-TYPE-001) |
 | `approvals.type.retired` | | A request of a retired type (`02` APR-TYPE-001) |
 | `approvals.request.snapshotinvalid` | `field` | A snapshot that does not match its version's protected fields (`01` APR-REQ-001) |

@@ -70,6 +70,9 @@ every new member; the canonical form does it once).
 
 ## T-003 — What a version holds
 
+> **Amended.** T-021: a definition past 64 KiB names the empty path, the definition
+> itself, and is checked once every member is within its rule.
+
 **Date:** 2026-10-31 · **Status:** accepted
 
 **TL;DR.** A key; protected fields with their kinds; ordered policies, each a start
@@ -410,6 +413,27 @@ through `IAlertSink` for a lagging observer, an unassignable request and a stall
 
 ---
 
+## T-021 — Phase 2's question: the member a definition too large names
+
+**Date:** 2026-10-31 · **Status:** accepted · **Amends:** T-003
+
+**TL;DR.** A definition whose canonical form passes 64 KiB is refused with
+`approvals.type.invalid` and `details.member` the empty path: the size belongs to the
+definition itself, not to one member. The size is checked once every member is within
+its rule, since a definition outside its rules has no canonical form to measure.
+
+- **The empty path is the definition itself,** as the empty JSON Pointer (RFC 6901) is
+  the whole document, so a host reads every refusal of the code the same way and
+  `details.member` is always present.
+
+*Rejected:* leaving `member` out for this one refusal (a detail a host reads present on
+every other refusal of the code); a fixed name such as `definition` (a name that could
+one day be a member's).
+
+**Propagated to:** `02` APR-TYPE-002; `06` section 1.
+
+---
+
 # Index
 
 | Title | Entry |
@@ -433,3 +457,4 @@ through `IAlertSink` for a lagging observer, an unassignable request and a stall
 | How the library is built | T-017 |
 | Calls into the host's directory | T-018 |
 | Background work, observability and alerts | T-019 |
+| Phase 2's question: the member a definition too large names | T-021 |
