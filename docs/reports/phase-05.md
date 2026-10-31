@@ -10,11 +10,11 @@ The tests of `Themis.Repository.Tests` are in that project, and those of the sam
 - ReleaseGateTests (integration, the gate itself): ReleaseGate_ThisRepositoryAtHead_IsWithinWhatItsNewestFinalReleaseAllows, ReleaseGate_ThisRepositoryAtHead_HoldsTheOwnSetOfItsLastReleaseCommit
 - CommitMessageGateTests (integration): PreviousReleaseTag_ReleasesAndReleaseCandidates_AnswersTheHighestBySemanticVersioningPrecedence, PreviousReleaseTag_Final_AnswersTheHighestFinalReleaseAlone, PreviousReleaseTag_TagOnHeadItself_IsLeftOut, and `TagsOfOtherShapes_AreLeftOut` with the shapes outside the rule (`v1.1.0-rc.0`, `rc.01`, `beta`, a leading zero)
 
-**`05` APR-ENG-011**: criteria 2 to 4; the release commit's checks in `gate-commit-messages.ps1`, `chore: release V` with its changelog heading `## [V] - YYYY-MM-DD` and a first line naming any other version refused; `previous-release-tag.ps1` by Semantic Versioning precedence, with `-Final`; the workflow run for `vX.Y.Z` and `vX.Y.Z-rc.N` tags, and its `release` job, which packs every package at the tag's version through `build/gates/pack-packages.ps1` and creates the tag's release with them and `CHANGELOG.md` attached, its notes `RELEASE-NOTES.md`, a release candidate's alone marked as a pre-release.
+**`05` APR-ENG-011**: criteria 2 to 4; the release commit's checks in `gate-commit-messages.ps1`, `chore: release V` with its changelog heading `## [V] - YYYY-MM-DD` and a first line naming any other version refused; `previous-release-tag.ps1` by Semantic Versioning precedence, with `-Final`; the workflow run for `vX.Y.Z` and `vX.Y.Z-rc.N` tags, and its `release` job, which packs every package at the tag's version through `build/gates/pack-packages.ps1` and creates the tag's release with the packages alone attached, its notes `RELEASE-NOTES.md`, marked a pre-release where, and only where, its tag matches `^v\d+\.\d+\.\d+-rc\.[1-9]\d*$`. The release commit `chore: release 1.0.0-rc.1`: each `PublicAPI.Shipped.txt` with its unshipped entries, each `PublicAPI.Unshipped.txt` holding `#nullable enable` alone, `build/gates/release-baseline.json` the release's own set as the release gate wrote it, and `CHANGELOG.md` with the heading `## [1.0.0-rc.1] - 2026-10-31`, the commit's date in UTC; `RELEASE-NOTES.md` unchanged.
 - ReleaseCommitGateTests (integration): APR_ENG_011_AC2_ReleaseCommitChangingTheReleasedFilesAsItsValueGivesPasses, for `1.0.0-rc.1`, `1.0.0-rc.10`, `1.0.0` and `2.10.0`; APR_ENG_011_AC3_ReleaseCommitChangingAFileOutsideItsValueFails, APR_ENG_011_AC3_ReleaseCommitWritingOneOfItsFilesOtherwiseThanItsValueGivesFails, APR_ENG_011_AC3_ReleaseCommitFollowedByACommitOtherThanADocsCommitChangingOnlyDocsFails, APR_ENG_011_AC3_ReleaseCommitNamingAVersionOutsideTheRuleFails; Gate_ChoreThatNamesNoVersion_IsNoReleaseCommit
 - ReleaseHistoryTests (integration): APR_ENG_011_AC3_ReleaseCommitWhoseBaselineIsNotTheReleasesOwnSetFails; BaselineViolations_ReleaseCommitWritingTheReleasesOwnSet_AreNone, BaselineViolations_ChangeOutsideDocsSinceTheReleaseCommit_AreNotLookedFor
 - CommitMessageGateTests (integration): APR_ENG_011_AC1_ChangelogLineUnderChangedPassesOnceAReleaseIsTagged, now for `v1.0.0` and `v1.0.0-rc.1`
-- WorkflowTests (unit): APR_ENG_011_AC4_PipelineRunsForTheTagsOfFinalReleasesAndReleaseCandidates, APR_ENG_011_AC4_ReleaseJobRunsOnlyForATagOnceTheGatesJobHasPassed, APR_ENG_011_AC4_OnlyTheReleaseJobCanWriteToTheRepositorysContents, APR_ENG_011_AC4_ReleaseJobPacksEveryPackageAtTheTagsVersionAndCreatesTheTagsReleaseMarkingAReleaseCandidatesAPreRelease; GatesJob_EveryEvent_RunsEveryGateAndCannotWriteToTheContents
+- WorkflowTests (unit): APR_ENG_011_AC4_PipelineRunsForTheTagsOfFinalReleasesAndReleaseCandidates, APR_ENG_011_AC4_ReleaseJobRunsOnlyForATagOnceTheGatesJobHasPassed, APR_ENG_011_AC4_OnlyTheReleaseJobCanWriteToTheRepositorysContents, APR_ENG_011_AC4_ReleaseJobPacksEveryPackageAtTheTagsVersionAndCreatesTheTagsReleaseMarkingAReleaseCandidatesAPreRelease, APR_ENG_011_AC4_ReleaseStepAttachesThePackagesAloneAndMarksTheReleaseCandidateFormAloneAPreRelease, APR_ENG_011_AC4_ReleaseStepOutsideTheRuleIsFound, for an asset beside the packages and the pre-release flag missing, always passed or read from a looser form; GatesJob_EveryEvent_RunsEveryGateAndCannotWriteToTheContents
 
 **`05` APR-ENG-001**: criterion 1 for the sample host's solution, and criterion 2; the sample host `samples/Observatory` and its test project `samples/Observatory.Tests` in `samples/Samples.sln`, built from the packages packed from the same commit, with `samples/nuget.config`; and its gate, `build/gates/gate-sample-host.ps1` (APR-ENG-012), which packs the packages at `0.0.0-sample.g<commit>`, builds the solution at that version, checks it with `dotnet format --verify-no-changes` and runs its tests.
 - The sample host's domain is an invented observatory: `telescope.time`, a scheduler's step then the director's, the schedule escalating to the deputy director after two days; `instrument.loan`, the desk's step, then the custodian's where the loan's value is above 10,000. Its directory is a table of its own, its observer logs each event's kind, request and step, and its secrets come from its connection string `Approvals`.
@@ -33,7 +33,7 @@ The tests of `Themis.Repository.Tests` are in that project, and those of the sam
 
 ## Items not built
 
-- The release commit `chore: release 1.0.0-rc.1` and the tag `v1.0.0-rc.1`, which wait for the lead's message after the review. The release commit writes `build/gates/release-baseline.json` as the release gate's test writes it to `tmp/release-baseline.json`.
+- The tag `v1.0.0-rc.1`, which waits for the lead's message after the merge.
 
 ## Criteria checked without a test
 
@@ -44,12 +44,13 @@ The tests of `Themis.Repository.Tests` are in that project, and those of the sam
   - `ReleaseSet_WrittenAndParsed_IsTheSameSet` and `ReleaseSet_ReadFromTheBuiltAssemblies_HoldsTheCodesKeysSpellingsAndInstruments` passed under the stub that let the release rules' tests compile, since they test the set's reading and writing, which came with it.
   - `APR_LIB_001_AC1_TestProjectTakingAPackedPackageOfTheLibraryIsFound`, `GatesJob_EveryEvent_RunsEveryGateAndCannotWriteToTheContents` and `PreviousReleaseTag_TagOnHeadItself_IsLeftOut` hold behaviour the rules had before this phase, and passed before its changes.
   - The sample host's tests failed before the host, whose entry point was missing, and passed at their first run with it.
+  - Of the release step's tests, `APR_ENG_011_AC4_ReleaseStepAttachesThePackagesAloneAndMarksTheReleaseCandidateFormAloneAPreRelease` failed before the fixes; the cases of `APR_ENG_011_AC4_ReleaseStepOutsideTheRuleIsFound` passed before them too, since the step they vary was itself outside the rule.
 - `05` APR-ENG-011, the commit messages of `phase-05` read and checked by `gate-commit-messages.ps1`.
 
 ## Awaiting the pipeline's run
 
 - `phase-05`'s pull request into `main`: the pipeline's `gates` run on the report's own commit is the gate of record, the sample host's gate among its gates.
-- `05` APR-ENG-011 criterion 4: the `release` job's run on the tag `v1.0.0-rc.1`, once the owner pushes it, creating its release as a pre-release with the four packages and `CHANGELOG.md`.
+- `05` APR-ENG-011 criterion 4: the `release` job's run on the tag `v1.0.0-rc.1`, once the owner pushes it, creating its release as a pre-release with the four packages alone attached.
 
 ## Analyser suppressions
 
@@ -57,7 +58,9 @@ None added.
 
 ## Resolved by the lead
 
-- `RELEASE-NOTES.md` is written in this phase's `docs:` commit, at the lead's message, ahead of the release commit `05` APR-ENG-001 names; the release commit keeps its one section. Governs: `05` APR-ENG-001, APR-ENG-011.
+- `RELEASE-NOTES.md` is written in this phase's `docs:` commit, ahead of the release commit: a release's notes may be written before its release commit, in a `docs:` commit of the same pull request (T-024, `c473ba5`). The release commit leaves it unchanged. Governs: `05` APR-ENG-001, APR-ENG-011.
+- The sample host's test project references the sample host, the project it tests: the sample host's row allows "for its tests the sample host itself and the test packages" (T-024, `c473ba5`). Governs: `03` APR-LIB-001.
+- The release job attaches the packages alone, and marks a release a pre-release where its tag matches `^v\d+\.\d+\.\d+-rc\.[1-9]\d*$`, the release candidate's form, and nowhere else (the lead's review of phase 5). Governs: `05` APR-ENG-011.
 
 ## Resolved by rule
 
@@ -68,10 +71,9 @@ None added.
 - The release's set is read by reflection from the built assemblies, as the contract tests read them: the constants of the codes, the paths of the options under `Themis`, the spellings of the public enumerations, and the instruments of the library's meter, each metric's kind as `06` section 7 writes it ("Counter", "Observable gauge"). Governs: `03` APR-LIB-006.
 - A member added to a seam that the built assembly does not hold counts as one without a default implementation, so a break. Governs: `03` APR-LIB-006.
 - Every commit since the newest final release is read for `!` or `BREAKING CHANGE:`, and the pull-request reading applies wherever no release tag points at HEAD. Governs: `03` APR-LIB-006.
-- The release job attaches `CHANGELOG.md` beside the packages, as the plan's proof names the release "with its changelog", and the release's notes are the whole of `RELEASE-NOTES.md`. Governs: `05` APR-ENG-011.
+- The release's notes are the whole of `RELEASE-NOTES.md`. Governs: `05` APR-ENG-011.
 - `pack-packages.ps1` sets the version through MinVer's `MinVerVersionOverride`, restoring in locked mode. Governs: `05` APR-ENG-011.
 - The workflow's tag filter lets through some tags outside the rule, such as `v1.0.0-rc.0`, since a filter pattern cannot exclude a leading zero; the release step refuses any tag outside the rule before it packs. Governs: `05` APR-ENG-011.
-- The sample host's test project references the sample host, the project it tests, beside the packages its row allows. Governs: `03` APR-LIB-001.
 - No project of the sample host's solution grants its internals, which is read from its project files and sources, since `Themis.sln` does not build it. Governs: `05` APR-ENG-001.
 - The library's own packages are no third-party packages for the allow-list; which project may take them is `03` APR-LIB-001's table, and no project under `tests/` takes one. Governs: `05` APR-ENG-009.
 - `Directory.Packages.props` gives `Themis` and `Themis.Testing` the version `$(ThemisVersion)`, which the sample host's gate passes; `Themis.sln` takes neither as a package. Governs: `05` APR-ENG-002.
@@ -88,8 +90,9 @@ None.
 
 ## Checks
 
-- The commits: `main` at `843fc63` when `phase-05` was cut, then the commits of this phase to the report's own.
+- The commits: `main` at `843fc63` when `phase-05` was cut, then the commits of this phase, the lead's `c473ba5` (T-024), the release job's fixes, the release commit, and the report's own.
+- The commit-message gate over the whole history, no release tag preceding the release commit: green.
 - Fast checks on every commit: the build of `Themis.sln` in Release with warnings as errors, the analysers, `dotnet format Themis.sln --verify-no-changes`, the unit tests and the contract tests: green.
 - Integration tests: the classes this phase wrote or changed: green.
 - The sample host's gate: the packages packed, `samples/Samples.sln` built from them, `dotnet format --verify-no-changes` and its 11 tests: green.
-- Before the push: `run-gates.ps1 -Base origin/main -Head HEAD`. Every gate but the commit-message gate passed, the full-history secret scan and the sample host's gate among them; the commit-message gate found one body line of the release job's commit over 72 characters. That commit, not yet pushed, was reworded and the commits after it replayed onto it, their trees unchanged; then `run-gates.ps1` again on the report's own commit: every gate passed.
+- Before the push: `run-gates.ps1 -Base origin/main -Head HEAD`. Every gate but the commit-message gate passed, the full-history secret scan and the sample host's gate among them; the commit-message gate found one body line of the release job's commit over 72 characters. That commit, not yet pushed, was reworded and the commits after it replayed onto it, their trees unchanged; then `run-gates.ps1` again on the report's own commit: every gate passed. After the review's fixes and the release commit, `run-gates.ps1 -Base origin/main -Head HEAD` on the report's updated commit: every gate passed, the release gate reading the release commit's baseline.
