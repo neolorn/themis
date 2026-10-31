@@ -373,6 +373,9 @@ pending is refused; one decision per person per assignment; one lock order every
 > **Amended.** T-020: release candidates of 1.0.0 until the owner calls a release final;
 > the compatibility rule binds from the first final release.
 
+> **Amended.** T-024: a release's notes may come before its release commit, in a
+> `docs:` commit of the same pull request; the sample host's tests reference the host.
+
 **Date:** 2026-10-31 · **Status:** accepted
 
 **TL;DR.** The owner's other libraries' way: .NET 10, EF Core with Npgsql on
@@ -530,6 +533,29 @@ fallback, and the escalation's run instant on the step says when it came).
 
 ---
 
+## T-024 — Phase 5's readings: the release notes' commit, and the sample host's tests
+
+**Date:** 2026-10-31 · **Status:** accepted · **Amends:** T-017
+
+**TL;DR.** A release's notes may be written before its release commit, in a `docs:`
+commit of the same pull request, so the review reads them before the release is made.
+The sample host's test project references the sample host it tests, beside the packages
+its row allows.
+
+- **The notes before the release commit.** The lead asked phase 5 for the notes of
+  1.0.0-rc.1 with its other work, against `05` APR-ENG-001's "written in its release
+  commit"; the notes then went through the review with everything else, which is what
+  the rule is for. The release commit may still write them, as it did for Hermes.
+- **The sample host's tests.** A test project references what it tests; the row named
+  only packages and the framework, and the sample host itself is neither.
+
+*Rejected:* reverting the pushed notes so the release commit writes them again
+(history that says the same thing twice, for a rule's letter).
+
+**Propagated to:** `03` APR-LIB-001; `05` APR-ENG-001.
+
+---
+
 # Index
 
 | Title | Entry |
@@ -557,3 +583,4 @@ fallback, and the escalation's run instant on the step says when it came).
 | Phase 2's question: the member a definition too large names | T-021 |
 | Phase 3's questions: the lag where no observer runs, and a create with no one | T-022 |
 | The fallback an escalation assigns | T-023 |
+| Phase 5's readings: the release notes' commit, and the sample host's tests | T-024 |

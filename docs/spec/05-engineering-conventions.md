@@ -50,29 +50,30 @@ The repository's other files: at its root the solution, `Directory.Build.props`,
 `Directory.Packages.props`, `global.json`, `.editorconfig`, `.gitignore`,
 `nuget.config`, `.config/dotnet-tools.json` (the local .NET tools), `CHANGELOG.md` and
 `RELEASE-NOTES.md` (the release notes of `04` APR-OPS-007: one section per release,
-headed by its version and written in its release commit, holding the deployment's duties
-as they stand at that release and the migrations of that release that drop or rewrite
-data, `04` APR-OPS-002); the pipeline's definition under `.github/workflows/`; the
-gates' scripts under `build/gates/`, with the secret scanner's configuration there,
-`build/gates/release-baseline.json`, the release gate's baseline (`03` APR-LIB-006), and
-`build/gates/built-items.txt`, the acceptance criteria proven so far by a test, one per
-line as `APR-REQ-004 AC2`, which the test-name gate reads and each phase extends with
-the criteria it proves. The secret scanner is gitleaks 8.30.1, its download checked
-against its published SHA-256, which the fetch script itself holds (checked in review),
-and left under `tmp/tools/` by one step of `build/gates/` that the secret-scanning and
-the test gates both run first. Its configuration extends gitleaks' default and adds no
-entry, since no test needs a credential-shaped literal: every secret a test needs is
-made at run time. No allow-list but gitleaks' default reaches the scan: it runs with
-`--ignore-gitleaks-allow`, so a line's inline `gitleaks:allow` marker silences nothing,
-with `--gitleaks-ignore-path` naming a folder that holds no file, and with no
-`--baseline-path`; and it fails where a `.gitleaksignore` is tracked or sits at the
-scanned repository's root, where gitleaks reads one whatever its flags say. The gates'
-scripts are PowerShell 7 scripts, and the pipeline runs on GitHub's `ubuntu-24.04`
-runner using no action but `actions/checkout` and `actions/setup-dotnet` (the SDK of
-`global.json`), each at its latest release when the workflow is written and pinned by
-that release's full commit SHA (all checked in review).
+headed by its version and written in its release commit, or before it in a `docs:`
+commit of the same pull request, where the review reads it (T-024), holding the
+deployment's duties as they stand at that release and the migrations of that release
+that drop or rewrite data, `04` APR-OPS-002); the pipeline's definition under
+`.github/workflows/`; the gates' scripts under `build/gates/`, with the secret scanner's
+configuration there, `build/gates/release-baseline.json`, the release gate's baseline
+(`03` APR-LIB-006), and `build/gates/built-items.txt`, the acceptance criteria proven so
+far by a test, one per line as `APR-REQ-004 AC2`, which the test-name gate reads and
+each phase extends with the criteria it proves. The secret scanner is gitleaks 8.30.1,
+its download checked against its published SHA-256, which the fetch script itself holds
+(checked in review), and left under `tmp/tools/` by one step of `build/gates/` that the
+secret-scanning and the test gates both run first. Its configuration extends gitleaks'
+default and adds no entry, since no test needs a credential-shaped literal: every secret
+a test needs is made at run time. No allow-list but gitleaks' default reaches the scan:
+it runs with `--ignore-gitleaks-allow`, so a line's inline `gitleaks:allow` marker
+silences nothing, with `--gitleaks-ignore-path` naming a folder that holds no file, and
+with no `--baseline-path`; and it fails where a `.gitleaksignore` is tracked or sits at
+the scanned repository's root, where gitleaks reads one whatever its flags say. The
+gates' scripts are PowerShell 7 scripts, and the pipeline runs on GitHub's
+`ubuntu-24.04` runner using no action but `actions/checkout` and `actions/setup-dotnet`
+(the SDK of `global.json`), each at its latest release when the workflow is written and
+pinned by that release's full commit SHA (all checked in review).
 
-*Source: T-017*
+*Source: T-017, T-024*
 
 **Acceptance criteria**
 1. A test fails on a project outside this layout, a grant outside this rule, or an entry

@@ -8,7 +8,7 @@ not to break. Every value named `Themis:...` is configuration (`06` section 4).
 **APR-LIB-001** — The library SHALL ship as the packages of `00` section 2.2, and each
 project SHALL reference only what this item allows it.
 
-**Values (T-001, T-017).**
+**Values (T-001, T-017, T-024).**
 
 | Project | May reference |
 |---|---|
@@ -18,7 +18,7 @@ project SHALL reference only what this item allows it.
 | `Themis.Cli` (a .NET tool, command `themis`) | `Themis` |
 | `tests/Themis.Repository.Tests` | Every shipped project, whose built assemblies its contract tests read (`05` APR-ENG-004), and the test packages of `05` APR-ENG-009 |
 | Any other test project | Its source project, `Themis.Testing`, and the test packages of `05` APR-ENG-009 |
-| The sample host and its test project | The packed packages above, ASP.NET Core's shared framework, and for its tests the test packages of `05` APR-ENG-009 |
+| The sample host and its test project | The packed packages above, ASP.NET Core's shared framework, and for its tests the sample host itself and the test packages of `05` APR-ENG-009 (T-024) |
 
 Every shipped project references `Microsoft.CodeAnalysis.PublicApiAnalyzers` and every
 packed project `MinVer`, both as build-only references; `Themis` references
@@ -30,7 +30,7 @@ APR-ENG-011 gives), since they are released together and grant one another their
 internals (`05` APR-ENG-001), so NuGet reports a host's mix of versions at its restore
 rather than letting it fail at run time.
 
-*Source: T-001, T-017*
+*Source: T-001, T-017, T-024*
 
 **Acceptance criteria**
 1. A test reads each project's references and fails on one this table does not allow.
