@@ -98,7 +98,13 @@ override Themis.Core.DecisionRecord.ToString() -> string!
 override Themis.Core.DecisionRequest.Equals(object? obj) -> bool
 override Themis.Core.DecisionRequest.GetHashCode() -> int
 override Themis.Core.DecisionRequest.ToString() -> string!
+override Themis.Core.DelegationDefinition.Equals(object? obj) -> bool
+override Themis.Core.DelegationDefinition.GetHashCode() -> int
+override Themis.Core.DelegationDefinition.ToString() -> string!
 override Themis.Core.DelegationId.GetHashCode() -> int
+override Themis.Core.DelegationRecord.Equals(object? obj) -> bool
+override Themis.Core.DelegationRecord.GetHashCode() -> int
+override Themis.Core.DelegationRecord.ToString() -> string!
 override Themis.Core.Failure.Equals(object? obj) -> bool
 override Themis.Core.Failure.GetHashCode() -> int
 override Themis.Core.Failure.ToString() -> string!
@@ -213,8 +219,12 @@ static Themis.Core.DecisionRecord.operator !=(Themis.Core.DecisionRecord? left, 
 static Themis.Core.DecisionRecord.operator ==(Themis.Core.DecisionRecord? left, Themis.Core.DecisionRecord? right) -> bool
 static Themis.Core.DecisionRequest.operator !=(Themis.Core.DecisionRequest? left, Themis.Core.DecisionRequest? right) -> bool
 static Themis.Core.DecisionRequest.operator ==(Themis.Core.DecisionRequest? left, Themis.Core.DecisionRequest? right) -> bool
+static Themis.Core.DelegationDefinition.operator !=(Themis.Core.DelegationDefinition? left, Themis.Core.DelegationDefinition? right) -> bool
+static Themis.Core.DelegationDefinition.operator ==(Themis.Core.DelegationDefinition? left, Themis.Core.DelegationDefinition? right) -> bool
 static Themis.Core.DelegationId.operator !=(Themis.Core.DelegationId left, Themis.Core.DelegationId right) -> bool
 static Themis.Core.DelegationId.operator ==(Themis.Core.DelegationId left, Themis.Core.DelegationId right) -> bool
+static Themis.Core.DelegationRecord.operator !=(Themis.Core.DelegationRecord? left, Themis.Core.DelegationRecord? right) -> bool
+static Themis.Core.DelegationRecord.operator ==(Themis.Core.DelegationRecord? left, Themis.Core.DelegationRecord? right) -> bool
 static Themis.Core.Failure.operator !=(Themis.Core.Failure? left, Themis.Core.Failure? right) -> bool
 static Themis.Core.Failure.operator ==(Themis.Core.Failure? left, Themis.Core.Failure? right) -> bool
 static Themis.Core.FieldValue.DecimalNumber.operator !=(Themis.Core.FieldValue.DecimalNumber? left, Themis.Core.FieldValue.DecimalNumber? right) -> bool
@@ -562,6 +572,22 @@ Themis.Core.DecisionRequest.Reason.get -> string?
 Themis.Core.DecisionRequest.Reason.init -> void
 Themis.Core.DecisionRequest.Request.get -> Themis.Core.RequestId
 Themis.Core.DecisionRequest.Request.init -> void
+Themis.Core.DelegationDefinition
+Themis.Core.DelegationDefinition.<Clone>$() -> Themis.Core.DelegationDefinition!
+Themis.Core.DelegationDefinition.CreatedBy.get -> string!
+Themis.Core.DelegationDefinition.CreatedBy.init -> void
+Themis.Core.DelegationDefinition.DelegationDefinition() -> void
+Themis.Core.DelegationDefinition.Ends.get -> System.DateTimeOffset
+Themis.Core.DelegationDefinition.Ends.init -> void
+Themis.Core.DelegationDefinition.Equals(Themis.Core.DelegationDefinition? other) -> bool
+Themis.Core.DelegationDefinition.From.get -> string!
+Themis.Core.DelegationDefinition.From.init -> void
+Themis.Core.DelegationDefinition.Starts.get -> System.DateTimeOffset
+Themis.Core.DelegationDefinition.Starts.init -> void
+Themis.Core.DelegationDefinition.To.get -> string!
+Themis.Core.DelegationDefinition.To.init -> void
+Themis.Core.DelegationDefinition.Types.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Themis.Core.DelegationDefinition.Types.init -> void
 Themis.Core.DelegationId
 Themis.Core.DelegationId.Deconstruct(out System.Guid Value) -> void
 Themis.Core.DelegationId.DelegationId() -> void
@@ -569,6 +595,30 @@ Themis.Core.DelegationId.DelegationId(System.Guid Value) -> void
 Themis.Core.DelegationId.Equals(Themis.Core.DelegationId other) -> bool
 Themis.Core.DelegationId.Value.get -> System.Guid
 Themis.Core.DelegationId.Value.init -> void
+Themis.Core.DelegationRecord
+Themis.Core.DelegationRecord.<Clone>$() -> Themis.Core.DelegationRecord!
+Themis.Core.DelegationRecord.CreatedAt.get -> System.DateTimeOffset
+Themis.Core.DelegationRecord.CreatedAt.init -> void
+Themis.Core.DelegationRecord.CreatedBy.get -> string!
+Themis.Core.DelegationRecord.CreatedBy.init -> void
+Themis.Core.DelegationRecord.Delegation.get -> Themis.Core.DelegationId
+Themis.Core.DelegationRecord.Delegation.init -> void
+Themis.Core.DelegationRecord.DelegationRecord() -> void
+Themis.Core.DelegationRecord.EndedAt.get -> System.DateTimeOffset?
+Themis.Core.DelegationRecord.EndedAt.init -> void
+Themis.Core.DelegationRecord.EndedBy.get -> string?
+Themis.Core.DelegationRecord.EndedBy.init -> void
+Themis.Core.DelegationRecord.Ends.get -> System.DateTimeOffset
+Themis.Core.DelegationRecord.Ends.init -> void
+Themis.Core.DelegationRecord.Equals(Themis.Core.DelegationRecord? other) -> bool
+Themis.Core.DelegationRecord.From.get -> string!
+Themis.Core.DelegationRecord.From.init -> void
+Themis.Core.DelegationRecord.Starts.get -> System.DateTimeOffset
+Themis.Core.DelegationRecord.Starts.init -> void
+Themis.Core.DelegationRecord.To.get -> string!
+Themis.Core.DelegationRecord.To.init -> void
+Themis.Core.DelegationRecord.Types.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Themis.Core.DelegationRecord.Types.init -> void
 Themis.Core.DuplicateRule
 Themis.Core.DuplicateRule.RequireOther = 1 -> Themis.Core.DuplicateRule
 Themis.Core.DuplicateRule.Skip = 0 -> Themis.Core.DuplicateRule
@@ -647,6 +697,10 @@ Themis.Core.IApprovalTypes.RetireAsync(string! key, System.Threading.Cancellatio
 Themis.Core.IApproverDirectory
 Themis.Core.IApproverDirectory.CanApproveAsync(Themis.Core.ApproverCheck! check, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
 Themis.Core.IApproverDirectory.ResolveAsync(string! permission, Themis.Core.ApproverQuery! query, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<string!>!>
+Themis.Core.IDelegations
+Themis.Core.IDelegations.CreateAsync(Themis.Core.DelegationDefinition! delegation, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result<Themis.Core.DelegationId>!>
+Themis.Core.IDelegations.EndAsync(Themis.Core.DelegationId delegation, string! actor, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result!>
+Themis.Core.IDelegations.ListAsync(string! person, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Themis.Core.DelegationRecord!>!>
 Themis.Core.ISecretSource
 Themis.Core.ISecretSource.ReadAsync(string! name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.SecretVersions?>
 Themis.Core.PendingItem

@@ -34,3 +34,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The jobs `deadlines`, `observer` and `watch`, each run under its claim on the hosted timer or through `IApprovalJobs`, the observer told each event in order for each request
 - The alerts `observer-failing` and `request-unassignable`, the gauge `approvals.events.pending` and the health check's judgement of the observer's lag where the application runs the observer
 - `Themis.Testing`: `AddThemisTesting`, which removes the hosted jobs, and `TestJobs`, which runs them until idle
+- `IDelegations`: a delegation created, ended and listed, a delegate deciding for the lender while it is live and seeing the lender's assignments in their pending list

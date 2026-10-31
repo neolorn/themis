@@ -13,6 +13,8 @@ using Microsoft.Extensions.Options;
 
 using Npgsql;
 
+using NpgsqlTypes;
+
 using Themis.Core;
 using Themis.Operations;
 using Themis.Types;
@@ -46,6 +48,33 @@ internal sealed partial class ApprovalService(
     private const int PageSize = 20;
 
     private const int LargestPage = 100;
+
+    /// <summary>
+    /// The pending list's query (<c>01</c> APR-REQ-013): the undecided assignments of current
+    /// steps of pending requests held by the person, or by a person who lent them a delegation
+    /// live now covering the type, one item for each request (the person's own assignment where
+    /// they hold one, and otherwise the first lender's in ordinal order), oldest request first,
+    /// after the cursor's request where one is given.
+    /// </summary>
+    private const string PendingQuery = """
+        SELECT DISTINCT ON (request.created_at, request.id)
+            request.id AS "Request", request.type AS "Type", request.target_kind AS "TargetKind", request.target_id AS "TargetId",
+            step.number AS "Step", step.name AS "StepName", request.created_at AS "CreatedAt",
+            CASE WHEN assignment.person = @person THEN NULL ELSE assignment.person END AS "ActingFor"
+        FROM approvals.assignments AS assignment
+        JOIN approvals.steps AS step ON step.request = assignment.request AND step.number = assignment.step
+        JOIN approvals.requests AS request ON request.id = assignment.request
+        WHERE assignment.decision IS NULL AND step.status = 'current' AND request.status = 'pending'
+            AND request.requester <> @person AND (request.subject IS NULL OR request.subject <> @person)
+            AND (assignment.person = @person OR EXISTS (
+                SELECT 1 FROM approvals.delegations AS delegation
+                WHERE delegation.from_person = assignment.person AND delegation.to_person = @person AND delegation.ended_at IS NULL
+                    AND delegation.starts <= @now AND delegation.ends > @now
+                    AND (cardinality(delegation.types) = 0 OR request.type = ANY (delegation.types))))
+            AND (@after_at IS NULL OR (request.created_at, request.id) > (@after_at, @after_id))
+        ORDER BY request.created_at, request.id, assignment.person = @person DESC, assignment.person COLLATE "C"
+        LIMIT @take
+        """;
 
     public ValueTask<Result<CreatedRequest>> CreateAsync(ApprovalRequest request, CancellationToken cancellationToken)
     {
@@ -144,20 +173,16 @@ internal sealed partial class ApprovalService(
         ApprovalsContext context = database.Context();
         await using (context.ConfigureAwait(false))
         {
-            IQueryable<PendingRow> pending =
-                from assignment in context.Assignments
-                join step in context.Steps on new { assignment.Request, Number = assignment.Step } equals new { step.Request, step.Number }
-                join request in context.Requests on assignment.Request equals request.Id
-                where assignment.Person == person && assignment.Decision == null
-                    && step.Status == StepStatus.Current && request.Status == RequestStatus.Pending
-                    && request.Requester != person && (request.Subject == null || request.Subject != person)
-                select new PendingRow { Request = request.Id, Type = request.Type, TargetKind = request.TargetKind, TargetId = request.TargetId, Step = step.Number, StepName = step.Name, CreatedAt = request.CreatedAt };
-            if (after is { } from)
-            {
-                pending = pending.Where(row => EF.Functions.GreaterThan(ValueTuple.Create(row.CreatedAt, row.Request), ValueTuple.Create(from.At, from.Id)));
-            }
-
-            List<PendingRow> rows = await pending.OrderBy(row => row.CreatedAt).ThenBy(row => row.Request).Take(take + 1).AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+            List<PendingRow> rows = await context.Database
+                .SqlQueryRaw<PendingRow>(
+                    PendingQuery,
+                    new NpgsqlParameter("person", person),
+                    LibraryTransactions.Now(clock),
+                    new NpgsqlParameter("after_at", NpgsqlDbType.TimestampTz) { Value = after is { } at ? (object)at.At.UtcDateTime : DBNull.Value },
+                    new NpgsqlParameter("after_id", NpgsqlDbType.Uuid) { Value = after is { } id ? (object)id.Id : DBNull.Value },
+                    new NpgsqlParameter("take", NpgsqlDbType.Integer) { Value = take + 1 })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
             List<PendingItem> items = [.. rows.Take(take).Select(row => new PendingItem
             {
                 Request = new RequestId(row.Request),
@@ -166,6 +191,7 @@ internal sealed partial class ApprovalService(
                 Step = row.Step,
                 StepName = row.StepName,
                 CreatedAt = row.CreatedAt,
+                ActingFor = row.ActingFor,
             })];
             string? next = rows.Count > take ? PendingCursor.Write(rows[take - 1].CreatedAt, rows[take - 1].Request) : null;
             return Result.Success(new PendingPage { Items = items, Next = next });
@@ -468,10 +494,8 @@ internal sealed partial class ApprovalService(
             throw Refusal.Of(Codes.RequestClosed);
         }
 
-        // A delegation lends an assignment (01 APR-REQ-008); until delegations are recorded none
-        // is live, so a decision acting for another holds no assignment.
-        AssignmentRow? assignment = decision.ActingFor is null
-            ? await context.Assignments.SingleOrDefaultAsync(row => row.Request == request.Id && row.Step == current && row.Person == decision.Decider && row.Decision == null, cancellationToken).ConfigureAwait(false)
+        AssignmentRow? assignment = decision.ActingFor is null || await LentAsync(context, decision, request.Type, moves.Now, cancellationToken).ConfigureAwait(false)
+            ? await context.Assignments.SingleOrDefaultAsync(row => row.Request == request.Id && row.Step == current && row.Person == (decision.ActingFor ?? decision.Decider) && row.Decision == null, cancellationToken).ConfigureAwait(false)
             : null;
         if (assignment is null)
         {
@@ -501,7 +525,8 @@ internal sealed partial class ApprovalService(
             ActingFor = decision.ActingFor,
             Query = RequestMoves.Query(request, snapshot, current),
         };
-        if (!await moves.Directory.CanApproveAsync(check, cancellationToken).ConfigureAwait(false))
+        if (!await moves.Directory.CanApproveAsync(check, cancellationToken).ConfigureAwait(false)
+            || (decision.ActingFor is not null && !await moves.Directory.CanApproveAsync(check with { Person = decision.ActingFor, ActingFor = null }, cancellationToken).ConfigureAwait(false)))
         {
             throw Refusal.Of(Codes.NotPermitted);
         }
@@ -555,6 +580,14 @@ internal sealed partial class ApprovalService(
         return (true, moves);
     }
 
+    /// <summary>Whether a delegation from the decision's <c>ActingFor</c> to its decider is live at <paramref name="now"/> and covers <paramref name="type"/>: one made to the lender lends nothing on (<c>01</c> APR-REQ-008).</summary>
+    private static Task<bool> LentAsync(ApprovalsContext context, DecisionRequest decision, string type, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        return context.Delegations.AnyAsync(
+            row => row.From == decision.ActingFor && row.To == decision.Decider && row.EndedAt == null && row.Starts <= now && row.Ends > now && (row.Types.Count == 0 || row.Types.Contains(type)),
+            cancellationToken);
+    }
+
     /// <summary>Locks the request's row, <c>SELECT ... FOR UPDATE</c>, before any other row of it is read for change, and answers it; or refuses with <c>approvals.request.unknown</c>.</summary>
     private static async Task<RequestRow> LockAsync(ApprovalsContext context, Guid id, CancellationToken cancellationToken)
     {
@@ -580,22 +613,24 @@ internal sealed partial class ApprovalService(
     [LoggerMessage(EventId = 1, EventName = "RequestRecorded", Level = LogLevel.Information, Message = "Request {Request} of type {Type} recorded, {Status}.")]
     private partial void Recorded(string type, Guid request, string status);
 
-    /// <summary>A row of a pending list's query, its members set by initialisers so the query can order and filter on them.</summary>
+    /// <summary>A row of the pending list's query, its members named as the query names its columns.</summary>
     private sealed class PendingRow
     {
-        internal Guid Request { get; init; }
+        public Guid Request { get; init; }
 
-        internal required string Type { get; init; }
+        public required string Type { get; init; }
 
-        internal required string TargetKind { get; init; }
+        public required string TargetKind { get; init; }
 
-        internal required string TargetId { get; init; }
+        public required string TargetId { get; init; }
 
-        internal int Step { get; init; }
+        public int Step { get; init; }
 
-        internal required string StepName { get; init; }
+        public required string StepName { get; init; }
 
-        internal DateTimeOffset CreatedAt { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
+
+        public string? ActingFor { get; init; }
     }
 
     /// <summary>A pending list's cursor: the creation instant and identifier of a page's last request, as base64url.</summary>

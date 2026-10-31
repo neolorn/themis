@@ -157,6 +157,71 @@ namespace Themis.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Themis.Requests.DelegationRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ended_at");
+
+                    b.Property<string>("EndedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("ended_by");
+
+                    b.Property<DateTimeOffset>("Ends")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends");
+
+                    b.Property<string>("From")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("from_person");
+
+                    b.Property<DateTimeOffset>("Starts")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts");
+
+                    b.Property<string>("To")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("to_person");
+
+                    b.PrimitiveCollection<List<string>>("Types")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("types");
+
+                    b.HasKey("Id")
+                        .HasName("pk_delegations");
+
+                    b.HasIndex("From")
+                        .HasDatabaseName("ix_delegations_from")
+                        .HasFilter("ended_at IS NULL");
+
+                    b.HasIndex("To")
+                        .HasDatabaseName("ix_delegations_to")
+                        .HasFilter("ended_at IS NULL");
+
+                    b.ToTable("delegations", "approvals", t =>
+                        {
+                            t.HasCheckConstraint("ck_delegations_period", "ends > starts");
+
+                            t.HasCheckConstraint("ck_delegations_persons", "to_person <> from_person");
+                        });
+                });
+
             modelBuilder.Entity("Themis.Requests.EventRow", b =>
                 {
                     b.Property<Guid>("Id")
@@ -231,6 +296,8 @@ namespace Themis.Migrations
                     b.HasIndex("At")
                         .HasDatabaseName("ix_events_untaken")
                         .HasFilter("taken_at IS NULL");
+
+                    b.HasIndex("Delegation");
 
                     b.HasIndex("Request", "Sequence")
                         .IsUnique()
@@ -555,6 +622,12 @@ namespace Themis.Migrations
 
             modelBuilder.Entity("Themis.Requests.EventRow", b =>
                 {
+                    b.HasOne("Themis.Requests.DelegationRow", null)
+                        .WithMany()
+                        .HasForeignKey("Delegation")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_events_delegations");
+
                     b.HasOne("Themis.Requests.RequestRow", null)
                         .WithMany()
                         .HasForeignKey("Request")

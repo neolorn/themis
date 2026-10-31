@@ -54,4 +54,10 @@ internal static class Codes
     internal const string DirectoryUnavailable = "approvals.directory.unavailable";
 
     internal const string DirectoryTooMany = "approvals.directory.toomany";
+
+    internal const string DelegationInvalid = "approvals.delegation.invalid";
+
+    internal const string DelegationUnknown = "approvals.delegation.unknown";
+
+    internal const string DelegationEnded = "approvals.delegation.ended";
 }
