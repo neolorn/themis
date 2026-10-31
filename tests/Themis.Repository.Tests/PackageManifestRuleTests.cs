@@ -62,6 +62,20 @@ public sealed class PackageManifestRuleTests
         Assert.Empty(PackageRules.ManifestViolations(Parse(Core)));
     }
 
+    [Fact]
+    public void ManifestViolations_ToolPackageType_IsAcceptedOnTheToolAlone()
+    {
+        const string type = "<packageTypes><packageType name=\"DotnetTool\" /></packageTypes></metadata>";
+        PackageManifest tool = Parse(Core
+            .Replace("</metadata>", type, StringComparison.Ordinal)
+            .Replace("<id>Themis.Core</id>", "<id>Themis.Cli</id>", StringComparison.Ordinal)
+            .Replace("The public types and contracts every other package shares", "A .NET tool, command themis, that applies the migrations", StringComparison.Ordinal));
+        PackageManifest other = Parse(Core.Replace("</metadata>", type, StringComparison.Ordinal));
+
+        Assert.Empty(PackageRules.ManifestViolations(tool));
+        Assert.Equal(["Themis.Core carries the package property packageTypes, which is left unset."], PackageRules.ManifestViolations(other));
+    }
+
     [Theory]
     [InlineData("<tags>approvals</tags>", "Themis.Core carries the package property tags, which is left unset.")]
     [InlineData("<license type=\"expression\">MIT</license>", "Themis.Core carries the package property license, which is left unset.")]

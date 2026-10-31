@@ -33,6 +33,14 @@ internal static class PackageRules
     private static readonly FrozenSet<string> ManifestElements =
         FrozenSet.Create(StringComparer.Ordinal, "id", "version", "authors", "description", "repository", "dependencies");
 
+    /// <summary>The element <c>Themis.Cli</c> alone carries, its package type as a .NET tool, which the SDK writes for a tool package.</summary>
+    private const string ToolPackageType = "packageTypes";
+
+    private static bool IsToolPackageType(PackageManifest manifest, string element)
+    {
+        return string.Equals(element, ToolPackageType, StringComparison.Ordinal) && string.Equals(manifest.Id, Packages.Cli, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Answers each dependency of a packed package on another of the library's packages that is
     /// not the exact version packed, <c>[v]</c> (<c>03</c> APR-LIB-001 criterion 2).
@@ -65,7 +73,7 @@ internal static class PackageRules
     internal static IEnumerable<string> ManifestViolations(PackageManifest manifest)
     {
         ArgumentNullException.ThrowIfNull(manifest);
-        foreach (string element in manifest.Elements.Where(element => !ManifestElements.Contains(element)))
+        foreach (string element in manifest.Elements.Where(element => !ManifestElements.Contains(element) && !IsToolPackageType(manifest, element)))
         {
             yield return $"{manifest.Id} carries the package property {element}, which is left unset.";
         }

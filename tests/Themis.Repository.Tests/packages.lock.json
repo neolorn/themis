@@ -238,6 +238,12 @@
           "Themis.Core": "[1.0.0, )"
         }
       },
+      "themis.cli": {
+        "type": "Project",
+        "dependencies": {
+          "Themis": "[1.0.0, )"
+        }
+      },
       "themis.core": {
         "type": "Project"
       },

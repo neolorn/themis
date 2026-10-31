@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Themis.Tests" />
+    <InternalsVisibleTo Include="Themis.Cli" />
   </ItemGroup>
 
 </Project>

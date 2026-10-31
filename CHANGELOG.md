@@ -14,3 +14,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The start's refusal of a host missing a required seam
 - The start's read of the secret `connection`, on which the library opens its own data source
 - The schema `approvals` with its alert table, and the start's check that the database holds every migration of the release
+- `themis migrate`, the tool that applies the migrations and grants the application roles
