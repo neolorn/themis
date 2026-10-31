@@ -96,8 +96,8 @@ public sealed class PackageAllowListTests
         using RepositoryFixture fixture = new();
         string props = File.ReadAllText(Path.Combine(fixture.Root, "Directory.Packages.props"));
         fixture.Write("Directory.Packages.props", props.Replace(
-            "  </ItemGroup>",
-            "    <PackageVersion Include=\"Microsoft.EntityFrameworkCore\" Version=\"10.0.13\" />\n  </ItemGroup>",
+            "<PackageVersion Include=\"Microsoft.EntityFrameworkCore\" Version=\"10.0.14\" />",
+            "<PackageVersion Include=\"Microsoft.EntityFrameworkCore\" Version=\"10.0.13\" />",
             StringComparison.Ordinal));
 
         Assert.Contains(
