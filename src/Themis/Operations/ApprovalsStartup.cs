@@ -25,6 +25,8 @@ internal sealed partial class ApprovalsStartup(
     ApprovalsConfiguration configuration,
     IOptions<ApprovalsOptions> options,
     ApprovalsReady ready,
+    ApprovalsDatabase database,
+    TimeProvider clock,
     IServiceProvider services,
     ILogger<ApprovalsStartup> logger) : IHostedLifecycleService
 {
@@ -74,7 +76,7 @@ internal sealed partial class ApprovalsStartup(
         return new ApprovalsStartupException(code, new Dictionary<string, string>(StringComparer.Ordinal) { [detail] = value });
     }
 
-    private Task CheckAsync(CancellationToken cancellationToken)
+    private async Task CheckAsync(CancellationToken cancellationToken)
     {
         IConfigurationSection section = configuration.Section;
         if (ConfigurationRules.Invalid(path => section[path]) is { } key)
@@ -89,8 +91,12 @@ internal sealed partial class ApprovalsStartup(
             throw Failure(Codes.SeamMissing, "key", seam);
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.CompletedTask;
+        AsyncServiceScope scope = services.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            ISecretSource secrets = scope.ServiceProvider.GetRequiredService<ISecretSource>();
+            database.Open(await SecretCheck.ConnectionAsync(secrets, current.Timeout, clock, cancellationToken).ConfigureAwait(false));
+        }
     }
 
     private static string Describe(IReadOnlyDictionary<string, string> details)

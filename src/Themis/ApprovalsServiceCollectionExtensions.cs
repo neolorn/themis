@@ -36,6 +36,7 @@ public static class ApprovalsServiceCollectionExtensions
         services.AddSingleton(new ApprovalsConfiguration(section));
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ApprovalsReady>();
+        services.AddSingleton<ApprovalsDatabase>();
         services.AddSingleton<IHostedService, ApprovalsStartup>();
         return services;
     }

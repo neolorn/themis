@@ -67,6 +67,12 @@ internal sealed class TestHost : IAsyncDisposable
         return new TestHost(services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }), configuration);
     }
 
+    /// <summary>A connection string to a port no database listens on, its password made for the run.</summary>
+    internal static string UnreachableConnection()
+    {
+        return $"Host=127.0.0.1;Port=1;Database=approvals;Username=app;Password={Guid.NewGuid():N}";
+    }
+
     /// <summary>Registers the seams a host supplies: the secret source <paramref name="secrets"/>, a directory and an observer.</summary>
     internal static Action<IServiceCollection> Seams(ISecretSource secrets)
     {
