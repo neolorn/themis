@@ -1,0 +1,134 @@
+{
+  "codes": [
+    "approvals.decision.duplicate",
+    "approvals.decision.notassigned",
+    "approvals.decision.notpermitted",
+    "approvals.decision.reasonrequired",
+    "approvals.decision.separation",
+    "approvals.delegation.ended",
+    "approvals.delegation.invalid",
+    "approvals.delegation.unknown",
+    "approvals.directory.toomany",
+    "approvals.directory.unavailable",
+    "approvals.field.locked",
+    "approvals.migrate.connectionfailed",
+    "approvals.migrate.failed",
+    "approvals.migrate.grantfailed",
+    "approvals.migrate.inputinvalid",
+    "approvals.reason.invalid",
+    "approvals.request.closed",
+    "approvals.request.cursorinvalid",
+    "approvals.request.notapproved",
+    "approvals.request.open",
+    "approvals.request.previousinvalid",
+    "approvals.request.snapshotinvalid",
+    "approvals.request.unknown",
+    "approvals.startup.configurationinvalid",
+    "approvals.startup.schemamismatch",
+    "approvals.startup.seammissing",
+    "approvals.startup.secretinvalid",
+    "approvals.startup.secretunavailable",
+    "approvals.type.invalid",
+    "approvals.type.retired",
+    "approvals.type.unknown"
+  ],
+  "configurationKeys": [
+    "Themis:Alerts:Repeat",
+    "Themis:Database:Retries",
+    "Themis:Jobs:BatchSize",
+    "Themis:Jobs:ClaimTimeout",
+    "Themis:Jobs:Enabled",
+    "Themis:Jobs:Hosted",
+    "Themis:Jobs:Interval",
+    "Themis:Jobs:StallFactor",
+    "Themis:Observer:Enabled",
+    "Themis:Observer:LagThreshold",
+    "Themis:Timeout"
+  ],
+  "spellings": {
+    "ApprovalJob": {
+      "Deadlines": "deadlines",
+      "Observer": "observer",
+      "Watch": "watch"
+    },
+    "ApprovalMode": {
+      "All": "all",
+      "AnyOne": "anyone"
+    },
+    "AssignmentOrigin": {
+      "Approver": "approver",
+      "Escalation": "escalation",
+      "Fallback": "fallback"
+    },
+    "CompareOperator": {
+      "Equal": "equal",
+      "Greater": "greater",
+      "GreaterOrEqual": "greaterorequal",
+      "Less": "less",
+      "LessOrEqual": "lessorequal",
+      "NotEqual": "notequal"
+    },
+    "DeadlineAction": {
+      "Cancel": "cancel",
+      "Escalate": "escalate",
+      "Reject": "reject"
+    },
+    "DecisionOutcome": {
+      "Approve": "approve",
+      "Reject": "reject"
+    },
+    "DuplicateRule": {
+      "RequireOther": "requireother",
+      "Skip": "skip"
+    },
+    "EventKind": {
+      "Approved": "approved",
+      "Cancelled": "cancelled",
+      "Completed": "completed",
+      "DelegationCreated": "delegationcreated",
+      "Escalated": "escalated",
+      "Rejected": "rejected",
+      "Requested": "requested",
+      "StepStarted": "stepstarted",
+      "Voided": "voided"
+    },
+    "FieldKind": {
+      "DecimalNumber": "decimalnumber",
+      "Flag": "flag",
+      "Text": "text",
+      "WholeNumber": "wholenumber"
+    },
+    "FieldProtection": {
+      "Approved": "approved",
+      "Free": "free",
+      "Locked": "locked"
+    },
+    "ReasonCode": {
+      "Deadline": "deadline",
+      "FieldChanged": "fieldchanged",
+      "NoApprover": "noapprover"
+    },
+    "RequestStatus": {
+      "Approved": "approved",
+      "Cancelled": "cancelled",
+      "Completed": "completed",
+      "Pending": "pending",
+      "Rejected": "rejected",
+      "Void": "void"
+    },
+    "StepStatus": {
+      "Closed": "closed",
+      "Current": "current",
+      "Done": "done",
+      "Skipped": "skipped",
+      "Waiting": "waiting"
+    }
+  },
+  "metrics": {
+    "approvals.decisions": "Counter",
+    "approvals.events.delivered": "Counter",
+    "approvals.events.pending": "Observable gauge",
+    "approvals.requests.closed": "Counter",
+    "approvals.requests.created": "Counter"
+  }
+}

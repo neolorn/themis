@@ -1,1 +1,3 @@
 #nullable enable
+Themis.ApprovalsServiceCollectionExtensions
+static Themis.ApprovalsServiceCollectionExtensions.AddThemis(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
