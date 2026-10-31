@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 using Npgsql;
@@ -28,6 +29,31 @@ public sealed class StartTests(PostgresFixture postgres) : IClassFixture<Postgre
         await host.StartAsync();
 
         Assert.True(host.Services.GetRequiredService<ApprovalsReady>().IsReady);
+    }
+
+    [Fact]
+    public async Task APR_LIB_003_AC3_HostedServiceRegisteredBeforeAddThemisThatCreatesARequestInItsStartAsyncRecordsItOnlyAfterTheStartupChecksRan()
+    {
+        (_, string connection) = await postgres.NewMigratedDatabaseAsync();
+        using LogCapture logs = new(everyCategory: true);
+        CreatingService creating = new();
+        await using TestHost host = TestHost.Build(
+            before: services =>
+            {
+                services.AddSingleton<IHostedService>(provider => creating.With(provider));
+                TestHost.Seams(SecretSourceFake.WithConnection(connection))(services);
+            },
+            logs: logs);
+
+        await host.StartAsync();
+
+        Assert.Equal(RequestStatus.Pending, creating.Created?.Value?.Status);
+        List<string> messages = [.. logs.Entries.Select(entry => entry.Message)];
+        int checkedAt = messages.FindIndex(message => message == "The library's startup checks passed.");
+        int recordedAt = messages.FindIndex(message => message.StartsWith("Request ", StringComparison.Ordinal) && message.Contains(" recorded, pending.", StringComparison.Ordinal));
+        Assert.True(checkedAt >= 0 && recordedAt > checkedAt, $"The startup checks passed at log line {checkedAt} and the request was recorded at {recordedAt}.");
+        string used = string.Join('|', Requests.Unloggable.Concat(Definitions.Unloggable).Select(System.Text.RegularExpressions.Regex.Escape));
+        Assert.All(logs.Entries, entry => Assert.DoesNotMatch(used, entry.Message));
     }
 
     [Fact]

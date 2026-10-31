@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using Npgsql;
@@ -107,5 +108,45 @@ public sealed class CompleteTests(PostgresFixture postgres) : IClassFixture<Post
         {
             await transaction.RollbackAsync(TestContext.Current.CancellationToken);
         }
+    }
+    [Fact]
+    public async Task APR_OPS_005_AC1_LogsOfARequestsLifeFromCreateToCompletionItsRefusalsIncludedHoldNoPersonTargetRoleValueOrReason()
+    {
+        await using RequestHost host = await RequestHost.StartAsync(postgres);
+        await host.PublishAsync(Type(Step("review", ApprovalMode.AnyOne, Permission(Approve)), Step("finance", ApprovalMode.All, Person(B), Person(C))));
+        host.Directory.Grant(Approve, A);
+        await host.DelegatedAsync(new DelegationDefinition { From = C, To = Late, Starts = System.DateTimeOffset.UtcNow, Ends = System.DateTimeOffset.UtcNow.AddDays(1), CreatedBy = Requester });
+        await host.DelegatedAsync(new DelegationDefinition { From = A, To = Subject, Starts = System.DateTimeOffset.UtcNow, Ends = System.DateTimeOffset.UtcNow.AddDays(1), CreatedBy = Requester });
+        await host.DelegatedAsync(new DelegationDefinition { From = C, To = B, Starts = System.DateTimeOffset.UtcNow, Ends = System.DateTimeOffset.UtcNow.AddDays(1), CreatedBy = Requester });
+        RequestId request = await host.CreatedAsync(Request(subject: Subject) with { SubjectRoles = [Buyer] });
+
+        Result<CreatedRequest> open = await host.CreateAsync(Request(subject: Subject));
+        Result<DecisionReceipt> notAssigned = await host.DecideAsync(request, Late, reason: Reason);
+        Result<DecisionReceipt> separation = await host.DecideAsync(request, Subject, reason: Reason, actingFor: A);
+        Result<DecisionReceipt> noReason = await host.DecideAsync(request, A, DecisionOutcome.Reject);
+        Result notApproved = await host.CompleteAsync(request, Requester);
+        Result<IReadOnlyList<RequestId>> locked = await host.RecordChangeAsync(Requests.Target, "amount", Requester);
+        await host.DecideAsync(request, A, reason: Reason);
+        await host.DecideAsync(request, B, reason: Reason);
+        Result<DecisionReceipt> duplicate = await host.DecideAsync(request, B, reason: Reason, actingFor: C);
+        await host.PendingAsync(Late);
+        await host.DecideAsync(request, Late, reason: Reason, actingFor: C);
+        await host.ProtectionAsync(Requests.Target, "amount");
+        Result completed = await host.CompleteAsync(request, Requester);
+        Result closed = await host.CompleteAsync(request, Requester);
+        Result notCancelled = await host.CancelAsync(request, Requester, onBehalfOf: Subject, reason: Reason);
+        await host.RecordChangeAsync(Requests.Target, "amount", Requester);
+        await host.ByTargetAsync(Requests.Target);
+        await host.ExportAsync(Subject);
+        await host.RunAsync(ApprovalJob.Observer);
+        await host.RunAsync(ApprovalJob.Watch);
+
+        Assert.Equal(
+            ["approvals.request.open", "approvals.decision.notassigned", "approvals.decision.separation", "approvals.decision.reasonrequired", "approvals.request.notapproved", "approvals.field.locked", "approvals.decision.duplicate", "approvals.request.closed", "approvals.request.closed"],
+            new[] { open.Failure?.Code, notAssigned.Failure?.Code, separation.Failure?.Code, noReason.Failure?.Code, notApproved.Failure?.Code, locked.Failure?.Code, duplicate.Failure?.Code, closed.Failure?.Code, notCancelled.Failure?.Code });
+        Assert.True(completed.IsSuccess);
+        Assert.Equal(RequestStatus.Completed, (await host.ReadAsync(request)).Status);
+        Assert.NotEmpty(host.Logs.Entries);
+        host.AssertNoLogHoldsAValueUsed();
     }
 }
