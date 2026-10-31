@@ -1,12 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace Themis.Repository.Tests;
 
 /// <summary>
-/// A C# source file's code: comments and the contents of string and character literals are
-/// blanked in <see cref="Code"/>, line breaks kept, so a declaration a comment or a literal
-/// quotes is no declaration.
+/// A C# source file split into its code and its string literals: comments and the contents of
+/// string and character literals are blanked in <see cref="Code"/>, line breaks kept, and each
+/// string literal's contents are in <see cref="Literals"/>.
 /// </summary>
 /// <remarks>
 /// It reads the literal forms C# has: regular, verbatim (<c>@"..."</c>), interpolated
@@ -15,17 +16,21 @@ namespace Themis.Repository.Tests;
 /// </remarks>
 internal sealed class CSharpSource
 {
-    private CSharpSource(string code)
+    private CSharpSource(string code, IReadOnlyList<string> literals)
     {
         Code = code;
+        Literals = literals;
     }
 
     internal string Code { get; }
+
+    internal IReadOnlyList<string> Literals { get; }
 
     internal static CSharpSource Read(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
         StringBuilder code = new(text.Length);
+        List<string> literals = [];
         int index = 0;
         while (index < text.Length)
         {
@@ -60,7 +65,8 @@ internal sealed class CSharpSource
             else if (StringStart(text, index) is (int prefix, bool verbatim))
             {
                 int start = index + prefix;
-                int end = verbatim ? VerbatimEnd(text, start) : RawOrRegularEnd(text, start);
+                (int contentEnd, int end) = verbatim ? VerbatimEnd(text, start) : RawOrRegularEnd(text, start);
+                literals.Add(text[ContentStart(text, start)..contentEnd]);
                 Blank(code, text, index, end);
                 index = end;
             }
@@ -71,7 +77,7 @@ internal sealed class CSharpSource
             }
         }
 
-        return new CSharpSource(code.ToString());
+        return new CSharpSource(code.ToString(), literals);
     }
 
     /// <summary>The length of a string literal's prefix (<c>$</c>, <c>@</c>) up to its first quote, and whether it is verbatim, or none where no literal starts.</summary>
@@ -99,15 +105,15 @@ internal sealed class CSharpSource
         return (at - index, verbatim);
     }
 
-    /// <summary>Where a regular or raw literal opening at <paramref name="quote"/> ends, after its closing quotes.</summary>
-    private static int RawOrRegularEnd(string text, int quote)
+    /// <summary>Where a regular or raw literal opening at <paramref name="quote"/> ends: its contents' end, and the end after its closing quotes.</summary>
+    private static (int ContentEnd, int End) RawOrRegularEnd(string text, int quote)
     {
         int quotes = Quotes(text, quote);
         if (quotes >= 3)
         {
             string closing = new('"', quotes);
             int close = text.IndexOf(closing, quote + quotes, StringComparison.Ordinal);
-            return close < 0 ? text.Length : close + quotes;
+            return close < 0 ? (text.Length, text.Length) : (close, close + quotes);
         }
 
         int at = quote + 1;
@@ -116,11 +122,12 @@ internal sealed class CSharpSource
             at += text[at] == '\\' ? 2 : 1;
         }
 
-        return Math.Min(at + 1, text.Length);
+        at = Math.Min(at, text.Length);
+        return (at, Math.Min(at + 1, text.Length));
     }
 
     /// <summary>Where a verbatim literal opening at <paramref name="quote"/> ends; a doubled quote is one quote of its contents.</summary>
-    private static int VerbatimEnd(string text, int quote)
+    private static (int ContentEnd, int End) VerbatimEnd(string text, int quote)
     {
         int at = quote + 1;
         while (at < text.Length)
@@ -133,13 +140,19 @@ internal sealed class CSharpSource
                     continue;
                 }
 
-                return at + 1;
+                return (at, at + 1);
             }
 
             at++;
         }
 
-        return text.Length;
+        return (text.Length, text.Length);
+    }
+
+    private static int ContentStart(string text, int quote)
+    {
+        int quotes = Quotes(text, quote);
+        return quote + (quotes >= 3 ? quotes : 1);
     }
 
     private static int Quotes(string text, int at)
