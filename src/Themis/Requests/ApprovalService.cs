@@ -133,6 +133,7 @@ internal sealed partial class ApprovalService(
 
     public ValueTask<Result> CompleteAsync(RequestId request, string actor, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(actor);
         CheckReference(actor, nameof(actor));
         ready.ThrowIfNotReady();
         return CompleteOnAsync(request, actor, host: null, cancellationToken);
@@ -140,10 +141,44 @@ internal sealed partial class ApprovalService(
 
     public ValueTask<Result> CompleteAsync(RequestId request, string actor, DbTransaction transaction, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(actor);
         CheckReference(actor, nameof(actor));
         NpgsqlTransaction host = HostTransactions.Check(transaction);
         ready.ThrowIfNotReady();
         return CompleteOnAsync(request, actor, host, cancellationToken);
+    }
+
+    public async ValueTask<FieldProtection> ProtectionAsync(Target target, string field, CancellationToken cancellationToken)
+    {
+        CheckTarget(target, nameof(target));
+        CheckField(field);
+        ready.ThrowIfNotReady();
+        ApprovalsContext context = database.Context();
+        await using (context.ConfigureAwait(false))
+        {
+            var open = await context.Requests.AsNoTracking()
+                .Where(row => row.TargetKind == target.Kind && row.TargetId == target.Id && (row.Status == RequestStatus.Pending || row.Status == RequestStatus.Approved))
+                .Select(row => new { row.Status, row.Snapshot })
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            List<RequestStatus> covering = [.. open.Where(row => Covers(row.Snapshot, field)).Select(row => row.Status)];
+            return covering.Contains(RequestStatus.Pending) ? FieldProtection.Locked : covering.Count > 0 ? FieldProtection.Approved : FieldProtection.Free;
+        }
+    }
+
+    public ValueTask<Result<IReadOnlyList<RequestId>>> RecordChangeAsync(Target target, string field, string actor, CancellationToken cancellationToken)
+    {
+        CheckChange(target, field, actor);
+        ready.ThrowIfNotReady();
+        return RecordChangeOnAsync(target, field, actor, host: null, cancellationToken);
+    }
+
+    public ValueTask<Result<IReadOnlyList<RequestId>>> RecordChangeAsync(Target target, string field, string actor, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        CheckChange(target, field, actor);
+        NpgsqlTransaction host = HostTransactions.Check(transaction);
+        ready.ThrowIfNotReady();
+        return RecordChangeOnAsync(target, field, actor, host, cancellationToken);
     }
 
     public async ValueTask<Result<RequestRecord>> ReadAsync(RequestId request, CancellationToken cancellationToken)
@@ -391,6 +426,76 @@ internal sealed partial class ApprovalService(
         Result<(bool Completed, RequestMoves Moves)> completed = await RunAsync(host, (context, cancel) => CompleteInAsync(context, request, actor, cancel), cancellationToken).ConfigureAwait(false);
         Result<bool> answer = Answer(completed);
         return answer.Failure is { } failure ? Result.Fail(failure) : Result.Success();
+    }
+
+    private async ValueTask<Result<IReadOnlyList<RequestId>>> RecordChangeOnAsync(Target target, string field, string actor, NpgsqlTransaction? host, CancellationToken cancellationToken)
+    {
+        Result<(IReadOnlyList<RequestId> Voided, RequestMoves Moves)> changed = await RunAsync(host, (context, cancel) => RecordChangeInAsync(context, target, field, actor, cancel), cancellationToken).ConfigureAwait(false);
+        return Answer(changed);
+    }
+
+    /// <summary>
+    /// Locks the open requests on the target in identifier order, refuses with
+    /// <c>approvals.field.locked</c> where a pending one covers the field, and otherwise voids
+    /// each approved one covering it, writing its <c>voided</c> event with the actor.
+    /// </summary>
+    private async Task<(IReadOnlyList<RequestId>, RequestMoves)> RecordChangeInAsync(ApprovalsContext context, Target target, string field, string actor, CancellationToken cancellationToken)
+    {
+        RequestMoves moves = Moves(context);
+        List<RequestRow> open = await context.Requests
+            .FromSqlRaw(
+                "SELECT * FROM approvals.requests WHERE target_kind = @kind AND target_id = @id AND status IN ('pending', 'approved') ORDER BY id FOR UPDATE",
+                new NpgsqlParameter("kind", target.Kind),
+                new NpgsqlParameter("id", target.Id))
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        List<RequestRow> covering = [.. open.Where(row => Covers(row.Snapshot, field))];
+        if (covering.Any(row => row.Status == RequestStatus.Pending))
+        {
+            throw Refusal.Of(Codes.FieldLocked);
+        }
+
+        foreach (RequestRow request in covering)
+        {
+            ApprovalTypeDefinition definition = await DefinitionAsync(context, request, cancellationToken).ConfigureAwait(false);
+            request.ChangedField = field;
+            await moves.CloseAsync(request, definition, RequestStatus.Void, EventKind.Voided, actor, actingFor: null, reason: null, ReasonCode.FieldChanged, cancellationToken).ConfigureAwait(false);
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return ([.. covering.Select(row => new RequestId(row.Id))], moves);
+    }
+
+    /// <summary>Whether a request of <paramref name="snapshot"/> covers <paramref name="field"/>: its snapshot holds its version's protected fields, and those alone (<c>01</c> APR-REQ-001).</summary>
+    private static bool Covers(string snapshot, string field)
+    {
+        return CanonicalForm.ReadSnapshot(snapshot).ContainsKey(field);
+    }
+
+    private static void CheckTarget(Target target, string argument)
+    {
+        ArgumentNullException.ThrowIfNull(target, argument);
+        if (!TextRules.IsName(target.Kind) || !TextRules.IsReference(target.Id))
+        {
+            throw new ArgumentException("The target is outside its rule.", argument);
+        }
+    }
+
+    private static void CheckField(string field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        if (!TextRules.IsName(field))
+        {
+            throw new ArgumentException("The field's name is outside its rule.", nameof(field));
+        }
+    }
+
+    private static void CheckChange(Target target, string field, string actor)
+    {
+        CheckTarget(target, nameof(target));
+        CheckField(field);
+        ArgumentNullException.ThrowIfNull(actor);
+        CheckReference(actor, nameof(actor));
     }
 
     private async ValueTask<Result> CancelOnAsync(CancelRequest cancel, NpgsqlTransaction? host, CancellationToken cancellationToken)

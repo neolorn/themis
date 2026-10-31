@@ -91,6 +91,7 @@ internal sealed class DelegationService(
 
     public async ValueTask<Result> EndAsync(DelegationId delegation, string actor, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(actor);
         CheckReference(actor, nameof(actor));
         ready.ThrowIfNotReady();
         try
@@ -126,6 +127,7 @@ internal sealed class DelegationService(
 
     public async ValueTask<IReadOnlyList<DelegationRecord>> ListAsync(string person, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(person);
         CheckReference(person, nameof(person));
         ready.ThrowIfNotReady();
         DateTimeOffset now = clock.GetUtcNow();

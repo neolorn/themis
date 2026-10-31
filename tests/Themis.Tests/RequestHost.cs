@@ -171,6 +171,21 @@ internal sealed class RequestHost : IAsyncDisposable
         return CallAsync<IApprovals, Result>(approvals => approvals.CompleteAsync(request, actor, transaction, TestContext.Current.CancellationToken));
     }
 
+    internal Task<FieldProtection> ProtectionAsync(Target target, string field)
+    {
+        return CallAsync<IApprovals, FieldProtection>(approvals => approvals.ProtectionAsync(target, field, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<Result<IReadOnlyList<RequestId>>> RecordChangeAsync(Target target, string field, string actor)
+    {
+        return CallAsync<IApprovals, Result<IReadOnlyList<RequestId>>>(approvals => approvals.RecordChangeAsync(target, field, actor, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<Result<IReadOnlyList<RequestId>>> RecordChangeAsync(Target target, string field, string actor, DbTransaction transaction)
+    {
+        return CallAsync<IApprovals, Result<IReadOnlyList<RequestId>>>(approvals => approvals.RecordChangeAsync(target, field, actor, transaction, TestContext.Current.CancellationToken));
+    }
+
     internal Task<Result<CreatedRequest>> CreateAsync(ApprovalRequest request, DbTransaction transaction)
     {
         return CallAsync<IApprovals, Result<CreatedRequest>>(approvals => approvals.CreateAsync(request, transaction, TestContext.Current.CancellationToken));

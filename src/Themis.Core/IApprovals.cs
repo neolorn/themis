@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
@@ -85,6 +86,39 @@ public interface IApprovals
     /// <exception cref="ArgumentException"><paramref name="actor"/> is outside its rule, or <paramref name="transaction"/> is of another provider or has ended.</exception>
     /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
     ValueTask<Result> CompleteAsync(RequestId request, string actor, DbTransaction transaction, CancellationToken cancellationToken);
+
+    /// <summary>Reports whether <paramref name="field"/> of <paramref name="target"/> may change: <c>Locked</c> where a pending request covers it, <c>Approved</c> where an approved one does, <c>Free</c> otherwise (<c>01</c> APR-REQ-011).</summary>
+    /// <param name="target">The target.</param>
+    /// <param name="field">The field's name.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The field's protection.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> or <paramref name="field"/> is null.</exception>
+    /// <exception cref="ArgumentException">The target or the field's name is outside its rule.</exception>
+    /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
+    ValueTask<FieldProtection> ProtectionAsync(Target target, string field, CancellationToken cancellationToken);
+
+    /// <summary>Records a change the host made to <paramref name="field"/> of <paramref name="target"/>, voiding every approved request covering it (<c>01</c> APR-REQ-011), in a transaction of its own.</summary>
+    /// <param name="target">The target.</param>
+    /// <param name="field">The field's name.</param>
+    /// <param name="actor">The person the host says changed it.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The identifiers of the requests voided, none where no approved request covers it; or <c>approvals.field.locked</c> where a pending one does, nothing changed.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">The target, the field's name or <paramref name="actor"/> is outside its rule.</exception>
+    /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
+    ValueTask<Result<IReadOnlyList<RequestId>>> RecordChangeAsync(Target target, string field, string actor, CancellationToken cancellationToken);
+
+    /// <summary>Records a change as <see cref="RecordChangeAsync(Target, string, string, CancellationToken)"/> does, on the host's <paramref name="transaction"/>, so the host's change and the voiding commit together.</summary>
+    /// <param name="target">The target.</param>
+    /// <param name="field">The field's name.</param>
+    /// <param name="actor">The person the host says changed it.</param>
+    /// <param name="transaction">The host's open <c>NpgsqlTransaction</c>.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The identifiers of the requests voided; or the failure that refused it, nothing of the call's left on the transaction.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">An argument is outside its rule, or <paramref name="transaction"/> is of another provider or has ended.</exception>
+    /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
+    ValueTask<Result<IReadOnlyList<RequestId>>> RecordChangeAsync(Target target, string field, string actor, DbTransaction transaction, CancellationToken cancellationToken);
 
     /// <summary>Reads a request's whole record (<c>01</c> APR-REQ-013).</summary>
     /// <param name="request">The request.</param>

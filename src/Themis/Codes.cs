@@ -39,6 +39,8 @@ internal static class Codes
 
     internal const string NotApproved = "approvals.request.notapproved";
 
+    internal const string FieldLocked = "approvals.field.locked";
+
     internal const string CursorInvalid = "approvals.request.cursorinvalid";
 
     internal const string NotAssigned = "approvals.decision.notassigned";
