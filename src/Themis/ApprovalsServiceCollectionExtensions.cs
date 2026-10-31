@@ -44,6 +44,9 @@ public static class ApprovalsServiceCollectionExtensions
         services.AddSingleton<IHostedService, ApprovalsStartup>();
         services.AddScoped<IApprovalTypes, ApprovalTypeService>();
         services.AddScoped<IApprovals, ApprovalService>();
+        services.AddSingleton<JobRunner>();
+        services.AddSingleton<IApprovalJobs>(provider => provider.GetRequiredService<JobRunner>());
+        services.AddSingleton<IHostedService, HostedJob>();
         services.AddSingleton(provider => new ApprovalsMetrics(provider.GetService<IMeterFactory>()));
 
         // The value is read raw here, as the registration comes before any check; a value

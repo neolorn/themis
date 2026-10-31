@@ -1,6 +1,8 @@
 #nullable enable
 static Themis.Testing.ApprovalsTestDatabase.MigrateAsync(string! connection, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+static Themis.Testing.ApprovalsTestingServiceCollectionExtensions.AddThemisTesting(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Themis.Testing.FixedSecretSource!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 Themis.Testing.ApprovalsTestDatabase
+Themis.Testing.ApprovalsTestingServiceCollectionExtensions
 Themis.Testing.FixedSecretSource
 Themis.Testing.FixedSecretSource.FixedSecretSource() -> void
 Themis.Testing.FixedSecretSource.ReadAsync(string! name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.SecretVersions?>
@@ -21,3 +23,6 @@ Themis.Testing.RecordingObserver.FailWith(System.Func<Themis.Core.ApprovalEvent!
 Themis.Testing.RecordingObserver.ObserveAsync(Themis.Core.ApprovalEvent! approvalEvent, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Themis.Testing.RecordingObserver.Received.get -> System.Collections.Generic.IReadOnlyList<Themis.Core.ApprovalEvent!>!
 Themis.Testing.RecordingObserver.RecordingObserver() -> void
+Themis.Testing.TestJobs
+Themis.Testing.TestJobs.RunUntilIdleAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<int>
+Themis.Testing.TestJobs.TestJobs(Themis.Core.IApprovalJobs! jobs) -> void

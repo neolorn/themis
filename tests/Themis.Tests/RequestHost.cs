@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -17,20 +18,23 @@ using Xunit;
 namespace Themis.Tests;
 
 /// <summary>
-/// A started host on a migrated database of its own, with an in-memory directory and a
-/// recording observer, whose <see cref="IApprovals"/> a test calls, capturing every log line so
-/// the test can assert that none holds a value it used (<c>04</c> APR-OPS-005).
+/// A started host on a migrated database, with the testing package's in-memory directory and
+/// recording observer, a recording alert sink and, where given, a clock of the test's, whose
+/// services a test calls, capturing every log line so the test can assert that none holds a
+/// value it used (<c>04</c> APR-OPS-005).
 /// </summary>
 internal sealed class RequestHost : IAsyncDisposable
 {
     private readonly TestHost host;
 
-    private RequestHost(TestHost host, string connection, LogCapture logs, InMemoryApproverDirectory directory)
+    private RequestHost(TestHost host, string connection, LogCapture logs, AlertSinkRecorder alerts)
     {
         this.host = host;
         Connection = connection;
         Logs = logs;
-        Directory = directory;
+        Alerts = alerts;
+        Directory = host.Services.GetRequiredService<InMemoryApproverDirectory>();
+        Observer = host.Services.GetRequiredService<RecordingObserver>();
     }
 
     /// <summary>The superuser's connection string to the database.</summary>
@@ -41,27 +45,74 @@ internal sealed class RequestHost : IAsyncDisposable
     /// <summary>The in-memory directory the host's directory answers from.</summary>
     internal InMemoryApproverDirectory Directory { get; }
 
+    internal RecordingObserver Observer { get; }
+
+    internal AlertSinkRecorder Alerts { get; }
+
     internal IServiceProvider Services => host.Services;
 
-    /// <summary>Starts a host on a new migrated database, with <paramref name="configuration"/>, its directory the in-memory one or what <paramref name="wrap"/> makes of it.</summary>
-    internal static async Task<RequestHost> StartAsync(PostgresFixture postgres, IReadOnlyDictionary<string, string?>? configuration = null, Func<IApproverDirectory, IApproverDirectory>? wrap = null)
+    /// <summary>Starts a host on a new migrated database, as <see cref="StartOnAsync"/> does.</summary>
+    internal static async Task<RequestHost> StartAsync(
+        PostgresFixture postgres,
+        IReadOnlyDictionary<string, string?>? configuration = null,
+        Func<IApproverDirectory, IApproverDirectory>? wrap = null,
+        TimeProvider? clock = null,
+        bool hosted = false)
     {
         (_, string connection) = await postgres.NewMigratedDatabaseAsync();
+        return await StartOnAsync(connection, configuration, wrap, clock, hosted);
+    }
+
+    /// <summary>
+    /// Starts a host on the migrated database of <paramref name="connection"/>, with
+    /// <paramref name="configuration"/>, its directory the in-memory one or what
+    /// <paramref name="wrap"/> makes of it, on <paramref name="clock"/> where given; through
+    /// <c>AddThemisTesting</c>, so no hosted job runs, unless <paramref name="hosted"/>.
+    /// </summary>
+    internal static async Task<RequestHost> StartOnAsync(
+        string connection,
+        IReadOnlyDictionary<string, string?>? configuration = null,
+        Func<IApproverDirectory, IApproverDirectory>? wrap = null,
+        TimeProvider? clock = null,
+        bool hosted = false)
+    {
         LogCapture logs = new(everyCategory: true);
-        InMemoryApproverDirectory directory = new();
-        IApproverDirectory seam = wrap is null ? directory : wrap(directory);
+        AlertSinkRecorder alerts = new();
+        SecretVersions secret = new() { Versions = [new SecretVersion { Version = 1, Value = Encoding.UTF8.GetBytes(connection) }] };
         TestHost host = TestHost.Build(
             configuration,
             before: services =>
             {
-                services.AddSingleton<ISecretSource>(SecretSourceFake.WithConnection(connection));
-                services.AddSingleton(seam);
-                services.AddSingleton(new RecordingObserver());
-                services.AddSingleton<IApprovalObserver>(provider => provider.GetRequiredService<RecordingObserver>());
+                if (clock is not null)
+                {
+                    services.AddSingleton(clock);
+                }
+
+                services.AddSingleton<IAlertSink>(alerts);
+                if (hosted)
+                {
+                    services.AddSingleton<ISecretSource>(SecretSourceFake.WithConnection(connection));
+                    services.AddSingleton(new InMemoryApproverDirectory());
+                    services.AddSingleton<IApproverDirectory>(provider => provider.GetRequiredService<InMemoryApproverDirectory>());
+                    services.AddSingleton(new RecordingObserver());
+                    services.AddSingleton<IApprovalObserver>(provider => provider.GetRequiredService<RecordingObserver>());
+                }
+                else
+                {
+                    services.AddThemisTesting(secrets => secrets.SetSecret("connection", secret));
+                }
             },
+            after: wrap is null ? null : services => services.AddSingleton(provider => wrap(provider.GetRequiredService<InMemoryApproverDirectory>())),
             logs: logs);
         await host.StartAsync();
-        return new RequestHost(host, connection, logs, directory);
+        host.Services.GetRequiredService<IApproverDirectory>();
+        return new RequestHost(host, connection, logs, alerts);
+    }
+
+    /// <summary>Runs one run of <paramref name="job"/> through <see cref="IApprovalJobs"/>.</summary>
+    internal Task<int> RunAsync(ApprovalJob job)
+    {
+        return host.Services.GetRequiredService<IApprovalJobs>().RunAsync(job, TestContext.Current.CancellationToken).AsTask();
     }
 
     /// <summary>Runs <paramref name="call"/> on a service of a scope of its own, as a host's request would.</summary>

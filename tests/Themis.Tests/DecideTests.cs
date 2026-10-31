@@ -243,6 +243,9 @@ public sealed class DecideTests(PostgresFixture postgres) : IClassFixture<Postgr
         Assert.Equal((RequestStatus.Cancelled, (string?)null, (ReasonCode?)ReasonCode.NoApprover), (record.Status, record.ClosedBy, record.ReasonCode));
         Assert.Equal([EventKind.Requested, EventKind.Cancelled], (await host.EventsAsync(created.Value.Request)).Select(found => found.Kind));
         Assert.Equal((created.Value.Request.Value, 1), await host.UnassignableAsync(Key));
+        await host.RunAsync(ApprovalJob.Watch);
+        AlertCall raised = Assert.Single(host.Alerts.Calls);
+        Assert.Equal((true, "request-unassignable", Key), (raised.Raised, raised.Condition, raised.Scope));
         host.AssertNoLogHoldsAValueUsed();
     }
 

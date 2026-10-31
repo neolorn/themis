@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.Metrics;
+using System.Threading;
 
 namespace Themis.Operations;
 
 /// <summary>
 /// The meter <c>Themis</c> and its counters (<c>04</c> APR-OPS-005; <c>06</c> section 7), made
 /// by the host's <see cref="IMeterFactory"/> where it registers one. The gauge
-/// <c>approvals.events.pending</c> comes with the outbox it observes.
+/// <c>approvals.events.pending</c> answers the number of events not yet taken as the last
+/// <c>watch</c> run counted them, and nothing before the first.
 /// </summary>
 internal sealed class ApprovalsMetrics : IDisposable
 {
@@ -16,6 +19,8 @@ internal sealed class ApprovalsMetrics : IDisposable
 
     private readonly bool owned;
 
+    private long pending = -1;
+
     public ApprovalsMetrics(IMeterFactory? factory)
     {
         owned = factory is null;
@@ -24,6 +29,7 @@ internal sealed class ApprovalsMetrics : IDisposable
         RequestsClosed = meter.CreateCounter<long>("approvals.requests.closed", "{request}", "Each request reaching a final status");
         Decisions = meter.CreateCounter<long>("approvals.decisions", "{decision}", "Each decision recorded");
         EventsDelivered = meter.CreateCounter<long>("approvals.events.delivered", "{event}", "Each event the observer took");
+        meter.CreateObservableGauge("approvals.events.pending", Observe, "{event}", "The events not yet taken");
     }
 
     /// <summary>Tagged <c>type</c>.</summary>
@@ -38,6 +44,12 @@ internal sealed class ApprovalsMetrics : IDisposable
     /// <summary>Tagged <c>kind</c>.</summary>
     internal Counter<long> EventsDelivered { get; }
 
+    /// <summary>Sets the number of events not yet taken, as a <c>watch</c> run counted them.</summary>
+    internal void Pending(long count)
+    {
+        Interlocked.Exchange(ref pending, count);
+    }
+
     public void Dispose()
     {
         // A meter the host's factory made is the factory's to dispose.
@@ -45,5 +57,11 @@ internal sealed class ApprovalsMetrics : IDisposable
         {
             meter.Dispose();
         }
+    }
+
+    private IEnumerable<Measurement<long>> Observe()
+    {
+        long count = Interlocked.Read(ref pending);
+        return count < 0 ? [] : [new Measurement<long>(count)];
     }
 }
