@@ -42,6 +42,40 @@ internal static class CanonicalForm
         return SHA256.HashData(form);
     }
 
+    /// <summary>Writes a request's snapshot in the same form, its fields in the ordinal order of their names, as the request table keeps it.</summary>
+    internal static string WriteSnapshot(IReadOnlyDictionary<string, FieldValue> snapshot)
+    {
+        SortedDictionary<string, FieldValue> ordered = new(StringComparer.Ordinal);
+        foreach (KeyValuePair<string, FieldValue> field in snapshot)
+        {
+            ordered.Add(field.Key, field.Value);
+        }
+
+        return JsonSerializer.Serialize(new Dictionary<string, FieldValue>(ordered, StringComparer.Ordinal), Snapshot);
+    }
+
+    /// <summary>Reads a snapshot <see cref="WriteSnapshot"/> wrote.</summary>
+    internal static Dictionary<string, FieldValue> ReadSnapshot(string snapshot)
+    {
+        return JsonSerializer.Deserialize(snapshot, Snapshot) ?? throw new JsonException("A snapshot holds no fields.");
+    }
+
+    /// <summary>Writes an approver reference in the same form, as an assignment keeps the reference that named its person.</summary>
+    internal static string WriteApprover(ApproverReference approver)
+    {
+        return JsonSerializer.Serialize(approver, Approver);
+    }
+
+    /// <summary>Reads an approver reference <see cref="WriteApprover"/> wrote.</summary>
+    internal static ApproverReference ReadApprover(string approver)
+    {
+        return JsonSerializer.Deserialize(approver, Approver) ?? throw new JsonException("An approver holds no reference.");
+    }
+
+    private static JsonTypeInfo<Dictionary<string, FieldValue>> Snapshot => (JsonTypeInfo<Dictionary<string, FieldValue>>)Options.GetTypeInfo(typeof(Dictionary<string, FieldValue>));
+
+    private static JsonTypeInfo<ApproverReference> Approver => (JsonTypeInfo<ApproverReference>)Options.GetTypeInfo(typeof(ApproverReference));
+
     private static JsonTypeInfo<ApprovalTypeDefinition> Definition => (JsonTypeInfo<ApprovalTypeDefinition>)Options.GetTypeInfo(typeof(ApprovalTypeDefinition));
 
     private static JsonSerializerOptions MakeOptions()
