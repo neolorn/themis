@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -24,13 +25,14 @@ internal sealed partial class ApprovalsStartup(
     ApprovalsConfiguration configuration,
     IOptions<ApprovalsOptions> options,
     ApprovalsReady ready,
+    IServiceProvider services,
     ILogger<ApprovalsStartup> logger) : IHostedLifecycleService
 {
-    public Task StartingAsync(CancellationToken cancellationToken)
+    public async Task StartingAsync(CancellationToken cancellationToken)
     {
         try
         {
-            Check();
+            await CheckAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (ApprovalsStartupException failure)
         {
@@ -40,7 +42,6 @@ internal sealed partial class ApprovalsStartup(
 
         ready.Mark();
         Started();
-        return Task.CompletedTask;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -73,7 +74,7 @@ internal sealed partial class ApprovalsStartup(
         return new ApprovalsStartupException(code, new Dictionary<string, string>(StringComparer.Ordinal) { [detail] = value });
     }
 
-    private void Check()
+    private Task CheckAsync(CancellationToken cancellationToken)
     {
         IConfigurationSection section = configuration.Section;
         if (ConfigurationRules.Invalid(path => section[path]) is { } key)
@@ -82,7 +83,14 @@ internal sealed partial class ApprovalsStartup(
         }
 
         // Read once, here, so every key takes effect at the start (04 APR-OPS-001).
-        _ = options.Value;
+        ApprovalsOptions current = options.Value;
+        if (SeamCheck.Missing(services.GetRequiredService<IServiceProviderIsService>(), current) is { } seam)
+        {
+            throw Failure(Codes.SeamMissing, "key", seam);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.CompletedTask;
     }
 
     private static string Describe(IReadOnlyDictionary<string, string> details)

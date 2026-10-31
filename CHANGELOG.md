@@ -11,3 +11,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The startup exception, the seams a host supplies and the values they carry
 - `AddThemis`, which registers the library and checks its configuration when the host starts
+- The start's refusal of a host missing a required seam

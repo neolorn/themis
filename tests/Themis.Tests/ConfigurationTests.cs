@@ -136,14 +136,14 @@ public sealed class ConfigurationTests
     [Fact]
     public async Task APR_OPS_001_AC2_KeyChangedWhileTheApplicationRunsTakesEffectOnlyAfterARestart()
     {
-        await using TestHost running = TestHost.Build(new Dictionary<string, string?> { ["Themis:Timeout"] = "00:00:07" });
+        await using TestHost running = TestHost.Build(new Dictionary<string, string?> { ["Themis:Timeout"] = "00:00:07" }, before: TestHost.Seams(new SecretSourceFake()));
         await running.StartAsync();
 
         running.Configuration["Themis:Timeout"] = "00:00:09";
         running.Configuration.Reload();
 
         Assert.Equal(TimeSpan.FromSeconds(7), running.Services.GetRequiredService<IOptions<ApprovalsOptions>>().Value.Timeout);
-        await using TestHost restarted = TestHost.Build(running.Configuration);
+        await using TestHost restarted = TestHost.Build(running.Configuration, before: TestHost.Seams(new SecretSourceFake()));
         await restarted.StartAsync();
         Assert.Equal(TimeSpan.FromSeconds(9), restarted.Services.GetRequiredService<IOptions<ApprovalsOptions>>().Value.Timeout);
     }
@@ -151,7 +151,7 @@ public sealed class ConfigurationTests
     [Fact]
     public async Task Start_KeyGiven_BindsItsValue()
     {
-        await using TestHost host = TestHost.Build(new Dictionary<string, string?> { ["Themis:Jobs:Interval"] = "00:00:40" });
+        await using TestHost host = TestHost.Build(new Dictionary<string, string?> { ["Themis:Jobs:Interval"] = "00:00:40" }, before: TestHost.Seams(new SecretSourceFake()));
 
         await host.StartAsync();
 
