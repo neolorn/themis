@@ -125,12 +125,17 @@ internal static partial class LayoutRules
             string code = CSharpSource.Read(File.ReadAllText(file)).Code;
             string where = Path.GetRelativePath(root, file).Replace('\\', '/');
 
+            // The sample host's entry point is a file of top-level statements, to which C# gives
+            // no namespace, and whose generated Program class its tests start the host by.
+            bool entryPoint = project.RelativePath.StartsWith("samples/", StringComparison.Ordinal)
+                && !project.Name.EndsWith(".Tests", StringComparison.Ordinal)
+                && string.Equals(relative, "Program.cs", StringComparison.Ordinal);
             Match declared = NamespacePattern().Match(code);
-            if (!declared.Success)
+            if (!declared.Success && !entryPoint)
             {
                 yield return $"{where} declares no namespace.";
             }
-            else if (!string.Equals(declared.Groups["name"].Value, expected, StringComparison.Ordinal))
+            else if (declared.Success && !string.Equals(declared.Groups["name"].Value, expected, StringComparison.Ordinal))
             {
                 yield return $"{where} declares the namespace {declared.Groups["name"].Value}, not {expected}.";
             }
@@ -281,6 +286,60 @@ internal static partial class LayoutRules
         {
             yield return $"nuget.config holds the section {section.Name.LocalName}, which APR-ENG-001 does not give it.";
         }
+    }
+
+    /// <summary>
+    /// Answers each part of <c>samples/nuget.config</c> outside APR-ENG-001: the sources
+    /// cleared, nuget.org and <c>../artifacts/packages/</c> the two sources, the library's own
+    /// package identifiers mapped to the second alone and every other identifier to nuget.org
+    /// alone.
+    /// </summary>
+    internal static IEnumerable<string> SamplePackageSourceViolations(string root)
+    {
+        const string Config = "samples/nuget.config";
+        string path = Path.Combine(root, "samples", "nuget.config");
+        if (!File.Exists(path))
+        {
+            yield return $"{Config} is missing.";
+            yield break;
+        }
+
+        XElement configuration = XDocument.Load(path).Root!;
+        List<XElement> entries = [.. configuration.Element("packageSources")?.Elements() ?? []];
+        if (entries.Count == 0 || entries[0].Name.LocalName is not "clear")
+        {
+            yield return $"{Config} does not clear the package sources first.";
+        }
+
+        List<XElement> added = [.. entries.SkipWhile(entry => entry.Name.LocalName is "clear")];
+        string? nugetOrg = Source(added, NuGetOrg);
+        string? artifacts = Source(added, "../artifacts/packages/");
+        if (added.Count != 2 || nugetOrg is null || artifacts is null || added.Any(entry => entry.Name.LocalName is not "add"))
+        {
+            yield return $"{Config} does not add nuget.org, {NuGetOrg}, and ../artifacts/packages/ as its two sources.";
+        }
+
+        Dictionary<string, string[]> mapped = (configuration.Element("packageSourceMapping")?.Elements() ?? [])
+            .GroupBy(source => source.Attribute("key")?.Value ?? string.Empty, StringComparer.Ordinal)
+            .ToDictionary(source => source.Key, source => source.SelectMany(found => found.Elements()).Select(package => package.Attribute("pattern")?.Value ?? string.Empty).ToArray(), StringComparer.Ordinal);
+        bool mappedWithinTheRule = mapped.Count == 2 && nugetOrg is not null && artifacts is not null
+            && mapped.TryGetValue(nugetOrg, out string[]? everyOther) && everyOther is ["*"]
+            && mapped.TryGetValue(artifacts, out string[]? own) && own.Length == Packages.All.Count && own.ToHashSet(StringComparer.Ordinal).SetEquals(Packages.All);
+        if (!mappedWithinTheRule)
+        {
+            yield return $"{Config} does not map the library's own packages to ../artifacts/packages/ alone and every other identifier, \"*\", to nuget.org alone.";
+        }
+
+        foreach (XElement section in configuration.Elements().Where(section => section.Name.LocalName is not ("packageSources" or "packageSourceMapping")))
+        {
+            yield return $"{Config} holds the section {section.Name.LocalName}, which APR-ENG-001 does not give it.";
+        }
+    }
+
+    /// <summary>The key of the source of <paramref name="added"/> whose address is <paramref name="address"/>, a folder's with or without its final slash.</summary>
+    private static string? Source(IEnumerable<XElement> added, string address)
+    {
+        return added.FirstOrDefault(entry => string.Equals(entry.Attribute("value")?.Value.TrimEnd('/'), address.TrimEnd('/'), StringComparison.Ordinal))?.Attribute("key")?.Value;
     }
 
     /// <summary>Answers whether the root <c>.gitignore</c> lists <c>artifacts/packages/</c>, where the gate packs the packages.</summary>

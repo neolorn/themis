@@ -102,20 +102,29 @@ internal static class PackageRules
         {
             // A reference made outside the project file reaches its lockfile's direct entries.
             IEnumerable<string> direct = project.PackageReferences.Select(ProjectFile.Include).Union(project.LockedDirectPackages, StringComparer.Ordinal);
-            foreach (string package in direct.Where(package => !Allowed.Contains(package, StringComparer.Ordinal)))
+            foreach (string package in direct.Where(package => !IsAllowed(package)))
             {
                 violations.Add($"{project.RelativePath} references {package}, which is not in APR-ENG-009's table.");
             }
         }
 
         Dictionary<string, string> versions = PackageVersions(root);
-        foreach (string package in versions.Keys.Where(package => !Allowed.Contains(package, StringComparer.Ordinal)))
+        foreach (string package in versions.Keys.Where(package => !IsAllowed(package)))
         {
             violations.Add($"Directory.Packages.props names {package}, which is not in APR-ENG-009's table.");
         }
 
         violations.AddRange(ToolViolations(root, versions));
         return violations;
+    }
+
+    /// <summary>
+    /// A package of APR-ENG-009's table, or one of the library's own, which are no third-party
+    /// packages; which project may take which is <c>03</c> APR-LIB-001's table.
+    /// </summary>
+    private static bool IsAllowed(string package)
+    {
+        return Allowed.Contains(package, StringComparer.Ordinal) || Packages.All.Contains(package, StringComparer.Ordinal);
     }
 
     /// <summary>Answers each mocking package a project of the repository at <paramref name="root"/> takes, directly or through another.</summary>

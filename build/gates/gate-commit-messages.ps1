@@ -9,9 +9,16 @@
     line of at most 72 characters; a body, if any, of dash fragments of at most 72 characters;
     and a footer, if any, of "Implements:" and "BREAKING CHANGE:" lines alone. A commit of type
     feat, fix or perf, or marked as breaking, adds its line under the changelog's Unreleased
-    section, under "Added" while no release is tagged. No commit changes or deletes an existing
-    PublicAPI.Shipped.txt or build/gates/release-baseline.json, and moving one deletes it;
-    adding one is no change.
+    section, under "Added" while no release, final or release candidate, is tagged. No commit
+    changes or deletes an existing PublicAPI.Shipped.txt or build/gates/release-baseline.json,
+    and moving one deletes it; adding one is no change. The release commit, "chore: release V" with V X.Y.Z or X.Y.Z-rc.N,
+    is the exception: it changes no file but each PublicAPI.Shipped.txt, to its parent's entries
+    and those of the PublicAPI.Unshipped.txt beside it less those marked *REMOVED*, each
+    PublicAPI.Unshipped.txt, to "#nullable enable" alone, the release baseline, CHANGELOG.md,
+    whose Unreleased entries move under "## [V] - YYYY-MM-DD" (the commit's date in UTC) below
+    an empty Unreleased, and RELEASE-NOTES.md, which gains the section "## V"; only docs:
+    commits changing nothing outside docs/ follow it, and a first line naming any other
+    release fails.
 .PARAMETER Repository
     The repository to check; by default, this one.
 .PARAMETER Base
@@ -34,7 +41,9 @@ $scopes = 'core|engine|testing|cli|sample'
 $headerPattern = "^(?<type>$types)(\((?<scope>$scopes)\))?(?<breaking>!)?: (?<description>\S(.*\S)?)$"
 $footerPattern = '^(Implements: APR-[A-Z]+-\d{3}(, APR-[A-Z]+-\d{3})*|BREAKING CHANGE: \S.*)$'
 $sectionTypes = 'Added|Changed|Deprecated|Removed|Fixed|Security'
-$releaseTagPattern = '^v\d+\.\d+\.\d+$'
+# A release is a final release X.Y.Z or a release candidate X.Y.Z-rc.N, N from 1 (T-020).
+$versionPattern = '(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-rc\.[1-9]\d*)?'
+$releaseTagPattern = "^v$versionPattern$"
 $platformCommitter = 'noreply@github.com'
 $emptyTree = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
@@ -138,9 +147,9 @@ function Test-ReleasedFile([string] $path) {
     $path -ceq 'build/gates/release-baseline.json' -or ($path -split '/')[-1] -ceq 'PublicAPI.Shipped.txt'
 }
 
-# PublicAPI.Shipped.txt and the release baseline change only in a release commit, whose
-# exemption comes with the release step (plan, phase 5). With renames off, a move is the
-# deletion of the file it moves.
+# PublicAPI.Shipped.txt and the release baseline change only in a release commit, which
+# Get-ReleaseCommitProblems checks instead. With renames off, a move is the deletion of the
+# file it moves.
 function Get-ReleasedFileProblems([string] $commit, [string] $parent) {
     $changes = @(Invoke-Git diff --name-status --no-renames $parent $commit)
     foreach ($change in $changes) {
@@ -152,10 +161,79 @@ function Get-ReleasedFileProblems([string] $commit, [string] $parent) {
     }
 }
 
+# The release commit of 05 APR-ENG-011: "chore: release V", and nothing else that names a release.
+$releaseHeaderPattern = "^chore: release (?<version>$versionPattern)$"
+$releaseClaimPattern = "^(?<type>$types)(\([^)]*\))?!?: release v?\d"
+$releaseOutsideTheRule = 'the first line names a release outside "chore: release V", V being X.Y.Z or X.Y.Z-rc.N with N from 1'
+
+# The lines of the file at path in commit, the blank lines at its end left out, or none where it does not hold the file.
+function Get-FileLines([string] $commit, [string] $path) {
+    & git -C $Repository cat-file -e "${commit}:$path" 2>$null
+    if ($LASTEXITCODE -ne 0) { return $null }
+    $lines = @((Invoke-Git show "${commit}:$path") | ForEach-Object { $_.TrimEnd("`r") })
+    while ($lines.Count -gt 0 -and $lines[-1] -eq '') { $lines = @($lines | Select-Object -SkipLast 1) }
+    , [string[]] $lines
+}
+
+function Test-SameLines([string[]] $actual, [string[]] $expected) {
+    $null -ne $actual -and $actual.Count -eq $expected.Count -and @(for ($index = 0; $index -lt $expected.Count; $index++) { if ($actual[$index] -cne $expected[$index]) { $index } }).Count -eq 0
+}
+
+function Test-ReleaseCommitFile([string] $path) {
+    $path -cin 'CHANGELOG.md', 'RELEASE-NOTES.md', 'build/gates/release-baseline.json' -or ($path -split '/')[-1] -cin 'PublicAPI.Shipped.txt', 'PublicAPI.Unshipped.txt'
+}
+
+# A release commit changes no file but its own, each as its value gives. The release baseline's
+# content is the release's own set, which the release gate reads and checks (03 APR-LIB-006).
+function Get-ReleaseCommitProblems([string] $commit, [string] $parent, [string] $version) {
+    foreach ($change in @(Invoke-Git diff --name-only --no-renames $parent $commit)) {
+        if (-not (Test-ReleaseCommitFile $change)) { "it changes $change, which a release commit does not change" }
+    }
+
+    $listed = @(Invoke-Git ls-tree -r --name-only $parent) + @(Invoke-Git ls-tree -r --name-only $commit)
+    $folders = @($listed | Where-Object { ($_ -split '/')[-1] -cin 'PublicAPI.Shipped.txt', 'PublicAPI.Unshipped.txt' } | ForEach-Object { $_.Substring(0, $_.LastIndexOf('/') + 1) } | Sort-Object -Unique -CaseSensitive)
+    foreach ($folder in $folders) {
+        $before = @((Get-FileLines $parent "${folder}PublicAPI.Shipped.txt") | Where-Object { $_ -and $_ -cne '#nullable enable' })
+        $unshipped = @((Get-FileLines $parent "${folder}PublicAPI.Unshipped.txt") | Where-Object { $_ -and $_ -cne '#nullable enable' })
+        $removed = @($unshipped | Where-Object { $_.StartsWith('*REMOVED*', [StringComparison]::Ordinal) } | ForEach-Object { $_.Substring('*REMOVED*'.Length) })
+        $entries = [System.Collections.Generic.SortedSet[string]]::new([StringComparer]::Ordinal)
+        foreach ($entry in @($before) + @($unshipped | Where-Object { -not $_.StartsWith('*REMOVED*', [StringComparison]::Ordinal) })) { [void] $entries.Add($entry) }
+        foreach ($entry in $removed) { [void] $entries.Remove($entry) }
+
+        if (-not (Test-SameLines (Get-FileLines $commit "${folder}PublicAPI.Shipped.txt") (@('#nullable enable') + @($entries)))) {
+            "${folder}PublicAPI.Shipped.txt is not its parent's entries and those of PublicAPI.Unshipped.txt beside it, less those it marks *REMOVED*, in ordinal order after #nullable enable"
+        }
+        if (-not (Test-SameLines (Get-FileLines $commit "${folder}PublicAPI.Unshipped.txt") @('#nullable enable'))) {
+            "${folder}PublicAPI.Unshipped.txt holds more than #nullable enable"
+        }
+    }
+
+    $date = ([DateTimeOffset]::Parse((Invoke-Git log -1 --format=%aI $commit), [Globalization.CultureInfo]::InvariantCulture)).UtcDateTime.ToString('yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture)
+    $heading = "## [$version] - $date"
+    $changelog = Get-FileLines $parent 'CHANGELOG.md'
+    $unreleased = if ($null -eq $changelog) { -1 } else { [Array]::IndexOf($changelog, '## [Unreleased]') }
+    $expected = if ($unreleased -lt 0) { $null } else { @($changelog[0..$unreleased]) + @('', $heading) + @($changelog | Select-Object -Skip ($unreleased + 1)) }
+    if ($null -eq $expected -or -not (Test-SameLines (Get-FileLines $commit 'CHANGELOG.md') $expected)) {
+        "CHANGELOG.md does not move the Unreleased entries under ""$heading"" below an empty ""## [Unreleased]"""
+    }
+
+    if (@((Get-FileLines $commit 'RELEASE-NOTES.md') | Where-Object { $_ -ceq "## $version" }).Count -ne 1) {
+        "RELEASE-NOTES.md has no section headed ""## $version"""
+    }
+}
+
+# In its pull request, only docs: commits that change nothing outside docs/ follow a release
+# commit, so the tag on it carries everything the pull request built.
+function Test-DocsOnly([string] $commit, [string] $parent, [string] $message) {
+    $match = [regex]::Match(($message -split "`n")[0], $headerPattern)
+    $match.Success -and $match.Groups['type'].Value -ceq 'docs' -and @(Invoke-Git diff --name-only --no-renames $parent $commit | Where-Object { -not $_.StartsWith('docs/', [StringComparison]::Ordinal) }).Count -eq 0
+}
+
 $range = if ($Base) { "$Base..$Head" } else { $Head }
 $commits = @(Invoke-Git rev-list --reverse $range)
 $failures = 0
 $checked = 0
+$released = $null
 
 foreach ($commit in $commits) {
     $fields = (Invoke-Git log -1 --format='%P%x09%ce' $commit) -split "`t"
@@ -171,9 +249,22 @@ foreach ($commit in $commits) {
     }
 
     $parent = if ($parents.Count -gt 0) { $parents[0] } else { $emptyTree }
-    $problems += @(Get-ReleasedFileProblems $commit $parent)
-
     $subject = ($message -split "`n")[0]
+    $release = [regex]::Match($subject, $releaseHeaderPattern)
+    if ($null -ne $released -and -not (Test-DocsOnly $commit $parent $message)) {
+        $problems += "it follows the release commit of $released and is not a docs: commit changing only docs/"
+    }
+
+    if ($release.Success) {
+        $released = $release.Groups['version'].Value
+        $problems += @(Get-ReleaseCommitProblems $commit $parent $released)
+        $problems += @(Get-ReleasedFileProblems $commit $parent | Where-Object { $_ -clike 'it deletes *' })
+    }
+    else {
+        if ($subject -cmatch $releaseClaimPattern) { $problems += $releaseOutsideTheRule }
+        $problems += @(Get-ReleasedFileProblems $commit $parent)
+    }
+
     foreach ($problem in $problems) {
         Write-Host "$($commit.Substring(0, 12)) ""$subject"": $problem."
         $failures++

@@ -139,4 +139,12 @@ public sealed class PackageAllowListTests
             "tests/Themis.Core.Tests/Themis.Core.Tests.csproj takes the mocking package NSubstitute.",
             PackageRules.MockingViolations(fixture.Root));
     }
+    [Fact]
+    public void APR_ENG_009_AC1_LibrarysOwnPackagesTheSampleHostTakesAreNoThirdPartyPackages()
+    {
+        using RepositoryFixture fixture = new();
+        fixture.Write("Directory.Packages.props", """<Project><ItemGroup><PackageVersion Include="Themis" Version="$(ThemisVersion)" /><PackageVersion Include="Themis.Testing" Version="$(ThemisVersion)" /></ItemGroup></Project>""");
+
+        Assert.Empty(PackageRules.AllowListViolations(fixture.Root));
+    }
 }

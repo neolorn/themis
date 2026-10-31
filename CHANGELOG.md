@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] - 2026-10-31
+
 ### Added
 
 - The startup exception, the seams a host supplies and the values they carry
@@ -42,3 +44,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `deadlines` job's actions: a step past its deadline escalated, rejected or cancelled once, its request taken `FOR UPDATE SKIP LOCKED`
 - The fallback an escalation assigns in place of anyone completing its step at its first approval
 - The alert `job-stalled`, and the health check turning unhealthy while a job is stalled whatever `Themis:Observer:Enabled` says
+- A sample host, an observatory approving telescope time and instrument loans, built from the packed packages and tested through `Themis.Testing`

@@ -131,13 +131,15 @@ public sealed class CommitMessageGateTests
         Assert.Contains("adds no line under the changelog's Unreleased section", gate.Output, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task APR_ENG_011_AC1_ChangelogLineUnderChangedPassesOnceAReleaseIsTagged()
+    [Theory]
+    [InlineData("v1.0.0")]
+    [InlineData("v1.0.0-rc.1")]
+    public async Task APR_ENG_011_AC1_ChangelogLineUnderChangedPassesOnceAReleaseIsTagged(string tag)
     {
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         using ScratchFolder folder = new();
         (GitRepository repository, string start) = await CreateAsync(folder, cancellationToken);
-        await repository.GitAsync(cancellationToken, "tag", "v1.0.0", start);
+        await repository.GitAsync(cancellationToken, "tag", tag, start);
         repository.Write("CHANGELOG.md", Changelog.Replace("### Added", "### Changed", StringComparison.Ordinal) + "- A request records its time zone.\n");
         await repository.CommitAsync("feat(engine): record the request's time zone", cancellationToken);
 
@@ -147,7 +149,7 @@ public sealed class CommitMessageGateTests
     }
 
     [Theory]
-    [InlineData("v1.0.0-rc.1")]
+    [InlineData("v1.0.0-rc.0")]
     [InlineData("v1.0")]
     [InlineData("version-1.0.0")]
     public async Task APR_ENG_011_AC1_ChangelogLineUnderChangedFailsAfterATagThatIsNoRelease(string tag)
@@ -273,14 +275,77 @@ public sealed class CommitMessageGateTests
         (GitRepository repository, string start) = await CreateAsync(folder, cancellationToken);
         await repository.GitAsync(cancellationToken, "tag", "v1.0.0", start);
         string second = await repository.CommitAsync("build: add the shared build settings", cancellationToken);
-        await repository.GitAsync(cancellationToken, "tag", "v1.1.0-rc.1", second);
-        await repository.GitAsync(cancellationToken, "tag", "v9", second);
+        foreach (string tag in (string[])["v9", "v1.1", "v1.1.0-rc.0", "v1.1.0-rc.01", "v1.1.0-beta.1", "v01.1.0", "1.1.0", "v1.1.0-rc.1-x"])
+        {
+            await repository.GitAsync(cancellationToken, "tag", tag, second);
+        }
+
         string head = await repository.CommitAsync("docs: add the release notes", cancellationToken);
 
-        ProcessResult previous = await Processes.GateAsync("previous-release-tag.ps1", repository.Root, cancellationToken, "-Repository", repository.Root, "-Head", head);
+        ProcessResult previous = await PreviousAsync(repository, head, cancellationToken);
 
         Assert.True(previous.ExitCode == 0, previous.Output);
         Assert.Equal("v1.0.0", previous.Output.Trim());
+    }
+
+    [Theory]
+    [InlineData("v1.0.0-rc.9", "v1.0.0-rc.10", "v1.0.0-rc.10")]
+    [InlineData("v1.0.0-rc.10", "v1.0.0-rc.9", "v1.0.0-rc.10")]
+    [InlineData("v1.0.0-rc.2", "v1.0.0", "v1.0.0")]
+    [InlineData("v1.0.0", "v1.0.0-rc.2", "v1.0.0")]
+    [InlineData("v1.0.0", "v1.1.0-rc.1", "v1.1.0-rc.1")]
+    [InlineData("v1.9.0", "v1.10.0-rc.1", "v1.10.0-rc.1")]
+    [InlineData("v2.0.0-rc.1", "v1.10.0", "v2.0.0-rc.1")]
+    public async Task PreviousReleaseTag_ReleasesAndReleaseCandidates_AnswersTheHighestBySemanticVersioningPrecedence(string first, string second, string highest)
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        using ScratchFolder folder = new();
+        (GitRepository repository, string start) = await CreateAsync(folder, cancellationToken);
+        await repository.GitAsync(cancellationToken, "tag", first, start);
+        string next = await repository.CommitAsync("build: add the shared build settings", cancellationToken);
+        await repository.GitAsync(cancellationToken, "tag", second, next);
+        string head = await repository.CommitAsync("docs: add the release notes", cancellationToken);
+
+        ProcessResult previous = await PreviousAsync(repository, head, cancellationToken);
+
+        Assert.True(previous.ExitCode == 0, previous.Output);
+        Assert.Equal(highest, previous.Output.Trim());
+    }
+
+    [Theory]
+    [InlineData("v1.0.0", "v1.1.0-rc.1", "v1.0.0")]
+    [InlineData("v1.0.0-rc.3", "v1.0.0-rc.4", "")]
+    [InlineData("v1.1.0", "v2.0.0-rc.1", "v1.1.0")]
+    public async Task PreviousReleaseTag_Final_AnswersTheHighestFinalReleaseAlone(string first, string second, string highest)
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        using ScratchFolder folder = new();
+        (GitRepository repository, string start) = await CreateAsync(folder, cancellationToken);
+        await repository.GitAsync(cancellationToken, "tag", first, start);
+        string next = await repository.CommitAsync("build: add the shared build settings", cancellationToken);
+        await repository.GitAsync(cancellationToken, "tag", second, next);
+        string head = await repository.CommitAsync("docs: add the release notes", cancellationToken);
+
+        ProcessResult previous = await PreviousAsync(repository, head, cancellationToken, "-Final");
+
+        Assert.True(previous.ExitCode == 0, previous.Output);
+        Assert.Equal(highest, previous.Output.Trim());
+    }
+
+    [Fact]
+    public async Task PreviousReleaseTag_TagOnHeadItself_IsLeftOut()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        using ScratchFolder folder = new();
+        (GitRepository repository, string start) = await CreateAsync(folder, cancellationToken);
+        await repository.GitAsync(cancellationToken, "tag", "v1.0.0-rc.1", start);
+        string head = await repository.CommitAsync("chore: release 1.0.0-rc.2", cancellationToken);
+        await repository.GitAsync(cancellationToken, "tag", "v1.0.0-rc.2", head);
+
+        ProcessResult previous = await PreviousAsync(repository, head, cancellationToken);
+
+        Assert.True(previous.ExitCode == 0, previous.Output);
+        Assert.Equal("v1.0.0-rc.1", previous.Output.Trim());
     }
 
     [Fact]
@@ -291,7 +356,7 @@ public sealed class CommitMessageGateTests
         (GitRepository repository, _) = await CreateAsync(folder, cancellationToken);
         string head = await repository.CommitAsync("docs: add the release notes", cancellationToken);
 
-        ProcessResult previous = await Processes.GateAsync("previous-release-tag.ps1", repository.Root, cancellationToken, "-Repository", repository.Root, "-Head", head);
+        ProcessResult previous = await PreviousAsync(repository, head, cancellationToken);
 
         Assert.True(previous.ExitCode == 0, previous.Output);
         Assert.Equal(string.Empty, previous.Output.Trim());
@@ -319,5 +384,10 @@ public sealed class CommitMessageGateTests
     private static Task<ProcessResult> RunAsync(GitRepository repository, string start, CancellationToken cancellationToken)
     {
         return Processes.GateAsync("gate-commit-messages.ps1", repository.Root, cancellationToken, "-Repository", repository.Root, "-Base", start, "-Head", "HEAD");
+    }
+
+    private static Task<ProcessResult> PreviousAsync(GitRepository repository, string head, CancellationToken cancellationToken, params string[] arguments)
+    {
+        return Processes.GateAsync("previous-release-tag.ps1", repository.Root, cancellationToken, ["-Repository", repository.Root, "-Head", head, .. arguments]);
     }
 }

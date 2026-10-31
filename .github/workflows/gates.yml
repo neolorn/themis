@@ -7,6 +7,7 @@ on:
       - main
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
 
 permissions:
   contents: read
@@ -53,3 +54,44 @@ jobs:
             $head = $env:PUSH_AFTER
           }
           ./build/gates/run-gates.ps1 -Base $base -Head $head
+
+  # The one job that can write to the repository's contents, run only for a release tag once
+  # the gates have passed on it: it packs every package at the tag's version and creates the
+  # tag's release with them attached, a release candidate's marked as a pre-release, and
+  # publishes them to no package feed (05 APR-ENG-011).
+  release:
+    needs: gates
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the whole history at the tag's commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Set up the SDK of global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Pack the packages and create the tag's release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # A release is vX.Y.Z or vX.Y.Z-rc.N, N from 1 (T-020); the tag filter above lets through
+          # some tags of other shapes, which make no release.
+          if ($env:TAG -cnotmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-rc\.[1-9]\d*)?$') {
+            throw "$env:TAG is no release tag."
+          }
+          $version = $env:TAG.Substring(1)
+          ./build/gates/pack-packages.ps1 -Version $version
+          $assets = @(Get-ChildItem -Path artifacts/packages -Filter '*.nupkg' -File | ForEach-Object FullName)
+          $arguments = @()
+          if ($env:TAG -cmatch '^v\d+\.\d+\.\d+-rc\.[1-9]\d*$') { $arguments += '--prerelease' }
+          gh release create $env:TAG --verify-tag --title $env:TAG --notes-file RELEASE-NOTES.md @arguments @assets
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed with exit code $LASTEXITCODE." }
