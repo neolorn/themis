@@ -5,14 +5,14 @@
 Each test below was written before the code it proves. The tests of `Themis.Tests` and `Themis.Core.Tests` are in those projects. `a1f347a`, the result types and the enumerations of approval types made before this run, was checked against `03` APR-LIB-002 and `06` sections 1 and 2: no defect found.
 
 **`02` APR-TYPE-001**: criteria 1 and 3; `IApprovalTypes.PublishAsync`, `ReadAsync` and `RetireAsync`, the tables `approvals.types` and `approvals.versions` and the migration `20261031043253_ApprovalTypes` (`internal sealed`).
-- PublishTests: APR_TYPE_001_AC1_PublishingADefinitionTwiceMakesOneVersionAndChangingOneStepsModeMakesVersion2, APR_TYPE_001_AC3_TwoPublishesOfTwoDifferentDefinitionsOfOneKeyAtOnceMakeVersions1And2; ReadAsync_NoVersionNamed_AnswersTheLatestAndAVersionNamedAnswersIt, ReadAsync_NoSuchTypeOrVersion_AnswersTypeUnknown, PublishAsync_EachPublish_IsLoggedWithTheKeyAndTheVersion
+- PublishTests: APR_TYPE_001_AC1_PublishingADefinitionTwiceMakesOneVersionAndChangingOneStepsModeMakesVersion2, APR_TYPE_001_AC3_TwoPublishesOfTwoDifferentDefinitionsOfOneKeyAtOnceMakeVersions1And2; ReadAsync_NoVersionNamed_AnswersTheLatestAndAVersionNamedAnswersIt, ReadAsync_NoSuchTypeOrVersion_AnswersTypeUnknown, PublishAsync_EachPublish_IsLoggedWithTheKeyAndTheVersion, PublishAsync_CanonicalFormOf64KiB_IsPublishedAsItsForm
 - RetireTests: RetireAsync_PublishedType_IsRetiredUntilAPublishMakesItCurrentAgain, RetireAsync_ThenAChangedDefinitionPublished_MakesTheNextVersionCurrent, RetireAsync_RetiredType_StaysRetired, RetireAsync_NoSuchType_AnswersTypeUnknownAndWritesNothing, RetireAsync_TypesLockHeld_WaitsForIt, RetireAsync_Retirement_IsLoggedWithTheKeyAndTheVersion
 - TypeSchemaTests: Versions_NumberBelowOne_IsRefusedByTheDatabase, Versions_HashOfAnotherLength_IsRefusedByTheDatabase, Versions_OfATypeNotRecorded_IsRefusedByTheDatabase, Versions_TwoOfOneNumber_AreRefusedByTheDatabase
 - StartTests: APR_OVR_002_AC2_EveryTableTheLibraryUsesLivesInItsOwnSchema, now with the two tables
 
-**`02` APR-TYPE-002**: every rule but the canonical form's size (below); `approvals.type.invalid` with `details.member`, the path of the first member outside its rule in the canonical order.
-- PublishTests: APR_TYPE_002_AC1_EachMemberOutsideTheTypesRulesRefusesThePublishNamingItAndWritesNoVersion
-- DefinitionRulesTests: Invalid_DefinitionWithinEveryRule_AnswersNone, Invalid_DefinitionOutsideARule_AnswersThePathOfTheFirstMemberOutsideIt, Invalid_DefinitionAtTheEdgeOfARule_AnswersNone, Invalid_TwoMembersOutsideTheirRules_AnswersTheFirstInTheCanonicalOrder
+**`02` APR-TYPE-002**: criterion 1; `approvals.type.invalid` with `details.member`, the path of the first member outside its rule in the canonical order, or the empty path where every member is within its rule and the canonical form is over 64 KiB (T-021).
+- PublishTests: APR_TYPE_002_AC1_EachMemberOutsideTheTypesRulesRefusesThePublishNamingItAndWritesNoVersion, the canonical form of 65,537 bytes among its cases; PublishAsync_CanonicalFormOver64KiBAndAMemberOutsideItsRule_IsRefusedNamingTheMember
+- DefinitionRulesTests: Invalid_DefinitionWithinEveryRule_AnswersNone, Invalid_DefinitionOutsideARule_AnswersThePathOfTheFirstMemberOutsideIt, Invalid_DefinitionAtTheEdgeOfARule_AnswersNone, Invalid_TwoMembersOutsideTheirRules_AnswersTheFirstInTheCanonicalOrder, Invalid_CanonicalFormOf64KiB_AnswersNoneAndTheFormAndOneByteMoreAnswersTheEmptyPath, Invalid_CanonicalFormOver64KiBAndAMemberOutsideItsRule_AnswersTheMember
 - TextRulesTests: IsName_Name_IsTrue, IsName_OutsideTheRule_IsFalse, IsName_Length_IsAtMost64, IsReference_Length_Is1To128ScalarValues, IsReference_ControlCharacterOrLoneSurrogate_IsFalse, IsText_LoneSurrogate_IsFalse, Length_Text_CountsScalarValues
 
 **`02` APR-TYPE-003** (the choice of a policy and the fallback step): no criterion.
@@ -44,7 +44,6 @@ Each test below was written before the code it proves. The tests of `Themis.Test
 
 ## Items not built
 
-- `02` APR-TYPE-002, the rule that the canonical form is at most 64 KiB: parked on the open question below. Criterion 1 is therefore not listed in `built-items.txt`; its test proves every other rule.
 - `02` APR-TYPE-001 criteria 2 and 4, a request decided under its version and a retired type refusing a new request: the requests come in phase 3, with `approvals.type.retired`.
 - `02` APR-TYPE-003 criteria 1 to 3: the choice is built and tested now under Method_Scenario names; the criteria name a request, phase 3.
 - `02` APR-TYPE-006 criterion 1: the events and the decisions, phase 3.
@@ -76,11 +75,11 @@ None added.
 
 ## Open questions
 
-- `02` APR-TYPE-002, a canonical form over 64 KiB: `approvals.type.invalid` carries `details.member`, the path of the first member outside its rule, and the size is no member's. Readings: (a) `member` is the empty path, the definition itself; (b) the failure carries no `member`; (c) `member` is a fixed name, such as `definition`. The smallest fix for each: (a) a check after the member rules answering `""`; (b) the same check answering no details, with `06` section 1 noting it; (c) the same check answering the name, which `06` section 1 would give. Tier 2; the rule parks until it is settled.
+None. The question on `02` APR-TYPE-002's size rule, which this report first raised, was settled by T-021 (the empty path), and the rule is built.
 
 ## Checks
 
-- The commit: the report's own commit, the head of `phase-02`, on `c88543f`, the branch cut from `main` at `379aa8b`.
+- The commit: the report's own commit, the head of `phase-02`, on `046b50f`, above the coordinator's `f738862` (T-021) and `9e282d5` (T-020), the branch cut from `main` at `379aa8b`.
 - Fast checks on every commit: the build of `Themis.sln` in Release with warnings as errors, the analysers, `dotnet format Themis.sln --verify-no-changes`, the unit tests and the contract tests: green.
 - Integration tests written or touched: PublishTests, RetireTests, TypeSchemaTests and StartTests, and `Themis.Cli.Tests` with `gate-migrations.ps1` for the migration: green.
-- Before the push: every unit test, the commit-message gate over `origin/main..phase-02`, the test-names gate and the full-history secret scan: green.
+- Before the push: `run-gates.ps1 -Base origin/main -Head HEAD`, every gate passed (build, commit messages, dependency allow-list, format, migrations, project references, public surface, restore, secret scan, test names, tests), and the full-history secret scan: green.
