@@ -39,6 +39,9 @@ internal static class ReferenceRules
     /// <summary>The test packages of <c>05</c> APR-ENG-009.</summary>
     internal static IReadOnlyList<string> TestPackages { get; } = ["xunit.v3", "Testcontainers.PostgreSql", "Microsoft.AspNetCore.Mvc.Testing"];
 
+    /// <summary>ASP.NET Core's shared framework, which the sample host's row alone allows.</summary>
+    internal const string AspNetCore = "Microsoft.AspNetCore.App";
+
     /// <summary>The library's own projects each package's project may reference.</summary>
     private static readonly FrozenDictionary<string, IReadOnlyList<string>> AllowedProjects = new Dictionary<string, IReadOnlyList<string>>
     {
@@ -66,13 +69,14 @@ internal static class ReferenceRules
         {
             bool shipped = project.RelativePath.StartsWith("src/", StringComparison.Ordinal);
             bool test = project.RelativePath.StartsWith("tests/", StringComparison.Ordinal);
-            if (!shipped && !test)
+            bool sample = IsSample(project);
+            if (!shipped && !test && !sample)
             {
                 continue;
             }
 
-            IReadOnlyList<string> allowedProjects = shipped ? AllowedProjects.GetValueOrDefault(project.Name, []) : AllowedTestProjects(project.Name);
-            IReadOnlyList<string> allowedPackages = shipped ? AllowedPackages.GetValueOrDefault(project.Name, []) : TestPackages;
+            IReadOnlyList<string> allowedProjects = sample ? AllowedSampleProjects(project.Name) : shipped ? AllowedProjects.GetValueOrDefault(project.Name, []) : AllowedTestProjects(project.Name);
+            IReadOnlyList<string> allowedPackages = sample ? AllowedSamplePackages(project.Name) : shipped ? AllowedPackages.GetValueOrDefault(project.Name, []) : TestPackages;
 
             foreach (string reference in project.ProjectReferences.Where(reference => !allowedProjects.Contains(reference, StringComparer.Ordinal)))
             {
@@ -111,9 +115,10 @@ internal static class ReferenceRules
                 }
             }
 
-            // No row of the table gives a project of src/ or tests/ a shared framework: no
-            // shipped project references ASP.NET Core, and the sample host is outside both.
-            foreach (string framework in project.FrameworkReferences)
+            // No row of the table gives a project of src/ or tests/ a shared framework, since no
+            // shipped project references ASP.NET Core; the sample host's row gives its two
+            // projects ASP.NET Core's alone.
+            foreach (string framework in project.FrameworkReferences.Where(framework => !sample || !string.Equals(framework, AspNetCore, StringComparison.Ordinal)))
             {
                 violations.Add($"{project.RelativePath} references the framework {framework}, which APR-LIB-001 does not allow it.");
             }
@@ -168,12 +173,24 @@ internal static class ReferenceRules
     /// Answers each grant of <c>InternalsVisibleTo</c> outside <c>05</c> APR-ENG-001's rule that
     /// the built assembly of a project of the repository at <paramref name="root"/> carries,
     /// whatever form declared it: an item, an attribute item or an attribute in a source file.
+    /// The projects of the sample host's solution, which <c>Themis.sln</c> does not build and
+    /// the rule lets grant nothing, are read from their project files and sources instead.
     /// </summary>
     internal static IReadOnlyList<string> GrantViolations(string root)
     {
         List<string> violations = [];
         foreach (ProjectFile project in ProjectFile.ReadAll(root))
         {
+            if (IsSample(project))
+            {
+                if (DeclaresGrant(project))
+                {
+                    violations.Add($"{project.RelativePath} grants its internals, which APR-ENG-001 allows no project of the sample host's solution.");
+                }
+
+                continue;
+            }
+
             string assembly = Path.Combine(project.Folder, "bin", "Release", "net10.0", project.Name + ".dll");
             if (!File.Exists(assembly))
             {
@@ -213,6 +230,31 @@ internal static class ReferenceRules
 
         string[] allowed = string.Equals(name, Packages.Engine, StringComparison.Ordinal) ? [Packages.Cli, Packages.Testing] : [];
         return allowed.Contains(grantee, StringComparer.Ordinal);
+    }
+
+    private static bool IsSample(ProjectFile project)
+    {
+        return project.RelativePath.StartsWith("samples/", StringComparison.Ordinal);
+    }
+
+    /// <summary>The sample host references no project, and its test project the sample host alone, the project it tests.</summary>
+    private static IReadOnlyList<string> AllowedSampleProjects(string name)
+    {
+        return name.EndsWith(".Tests", StringComparison.Ordinal) ? [name[..^".Tests".Length]] : [];
+    }
+
+    /// <summary>The library's packed packages, and for the sample host's test project the test packages too.</summary>
+    private static IReadOnlyList<string> AllowedSamplePackages(string name)
+    {
+        return name.EndsWith(".Tests", StringComparison.Ordinal) ? [.. Packages.All, .. TestPackages] : Packages.All;
+    }
+
+    /// <summary>Whether the project file, or a source file of the project outside its build output, declares <c>InternalsVisibleTo</c> in any form.</summary>
+    private static bool DeclaresGrant(ProjectFile project)
+    {
+        IEnumerable<string> sources = Directory.EnumerateFiles(project.Folder, "*.cs", SearchOption.AllDirectories)
+            .Where(file => Path.GetRelativePath(project.Folder, file).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0] is not ("bin" or "obj"));
+        return sources.Append(project.Path).Any(file => File.ReadAllText(file).Contains("InternalsVisibleTo", StringComparison.Ordinal));
     }
 
     private static IReadOnlyList<string> AllowedTestProjects(string testProject)

@@ -8,6 +8,10 @@ namespace Themis.Repository.Tests;
 [Trait("Category", "unit")]
 public sealed class ProjectReferenceTests
 {
+    private const string SampleHost = "samples/Observatory/Observatory.csproj";
+
+    private const string SampleTests = "samples/Observatory.Tests/Observatory.Tests.csproj";
+
     private const string BuildOnly = """
             <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
             <PackageReference Include="MinVer" PrivateAssets="all" />
@@ -223,5 +227,69 @@ public sealed class ProjectReferenceTests
         Assert.Contains(
             "Directory.Packages.props adds a GlobalPackageReference item Microsoft.EntityFrameworkCore; it adds no item but PackageVersion.",
             ReferenceRules.ReferenceViolations(fixture.Root));
+    }
+
+    [Fact]
+    public void APR_LIB_001_AC1_SampleHostAndItsTestProjectWithinTheirRowAreAccepted()
+    {
+        using RepositoryFixture fixture = new();
+        WriteSample(fixture, SampleHost, """
+                <PackageReference Include="Themis" />
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            """);
+        WriteSample(fixture, SampleTests, """
+                <PackageReference Include="Themis.Testing" />
+                <PackageReference Include="xunit.v3" />
+                <PackageReference Include="Testcontainers.PostgreSql" />
+                <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+                <ProjectReference Include="..\Observatory\Observatory.csproj" />
+            """);
+
+        Assert.Empty(ReferenceRules.ReferenceViolations(fixture.Root));
+        Assert.Empty(PackageRules.AllowListViolations(fixture.Root));
+    }
+
+    [Theory]
+    [InlineData(SampleHost, """<ProjectReference Include="..\..\src\Themis\Themis.csproj" />""", "references the project Themis")]
+    [InlineData(SampleHost, """<ProjectReference Include="..\Observatory.Tests\Observatory.Tests.csproj" />""", "references the project Observatory.Tests")]
+    [InlineData(SampleHost, """<PackageReference Include="Microsoft.EntityFrameworkCore" />""", "references the package Microsoft.EntityFrameworkCore")]
+    [InlineData(SampleHost, """<PackageReference Include="xunit.v3" />""", "references the package xunit.v3")]
+    [InlineData(SampleHost, """<FrameworkReference Include="Microsoft.WindowsDesktop.App" />""", "references the framework Microsoft.WindowsDesktop.App")]
+    [InlineData(SampleTests, """<ProjectReference Include="..\..\src\Themis.Testing\Themis.Testing.csproj" />""", "references the project Themis.Testing")]
+    [InlineData(SampleTests, """<PackageReference Include="Npgsql" />""", "references the package Npgsql")]
+    public void APR_LIB_001_AC1_SampleProjectReferenceOutsideItsRowIsFound(string project, string reference, string expected)
+    {
+        using RepositoryFixture fixture = new();
+        WriteSample(fixture, project, reference);
+
+        Assert.Contains($"{project} {expected}, which APR-LIB-001 does not allow it.", ReferenceRules.ReferenceViolations(fixture.Root));
+    }
+
+    [Theory]
+    [InlineData("""<PackageReference Include="Themis" />""", "references the package Themis")]
+    [InlineData("""<PackageReference Include="Themis.Testing" />""", "references the package Themis.Testing")]
+    public void APR_LIB_001_AC1_TestProjectTakingAPackedPackageOfTheLibraryIsFound(string reference, string expected)
+    {
+        using RepositoryFixture fixture = new();
+        fixture.WriteProject("tests/Themis.Tests/Themis.Tests.csproj", $"""
+              <ItemGroup>
+                <PackageReference Include="xunit.v3" />
+                {reference}
+              </ItemGroup>
+            """);
+
+        Assert.Contains($"tests/Themis.Tests/Themis.Tests.csproj {expected}, which APR-LIB-001 does not allow it.", ReferenceRules.ReferenceViolations(fixture.Root));
+    }
+
+    /// <summary>Writes a project of the sample host's solution, an ASP.NET Core project with no lockfile, holding <paramref name="items"/>.</summary>
+    private static void WriteSample(RepositoryFixture fixture, string project, string items)
+    {
+        fixture.Write(project, $"""
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <ItemGroup>
+            {items}
+              </ItemGroup>
+            </Project>
+            """);
     }
 }
