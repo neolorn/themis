@@ -1,1 +1,281 @@
 #nullable enable
+abstract Themis.Core.ApproverReference.<Clone>$() -> Themis.Core.ApproverReference!
+abstract Themis.Core.FieldValue.<Clone>$() -> Themis.Core.FieldValue!
+override sealed Themis.Core.ApproverReference.Permission.Equals(Themis.Core.ApproverReference? other) -> bool
+override sealed Themis.Core.ApproverReference.Person.Equals(Themis.Core.ApproverReference? other) -> bool
+override sealed Themis.Core.FieldValue.DecimalNumber.Equals(Themis.Core.FieldValue? other) -> bool
+override sealed Themis.Core.FieldValue.Flag.Equals(Themis.Core.FieldValue? other) -> bool
+override sealed Themis.Core.FieldValue.PlainText.Equals(Themis.Core.FieldValue? other) -> bool
+override sealed Themis.Core.FieldValue.WholeNumber.Equals(Themis.Core.FieldValue? other) -> bool
+override Themis.Core.ApprovalEvent.Equals(object? obj) -> bool
+override Themis.Core.ApprovalEvent.GetHashCode() -> int
+override Themis.Core.ApprovalEvent.ToString() -> string!
+override Themis.Core.ApprovalEventId.GetHashCode() -> int
+override Themis.Core.ApproverCheck.Equals(object? obj) -> bool
+override Themis.Core.ApproverCheck.GetHashCode() -> int
+override Themis.Core.ApproverCheck.ToString() -> string!
+override Themis.Core.ApproverQuery.Equals(object? obj) -> bool
+override Themis.Core.ApproverQuery.GetHashCode() -> int
+override Themis.Core.ApproverQuery.ToString() -> string!
+override Themis.Core.ApproverReference.Equals(object? obj) -> bool
+override Themis.Core.ApproverReference.GetHashCode() -> int
+override Themis.Core.ApproverReference.Permission.<Clone>$() -> Themis.Core.ApproverReference.Permission!
+override Themis.Core.ApproverReference.Permission.Equals(object? obj) -> bool
+override Themis.Core.ApproverReference.Permission.GetHashCode() -> int
+override Themis.Core.ApproverReference.Permission.ToString() -> string!
+override Themis.Core.ApproverReference.Person.<Clone>$() -> Themis.Core.ApproverReference.Person!
+override Themis.Core.ApproverReference.Person.Equals(object? obj) -> bool
+override Themis.Core.ApproverReference.Person.GetHashCode() -> int
+override Themis.Core.ApproverReference.Person.ToString() -> string!
+override Themis.Core.ApproverReference.ToString() -> string!
+override Themis.Core.DelegationId.GetHashCode() -> int
+override Themis.Core.FieldValue.DecimalNumber.<Clone>$() -> Themis.Core.FieldValue.DecimalNumber!
+override Themis.Core.FieldValue.DecimalNumber.Equals(object? obj) -> bool
+override Themis.Core.FieldValue.DecimalNumber.GetHashCode() -> int
+override Themis.Core.FieldValue.DecimalNumber.ToString() -> string!
+override Themis.Core.FieldValue.Equals(object? obj) -> bool
+override Themis.Core.FieldValue.Flag.<Clone>$() -> Themis.Core.FieldValue.Flag!
+override Themis.Core.FieldValue.Flag.Equals(object? obj) -> bool
+override Themis.Core.FieldValue.Flag.GetHashCode() -> int
+override Themis.Core.FieldValue.Flag.ToString() -> string!
+override Themis.Core.FieldValue.GetHashCode() -> int
+override Themis.Core.FieldValue.PlainText.<Clone>$() -> Themis.Core.FieldValue.PlainText!
+override Themis.Core.FieldValue.PlainText.Equals(object? obj) -> bool
+override Themis.Core.FieldValue.PlainText.GetHashCode() -> int
+override Themis.Core.FieldValue.PlainText.ToString() -> string!
+override Themis.Core.FieldValue.ToString() -> string!
+override Themis.Core.FieldValue.WholeNumber.<Clone>$() -> Themis.Core.FieldValue.WholeNumber!
+override Themis.Core.FieldValue.WholeNumber.Equals(object? obj) -> bool
+override Themis.Core.FieldValue.WholeNumber.GetHashCode() -> int
+override Themis.Core.FieldValue.WholeNumber.ToString() -> string!
+override Themis.Core.RequestId.GetHashCode() -> int
+override Themis.Core.SecretVersion.Equals(object? obj) -> bool
+override Themis.Core.SecretVersion.GetHashCode() -> int
+override Themis.Core.SecretVersion.ToString() -> string!
+override Themis.Core.SecretVersions.Equals(object? obj) -> bool
+override Themis.Core.SecretVersions.GetHashCode() -> int
+override Themis.Core.SecretVersions.ToString() -> string!
+override Themis.Core.Target.Equals(object? obj) -> bool
+override Themis.Core.Target.GetHashCode() -> int
+override Themis.Core.Target.ToString() -> string!
+static Themis.Core.ApprovalEvent.operator !=(Themis.Core.ApprovalEvent? left, Themis.Core.ApprovalEvent? right) -> bool
+static Themis.Core.ApprovalEvent.operator ==(Themis.Core.ApprovalEvent? left, Themis.Core.ApprovalEvent? right) -> bool
+static Themis.Core.ApprovalEventId.operator !=(Themis.Core.ApprovalEventId left, Themis.Core.ApprovalEventId right) -> bool
+static Themis.Core.ApprovalEventId.operator ==(Themis.Core.ApprovalEventId left, Themis.Core.ApprovalEventId right) -> bool
+static Themis.Core.ApproverCheck.operator !=(Themis.Core.ApproverCheck? left, Themis.Core.ApproverCheck? right) -> bool
+static Themis.Core.ApproverCheck.operator ==(Themis.Core.ApproverCheck? left, Themis.Core.ApproverCheck? right) -> bool
+static Themis.Core.ApproverQuery.operator !=(Themis.Core.ApproverQuery? left, Themis.Core.ApproverQuery? right) -> bool
+static Themis.Core.ApproverQuery.operator ==(Themis.Core.ApproverQuery? left, Themis.Core.ApproverQuery? right) -> bool
+static Themis.Core.ApproverReference.operator !=(Themis.Core.ApproverReference? left, Themis.Core.ApproverReference? right) -> bool
+static Themis.Core.ApproverReference.operator ==(Themis.Core.ApproverReference? left, Themis.Core.ApproverReference? right) -> bool
+static Themis.Core.ApproverReference.Permission.operator !=(Themis.Core.ApproverReference.Permission? left, Themis.Core.ApproverReference.Permission? right) -> bool
+static Themis.Core.ApproverReference.Permission.operator ==(Themis.Core.ApproverReference.Permission? left, Themis.Core.ApproverReference.Permission? right) -> bool
+static Themis.Core.ApproverReference.Person.operator !=(Themis.Core.ApproverReference.Person? left, Themis.Core.ApproverReference.Person? right) -> bool
+static Themis.Core.ApproverReference.Person.operator ==(Themis.Core.ApproverReference.Person? left, Themis.Core.ApproverReference.Person? right) -> bool
+static Themis.Core.DelegationId.operator !=(Themis.Core.DelegationId left, Themis.Core.DelegationId right) -> bool
+static Themis.Core.DelegationId.operator ==(Themis.Core.DelegationId left, Themis.Core.DelegationId right) -> bool
+static Themis.Core.FieldValue.DecimalNumber.operator !=(Themis.Core.FieldValue.DecimalNumber? left, Themis.Core.FieldValue.DecimalNumber? right) -> bool
+static Themis.Core.FieldValue.DecimalNumber.operator ==(Themis.Core.FieldValue.DecimalNumber? left, Themis.Core.FieldValue.DecimalNumber? right) -> bool
+static Themis.Core.FieldValue.Flag.operator !=(Themis.Core.FieldValue.Flag? left, Themis.Core.FieldValue.Flag? right) -> bool
+static Themis.Core.FieldValue.Flag.operator ==(Themis.Core.FieldValue.Flag? left, Themis.Core.FieldValue.Flag? right) -> bool
+static Themis.Core.FieldValue.operator !=(Themis.Core.FieldValue? left, Themis.Core.FieldValue? right) -> bool
+static Themis.Core.FieldValue.operator ==(Themis.Core.FieldValue? left, Themis.Core.FieldValue? right) -> bool
+static Themis.Core.FieldValue.PlainText.operator !=(Themis.Core.FieldValue.PlainText? left, Themis.Core.FieldValue.PlainText? right) -> bool
+static Themis.Core.FieldValue.PlainText.operator ==(Themis.Core.FieldValue.PlainText? left, Themis.Core.FieldValue.PlainText? right) -> bool
+static Themis.Core.FieldValue.WholeNumber.operator !=(Themis.Core.FieldValue.WholeNumber? left, Themis.Core.FieldValue.WholeNumber? right) -> bool
+static Themis.Core.FieldValue.WholeNumber.operator ==(Themis.Core.FieldValue.WholeNumber? left, Themis.Core.FieldValue.WholeNumber? right) -> bool
+static Themis.Core.RequestId.operator !=(Themis.Core.RequestId left, Themis.Core.RequestId right) -> bool
+static Themis.Core.RequestId.operator ==(Themis.Core.RequestId left, Themis.Core.RequestId right) -> bool
+static Themis.Core.SecretVersion.operator !=(Themis.Core.SecretVersion? left, Themis.Core.SecretVersion? right) -> bool
+static Themis.Core.SecretVersion.operator ==(Themis.Core.SecretVersion? left, Themis.Core.SecretVersion? right) -> bool
+static Themis.Core.SecretVersions.operator !=(Themis.Core.SecretVersions? left, Themis.Core.SecretVersions? right) -> bool
+static Themis.Core.SecretVersions.operator ==(Themis.Core.SecretVersions? left, Themis.Core.SecretVersions? right) -> bool
+static Themis.Core.Target.operator !=(Themis.Core.Target? left, Themis.Core.Target? right) -> bool
+static Themis.Core.Target.operator ==(Themis.Core.Target? left, Themis.Core.Target? right) -> bool
+Themis.Core.ApprovalEvent
+Themis.Core.ApprovalEvent.<Clone>$() -> Themis.Core.ApprovalEvent!
+Themis.Core.ApprovalEvent.ActingFor.get -> string?
+Themis.Core.ApprovalEvent.ActingFor.init -> void
+Themis.Core.ApprovalEvent.Actor.get -> string?
+Themis.Core.ApprovalEvent.Actor.init -> void
+Themis.Core.ApprovalEvent.ApprovalEvent() -> void
+Themis.Core.ApprovalEvent.At.get -> System.DateTimeOffset
+Themis.Core.ApprovalEvent.At.init -> void
+Themis.Core.ApprovalEvent.Delegation.get -> Themis.Core.DelegationId?
+Themis.Core.ApprovalEvent.Delegation.init -> void
+Themis.Core.ApprovalEvent.Equals(Themis.Core.ApprovalEvent? other) -> bool
+Themis.Core.ApprovalEvent.Event.get -> Themis.Core.ApprovalEventId
+Themis.Core.ApprovalEvent.Event.init -> void
+Themis.Core.ApprovalEvent.Kind.get -> Themis.Core.EventKind
+Themis.Core.ApprovalEvent.Kind.init -> void
+Themis.Core.ApprovalEvent.Notify.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Themis.Core.ApprovalEvent.Notify.init -> void
+Themis.Core.ApprovalEvent.ReasonCode.get -> Themis.Core.ReasonCode?
+Themis.Core.ApprovalEvent.ReasonCode.init -> void
+Themis.Core.ApprovalEvent.Request.get -> Themis.Core.RequestId?
+Themis.Core.ApprovalEvent.Request.init -> void
+Themis.Core.ApprovalEvent.Sequence.get -> long
+Themis.Core.ApprovalEvent.Sequence.init -> void
+Themis.Core.ApprovalEvent.Step.get -> int?
+Themis.Core.ApprovalEvent.Step.init -> void
+Themis.Core.ApprovalEvent.Target.get -> Themis.Core.Target?
+Themis.Core.ApprovalEvent.Target.init -> void
+Themis.Core.ApprovalEvent.Type.get -> string?
+Themis.Core.ApprovalEvent.Type.init -> void
+Themis.Core.ApprovalEvent.Version.get -> int?
+Themis.Core.ApprovalEvent.Version.init -> void
+Themis.Core.ApprovalEventId
+Themis.Core.ApprovalEventId.ApprovalEventId() -> void
+Themis.Core.ApprovalEventId.ApprovalEventId(System.Guid Value) -> void
+Themis.Core.ApprovalEventId.Deconstruct(out System.Guid Value) -> void
+Themis.Core.ApprovalEventId.Equals(Themis.Core.ApprovalEventId other) -> bool
+Themis.Core.ApprovalEventId.Value.get -> System.Guid
+Themis.Core.ApprovalEventId.Value.init -> void
+Themis.Core.ApprovalsStartupException
+Themis.Core.ApprovalsStartupException.ApprovalsStartupException(string! code, System.Collections.Generic.IReadOnlyDictionary<string!, string!>! details) -> void
+Themis.Core.ApprovalsStartupException.Code.get -> string!
+Themis.Core.ApprovalsStartupException.Details.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+Themis.Core.ApproverCheck
+Themis.Core.ApproverCheck.<Clone>$() -> Themis.Core.ApproverCheck!
+Themis.Core.ApproverCheck.ActingFor.get -> string?
+Themis.Core.ApproverCheck.ActingFor.init -> void
+Themis.Core.ApproverCheck.ApproverCheck() -> void
+Themis.Core.ApproverCheck.Equals(Themis.Core.ApproverCheck? other) -> bool
+Themis.Core.ApproverCheck.Person.get -> string!
+Themis.Core.ApproverCheck.Person.init -> void
+Themis.Core.ApproverCheck.Query.get -> Themis.Core.ApproverQuery!
+Themis.Core.ApproverCheck.Query.init -> void
+Themis.Core.ApproverCheck.Via.get -> Themis.Core.ApproverReference!
+Themis.Core.ApproverCheck.Via.init -> void
+Themis.Core.ApproverQuery
+Themis.Core.ApproverQuery.<Clone>$() -> Themis.Core.ApproverQuery!
+Themis.Core.ApproverQuery.ApproverQuery() -> void
+Themis.Core.ApproverQuery.Equals(Themis.Core.ApproverQuery? other) -> bool
+Themis.Core.ApproverQuery.Request.get -> Themis.Core.RequestId
+Themis.Core.ApproverQuery.Request.init -> void
+Themis.Core.ApproverQuery.Requester.get -> string!
+Themis.Core.ApproverQuery.Requester.init -> void
+Themis.Core.ApproverQuery.Snapshot.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Themis.Core.FieldValue!>!
+Themis.Core.ApproverQuery.Snapshot.init -> void
+Themis.Core.ApproverQuery.Step.get -> int?
+Themis.Core.ApproverQuery.Step.init -> void
+Themis.Core.ApproverQuery.Subject.get -> string?
+Themis.Core.ApproverQuery.Subject.init -> void
+Themis.Core.ApproverQuery.Target.get -> Themis.Core.Target!
+Themis.Core.ApproverQuery.Target.init -> void
+Themis.Core.ApproverQuery.Type.get -> string!
+Themis.Core.ApproverQuery.Type.init -> void
+Themis.Core.ApproverQuery.Version.get -> int
+Themis.Core.ApproverQuery.Version.init -> void
+Themis.Core.ApproverReference
+Themis.Core.ApproverReference.ApproverReference(Themis.Core.ApproverReference! original) -> void
+Themis.Core.ApproverReference.Permission
+Themis.Core.ApproverReference.Permission.Deconstruct(out string! Name) -> void
+Themis.Core.ApproverReference.Permission.Equals(Themis.Core.ApproverReference.Permission? other) -> bool
+Themis.Core.ApproverReference.Permission.Name.get -> string!
+Themis.Core.ApproverReference.Permission.Name.init -> void
+Themis.Core.ApproverReference.Permission.Permission(string! Name) -> void
+Themis.Core.ApproverReference.Person
+Themis.Core.ApproverReference.Person.Deconstruct(out string! Reference) -> void
+Themis.Core.ApproverReference.Person.Equals(Themis.Core.ApproverReference.Person? other) -> bool
+Themis.Core.ApproverReference.Person.Person(string! Reference) -> void
+Themis.Core.ApproverReference.Person.Reference.get -> string!
+Themis.Core.ApproverReference.Person.Reference.init -> void
+Themis.Core.DelegationId
+Themis.Core.DelegationId.Deconstruct(out System.Guid Value) -> void
+Themis.Core.DelegationId.DelegationId() -> void
+Themis.Core.DelegationId.DelegationId(System.Guid Value) -> void
+Themis.Core.DelegationId.Equals(Themis.Core.DelegationId other) -> bool
+Themis.Core.DelegationId.Value.get -> System.Guid
+Themis.Core.DelegationId.Value.init -> void
+Themis.Core.EventKind
+Themis.Core.EventKind.Approved = 3 -> Themis.Core.EventKind
+Themis.Core.EventKind.Cancelled = 5 -> Themis.Core.EventKind
+Themis.Core.EventKind.Completed = 7 -> Themis.Core.EventKind
+Themis.Core.EventKind.DelegationCreated = 8 -> Themis.Core.EventKind
+Themis.Core.EventKind.Escalated = 2 -> Themis.Core.EventKind
+Themis.Core.EventKind.Rejected = 4 -> Themis.Core.EventKind
+Themis.Core.EventKind.Requested = 0 -> Themis.Core.EventKind
+Themis.Core.EventKind.StepStarted = 1 -> Themis.Core.EventKind
+Themis.Core.EventKind.Voided = 6 -> Themis.Core.EventKind
+Themis.Core.FieldValue
+Themis.Core.FieldValue.DecimalNumber
+Themis.Core.FieldValue.DecimalNumber.DecimalNumber(decimal Value) -> void
+Themis.Core.FieldValue.DecimalNumber.Deconstruct(out decimal Value) -> void
+Themis.Core.FieldValue.DecimalNumber.Equals(Themis.Core.FieldValue.DecimalNumber? other) -> bool
+Themis.Core.FieldValue.DecimalNumber.Value.get -> decimal
+Themis.Core.FieldValue.DecimalNumber.Value.init -> void
+Themis.Core.FieldValue.FieldValue(Themis.Core.FieldValue! original) -> void
+Themis.Core.FieldValue.Flag
+Themis.Core.FieldValue.Flag.Deconstruct(out bool Value) -> void
+Themis.Core.FieldValue.Flag.Equals(Themis.Core.FieldValue.Flag? other) -> bool
+Themis.Core.FieldValue.Flag.Flag(bool Value) -> void
+Themis.Core.FieldValue.Flag.Value.get -> bool
+Themis.Core.FieldValue.Flag.Value.init -> void
+Themis.Core.FieldValue.PlainText
+Themis.Core.FieldValue.PlainText.Deconstruct(out string! Value) -> void
+Themis.Core.FieldValue.PlainText.Equals(Themis.Core.FieldValue.PlainText? other) -> bool
+Themis.Core.FieldValue.PlainText.PlainText(string! Value) -> void
+Themis.Core.FieldValue.PlainText.Value.get -> string!
+Themis.Core.FieldValue.PlainText.Value.init -> void
+Themis.Core.FieldValue.WholeNumber
+Themis.Core.FieldValue.WholeNumber.Deconstruct(out long Value) -> void
+Themis.Core.FieldValue.WholeNumber.Equals(Themis.Core.FieldValue.WholeNumber? other) -> bool
+Themis.Core.FieldValue.WholeNumber.Value.get -> long
+Themis.Core.FieldValue.WholeNumber.Value.init -> void
+Themis.Core.FieldValue.WholeNumber.WholeNumber(long Value) -> void
+Themis.Core.IAlertSink
+Themis.Core.IAlertSink.ClearAsync(string! condition, string? scope, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Themis.Core.IAlertSink.RaiseAsync(string! condition, string? scope, System.Collections.Generic.IReadOnlyDictionary<string!, string!>! details, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Themis.Core.IApprovalObserver
+Themis.Core.IApprovalObserver.ObserveAsync(Themis.Core.ApprovalEvent! approvalEvent, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Themis.Core.IApproverDirectory
+Themis.Core.IApproverDirectory.CanApproveAsync(Themis.Core.ApproverCheck! check, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Themis.Core.IApproverDirectory.ResolveAsync(string! permission, Themis.Core.ApproverQuery! query, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<string!>!>
+Themis.Core.ISecretSource
+Themis.Core.ISecretSource.ReadAsync(string! name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.SecretVersions?>
+Themis.Core.ReasonCode
+Themis.Core.ReasonCode.Deadline = 1 -> Themis.Core.ReasonCode
+Themis.Core.ReasonCode.FieldChanged = 2 -> Themis.Core.ReasonCode
+Themis.Core.ReasonCode.NoApprover = 0 -> Themis.Core.ReasonCode
+Themis.Core.RequestId
+Themis.Core.RequestId.Deconstruct(out System.Guid Value) -> void
+Themis.Core.RequestId.Equals(Themis.Core.RequestId other) -> bool
+Themis.Core.RequestId.RequestId() -> void
+Themis.Core.RequestId.RequestId(System.Guid Value) -> void
+Themis.Core.RequestId.Value.get -> System.Guid
+Themis.Core.RequestId.Value.init -> void
+Themis.Core.SecretVersion
+Themis.Core.SecretVersion.<Clone>$() -> Themis.Core.SecretVersion!
+Themis.Core.SecretVersion.Equals(Themis.Core.SecretVersion? other) -> bool
+Themis.Core.SecretVersion.SecretVersion() -> void
+Themis.Core.SecretVersion.Value.get -> System.ReadOnlyMemory<byte>
+Themis.Core.SecretVersion.Value.init -> void
+Themis.Core.SecretVersion.Version.get -> int
+Themis.Core.SecretVersion.Version.init -> void
+Themis.Core.SecretVersions
+Themis.Core.SecretVersions.<Clone>$() -> Themis.Core.SecretVersions!
+Themis.Core.SecretVersions.Equals(Themis.Core.SecretVersions? other) -> bool
+Themis.Core.SecretVersions.SecretVersions() -> void
+Themis.Core.SecretVersions.Versions.get -> System.Collections.Generic.IReadOnlyList<Themis.Core.SecretVersion!>!
+Themis.Core.SecretVersions.Versions.init -> void
+Themis.Core.Target
+Themis.Core.Target.<Clone>$() -> Themis.Core.Target!
+Themis.Core.Target.Equals(Themis.Core.Target? other) -> bool
+Themis.Core.Target.Id.get -> string!
+Themis.Core.Target.Id.init -> void
+Themis.Core.Target.Kind.get -> string!
+Themis.Core.Target.Kind.init -> void
+Themis.Core.Target.Target() -> void
+virtual Themis.Core.ApproverReference.EqualityContract.get -> System.Type!
+virtual Themis.Core.ApproverReference.Equals(Themis.Core.ApproverReference? other) -> bool
+virtual Themis.Core.ApproverReference.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual Themis.Core.FieldValue.EqualityContract.get -> System.Type!
+virtual Themis.Core.FieldValue.Equals(Themis.Core.FieldValue? other) -> bool
+virtual Themis.Core.FieldValue.PrintMembers(System.Text.StringBuilder! builder) -> bool
+~override Themis.Core.ApprovalEventId.Equals(object obj) -> bool
+~override Themis.Core.ApprovalEventId.ToString() -> string
+~override Themis.Core.DelegationId.Equals(object obj) -> bool
+~override Themis.Core.DelegationId.ToString() -> string
+~override Themis.Core.RequestId.Equals(object obj) -> bool
+~override Themis.Core.RequestId.ToString() -> string

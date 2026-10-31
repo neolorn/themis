@@ -29,8 +29,8 @@ internal static class Packages
 
     internal static IReadOnlyList<string> All { get; } = [Core, Engine, Testing, Cli];
 
-    /// <summary>The packages whose projects the repository holds from phase 0; <c>Themis.Cli</c>'s comes with phase 1 (plan).</summary>
-    internal static IReadOnlyList<string> Present { get; } = [Core, Engine, Testing];
+    /// <summary>The packages whose projects the repository holds, every package from phase 1 (plan).</summary>
+    internal static IReadOnlyList<string> Present { get; } = All;
 
     /// <summary>The folders a project may hold, by project (<c>05</c> APR-ENG-001); every other project is flat.</summary>
     internal static FrozenDictionary<string, IReadOnlyList<string>> Folders { get; } = new Dictionary<string, IReadOnlyList<string>>
