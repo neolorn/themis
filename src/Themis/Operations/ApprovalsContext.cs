@@ -6,6 +6,8 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
 
+using Themis.Types;
+
 namespace Themis.Operations;
 
 /// <summary>
@@ -22,6 +24,10 @@ internal sealed class ApprovalsContext(DbContextOptions<ApprovalsContext> option
     internal const string HistoryTable = "__migrations_history";
 
     internal DbSet<AlertState> Alerts => Set<AlertState>();
+
+    internal DbSet<TypeState> Types => Set<TypeState>();
+
+    internal DbSet<StoredVersion> Versions => Set<StoredVersion>();
 
     /// <summary>A context on its own connection to <paramref name="connection"/>, as the migrations run.</summary>
     internal static ApprovalsContext Create(string connection)
@@ -54,6 +60,30 @@ internal sealed class ApprovalsContext(DbContextOptions<ApprovalsContext> option
             alert.Property(row => row.LastOccurredAt).HasColumnName("last_occurred_at");
             alert.Property(row => row.Request).HasColumnName("request");
             alert.Property(row => row.Step).HasColumnName("step");
+        });
+
+        modelBuilder.Entity<TypeState>(type =>
+        {
+            type.ToTable("types");
+            type.HasKey(row => row.Key).HasName("pk_types");
+            type.Property(row => row.Key).HasColumnName("key");
+            type.Property(row => row.Retired).HasColumnName("retired");
+        });
+
+        modelBuilder.Entity<StoredVersion>(version =>
+        {
+            version.ToTable("versions", table =>
+            {
+                table.HasCheckConstraint("ck_versions_version", "version >= 1");
+                table.HasCheckConstraint("ck_versions_hash", "octet_length(hash) = 32");
+            });
+            version.HasKey(row => new { row.Key, row.Version }).HasName("pk_versions");
+            version.HasOne<TypeState>().WithMany().HasForeignKey(row => row.Key).HasConstraintName("fk_versions_types").OnDelete(DeleteBehavior.Restrict);
+            version.Property(row => row.Key).HasColumnName("key");
+            version.Property(row => row.Version).HasColumnName("version").ValueGeneratedNever();
+            version.Property(row => row.Definition).HasColumnName("definition").HasColumnType("text");
+            version.Property(row => row.Hash).HasColumnName("hash");
+            version.Property(row => row.PublishedAt).HasColumnName("published_at");
         });
     }
 
