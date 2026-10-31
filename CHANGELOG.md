@@ -22,3 +22,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The definitions of approval types with their policies, steps and conditions, their versions, and `IApprovalTypes`
 - The canonical form of a definition, one exact sequence of bytes whose SHA-256 is its version's hash
 - The rules a definition is checked by at publish, each naming the path of the first member outside it
+- A condition on a request's snapshot and roles, a whole number and a decimal compared as decimals
