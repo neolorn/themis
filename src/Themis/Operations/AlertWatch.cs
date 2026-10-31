@@ -12,16 +12,17 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 
 using Themis.Core;
+using Themis.Requests;
 
 namespace Themis.Operations;
 
 /// <summary>
 /// The <c>watch</c> job's run (<c>04</c> APR-OPS-006; <c>06</c> section 5): it judges
-/// <c>observer-failing</c> and each type's <c>request-unassignable</c>, raising a condition
-/// through the alert sink when it starts to hold, again each time <c>Themis:Alerts:Repeat</c>
-/// has passed since it was last raised while it holds, and clearing it once when it stops,
-/// each call bounded by <c>Themis:Timeout</c> and its state kept in the alert table. A call
-/// that fails leaves the state as it was, for the next run.
+/// <c>observer-failing</c>, each type's <c>request-unassignable</c> and each job's
+/// <c>job-stalled</c>, raising a condition through the alert sink when it starts to hold, again
+/// each time <c>Themis:Alerts:Repeat</c> has passed since it was last raised while it holds,
+/// and clearing it once when it stops, each call bounded by <c>Themis:Timeout</c> and its state
+/// kept in the alert table. A call that fails leaves the state as it was, for the next run.
 /// </summary>
 internal sealed partial class AlertWatch(ApprovalsDatabase database, ApprovalsOptions options, IAlertSink sink, ApprovalsMetrics metrics, TimeProvider clock, ILogger logger)
 {
@@ -35,11 +36,13 @@ internal sealed partial class AlertWatch(ApprovalsDatabase database, ApprovalsOp
         DateTimeOffset now = clock.GetUtcNow();
         List<AlertState> states;
         (DateTimeOffset? Oldest, long Pending) outbox;
+        List<JobRow> jobs;
         ApprovalsContext context = database.Context();
         await using (context.ConfigureAwait(false))
         {
             states = await context.Alerts.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
             outbox = await OutboxAsync(context, cancellationToken).ConfigureAwait(false);
+            jobs = await context.Jobs.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
         }
 
         metrics.Pending(outbox.Pending);
@@ -61,6 +64,18 @@ internal sealed partial class AlertWatch(ApprovalsDatabase database, ApprovalsOp
                 ["step"] = state.Step?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
             };
             handled += await JudgeAsync(RequestUnassignable, state.Scope, state, holds, details, now, cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (JobRow job in jobs.OrderBy(job => Spelling<ApprovalJob>.Write(job.Name), StringComparer.Ordinal))
+        {
+            if (!await claim.RenewAsync(cancellationToken).ConfigureAwait(false))
+            {
+                return handled;
+            }
+
+            Dictionary<string, string> last = job.LastCompletedAt is DateTimeOffset completed ? new() { ["lastCompleted"] = completed.ToString("O", CultureInfo.InvariantCulture) } : [];
+            string scope = Spelling<ApprovalJob>.Write(job.Name);
+            handled += await JudgeAsync(JobStall.Condition, scope, states.SingleOrDefault(state => state.Condition == JobStall.Condition && state.Scope == scope), JobStall.Stalled(job, options, now), last, now, cancellationToken).ConfigureAwait(false);
         }
 
         return handled;

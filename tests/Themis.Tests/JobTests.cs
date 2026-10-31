@@ -27,6 +27,9 @@ public sealed class JobTests(PostgresFixture postgres) : IClassFixture<PostgresF
 {
     private static readonly DateTimeOffset Midnight = new(2026, 10, 1, 0, 0, 0, TimeSpan.Zero);
 
+    /// <summary>The default stall threshold: <c>Themis:Jobs:StallFactor</c> 3 of <c>Themis:Jobs:Interval</c> 30 seconds, plus <c>Themis:Timeout</c> 5 seconds.</summary>
+    private static readonly TimeSpan Stall = TimeSpan.FromSeconds(95);
+
     private static readonly ApprovalTypeDefinition OneStep = Type(Step("review", ApprovalMode.AnyOne, Person(A)));
 
     [Fact]
@@ -130,6 +133,67 @@ public sealed class JobTests(PostgresFixture postgres) : IClassFixture<PostgresF
     }
 
     [Fact]
+    public async Task Watch_StartedJobWhoseCompletionAndRenewalPassTheStallThreshold_RaisesJobStalledWithItsLastCompletionAndClearsItOnceItCompletes()
+    {
+        ClockFake clock = new(Midnight);
+        await using RequestHost host = await RequestHost.StartAsync(postgres, clock: clock);
+        await host.RunAsync(ApprovalJob.Deadlines);
+
+        clock.Advance(Stall);
+        await host.RunAsync(ApprovalJob.Watch);
+        int atThreshold = Stalled(host).Length;
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await host.RunAsync(ApprovalJob.Watch);
+        AlertCall[] past = Stalled(host);
+        await host.RunAsync(ApprovalJob.Deadlines);
+        await host.RunAsync(ApprovalJob.Watch);
+        await host.RunAsync(ApprovalJob.Watch);
+
+        Assert.Equal(0, atThreshold);
+        AlertCall raised = Assert.Single(past);
+        Assert.Equal((true, (string?)"deadlines"), (raised.Raised, raised.Scope));
+        Assert.Equal([new KeyValuePair<string, string>("lastCompleted", Midnight.ToString("O", CultureInfo.InvariantCulture))], raised.Details);
+        Assert.Equal([true, false], Stalled(host).Select(call => call.Raised));
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Fact]
+    public async Task Watch_StartedJobThatNeverCompleted_RaisesJobStalledWithNoLastCompletionAndNeverJudgesAJobNoApplicationRuns()
+    {
+        ClockFake clock = new(Midnight);
+        await using RequestHost host = await RequestHost.StartAsync(postgres, clock: clock);
+        await StartedAsync(host, "observer", Midnight);
+
+        clock.Advance(Stall + TimeSpan.FromSeconds(1));
+        await host.RunAsync(ApprovalJob.Watch);
+
+        AlertCall raised = Assert.Single(Stalled(host));
+        Assert.Equal(((string?)"observer", 0), (raised.Scope, raised.Details.Count));
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Health_StalledJob_ReadsUnhealthyWhateverThemisObserverEnabledSays(bool observer)
+    {
+        ClockFake clock = new(Midnight);
+        await using RequestHost host = await RequestHost.StartAsync(postgres, new Dictionary<string, string?> { ["Themis:Observer:Enabled"] = observer ? "true" : "false" }, clock: clock);
+        HealthCheckService health = host.Services.GetRequiredService<HealthCheckService>();
+        await host.RunAsync(ApprovalJob.Deadlines);
+
+        clock.Advance(Stall);
+        HealthStatus atThreshold = (await health.CheckHealthAsync(TestContext.Current.CancellationToken)).Status;
+        clock.Advance(TimeSpan.FromSeconds(1));
+        HealthStatus past = (await health.CheckHealthAsync(TestContext.Current.CancellationToken)).Status;
+        await host.RunAsync(ApprovalJob.Deadlines);
+        HealthStatus completed = (await health.CheckHealthAsync(TestContext.Current.CancellationToken)).Status;
+
+        Assert.Equal((HealthStatus.Healthy, HealthStatus.Unhealthy, HealthStatus.Healthy), (atThreshold, past, completed));
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Fact]
     public async Task RunAsync_Deadlines_TakesAndReleasesItsClaimRecordingItsCompletionAndHandlesNothing()
     {
         ClockFake clock = new(Midnight);
@@ -221,7 +285,7 @@ public sealed class JobTests(PostgresFixture postgres) : IClassFixture<PostgresF
 
             int before = host.Alerts.Calls.Length;
             await host.RunAsync(ApprovalJob.Watch);
-            raised.AddRange(host.Alerts.Calls.Skip(before).Select(call => $"{(call.Raised ? "raised" : "cleared")} {at:hh\\:mm}"));
+            raised.AddRange(host.Alerts.Calls.Skip(before).Where(call => call.Condition == "observer-failing").Select(call => $"{(call.Raised ? "raised" : "cleared")} {at:hh\\:mm}"));
         }
 
         Assert.Equal(["raised 00:00", "raised 01:00", "raised 02:00", "cleared 02:30"], raised);
@@ -347,6 +411,23 @@ public sealed class JobTests(PostgresFixture postgres) : IClassFixture<PostgresF
         Assert.Equal(HealthStatus.Healthy, report.Status);
         Assert.Equal("1", await PendingAsync(host));
         host.AssertNoLogHoldsAValueUsed();
+    }
+
+    /// <summary>The <c>job-stalled</c> calls the alert sink took, in order.</summary>
+    private static AlertCall[] Stalled(RequestHost host)
+    {
+        return [.. host.Alerts.Calls.Where(call => call.Condition == "job-stalled")];
+    }
+
+    /// <summary>Records <paramref name="job"/> as started, and renewed, at <paramref name="at"/> by a run that never completed.</summary>
+    private static async Task StartedAsync(RequestHost host, string job, DateTimeOffset at)
+    {
+        await using NpgsqlConnection database = new(host.Connection);
+        await database.OpenAsync(TestContext.Current.CancellationToken);
+        await using NpgsqlCommand start = new("UPDATE approvals.jobs SET last_started_at = @at, last_renewed_at = @at WHERE name = @name", database);
+        start.Parameters.AddWithValue("at", at);
+        start.Parameters.AddWithValue("name", job);
+        await start.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
     }
 
     private static async Task<string> PendingAsync(RequestHost host)
