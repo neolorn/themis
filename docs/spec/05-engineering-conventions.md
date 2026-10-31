@@ -334,7 +334,7 @@ pushes to the empty default branch before setting its protection), commit messag
 follow Conventional Commits 1.0.0, a `CHANGELOG.md` SHALL follow Keep a Changelog 1.1.0,
 and MinVer SHALL derive the version from the tag.
 
-**Values (T-017).**
+**Values (T-017, T-020).**
 - **Commit message:** a type of `feat`, `fix`, `refactor`, `perf`, `test`, `docs`,
   `build`, `ci`, `chore`; an optional scope naming the package's area (`core`, `engine`,
   `testing`, `cli`, `sample`); a description in the imperative (checked in review),
@@ -352,24 +352,27 @@ and MinVer SHALL derive the version from the tag.
   rebased to meet a gate; history that is pushed or merged is never rewritten.
   `PublicAPI.Shipped.txt` changes only in a release commit, as
   `build/gates/release-baseline.json` does (`03` APR-LIB-006).
-- **Release commit:** the commit that makes release `X.Y.Z` has the message
-  `chore: release X.Y.Z` and changes no file but these: each `PublicAPI.Shipped.txt`, to
-  its parent's entries and those of the `PublicAPI.Unshipped.txt` beside it, less each
-  entry that file marks `*REMOVED*`, `#nullable enable` first and the rest in ordinal
-  order; each `PublicAPI.Unshipped.txt`, to nothing but `#nullable enable`;
+- **Release commit:** the commit that makes release `V`, a final release `X.Y.Z` or a
+  release candidate `X.Y.Z-rc.N` (`03` APR-LIB-006, T-020), has the message
+  `chore: release V` and changes no file but these: each `PublicAPI.Shipped.txt`, to its
+  parent's entries and those of the `PublicAPI.Unshipped.txt` beside it, less each entry
+  that file marks `*REMOVED*`, `#nullable enable` first and the rest in ordinal order;
+  each `PublicAPI.Unshipped.txt`, to nothing but `#nullable enable`;
   `build/gates/release-baseline.json`, to the release's own set as the release gate
   reads it at that commit; `CHANGELOG.md`, whose `Unreleased` entries move under a new
-  heading `## [X.Y.Z] - YYYY-MM-DD`, the commit's date in UTC, below an empty
+  heading `## [V] - YYYY-MM-DD`, the commit's date in UTC, below an empty
   `## [Unreleased]`; and `RELEASE-NOTES.md`. In its pull request only `docs:` commits
   that change nothing outside `docs/` follow it, so the tag on it carries everything the
   pull request built.
-- **Releases:** a release is a tag `v<major>.<minor>.<patch>` on the release commit,
-  pushed by the implementer once the pull request's merge has brought that commit into
-  the default branch, when the lead's message says to release. The pipeline's release
-  job runs only for such a tag, after the gates job has passed on it, and is the one job
-  that can write to the repository's contents: it packs every package at the tag, each
-  at the tag's version, and creates the tag's release with the runner's GitHub CLI, its
-  notes the tag's `RELEASE-NOTES.md`, the packages attached; it publishes them to no
+- **Releases:** a release is a tag `v<V>` on the release commit, pushed once the pull
+  request's merge has brought that commit into the default branch, by the implementer
+  or, where the machine's permissions refuse it the push, by the owner; a release
+  candidate on the lead's message, a final release on the owner's (T-020). The
+  pipeline's release job runs only for such a tag, after the gates job has passed on it,
+  and is the one job that can write to the repository's contents: it packs every package
+  at the tag, each at the tag's version, and creates the tag's release with the runner's
+  GitHub CLI, a release candidate's marked as a pre-release, its notes the tag's
+  `RELEASE-NOTES.md`, the packages attached; it publishes them to no
   package feed. Each package carries its identifier, its description (the text of its
   "What it holds" cell in `00` section 2.2, without markup or references), as its
   authors the name the lead's first message of phase 0 gives, and the repository's
@@ -383,7 +386,7 @@ and MinVer SHALL derive the version from the tag.
   pack targets, not a documented setting, so `03` APR-LIB-001's criterion 2 is what
   catches an SDK that changes them.
 
-*Source: T-017*
+*Source: T-017, T-020*
 
 **Acceptance criteria**
 1. A commit message outside the rule, and a behaviour-changing commit without a
@@ -391,13 +394,14 @@ and MinVer SHALL derive the version from the tag.
 2. A commit that changes the content of an existing `PublicAPI.Shipped.txt` or
    `build/gates/release-baseline.json`, or deletes one, fails a check, save the release
    commit, which changes them as the release commit's value gives.
-3. A commit `chore: release X.Y.Z` that changes a file outside the release commit's
-   value, or one of its files otherwise than the value gives, or that a commit other
-   than a `docs:` commit changing only `docs/` follows in its pull request, fails a
-   check.
+3. A commit `chore: release V`, `V` a final release or a release candidate, that changes
+   a file outside the release commit's value, or one of its files otherwise than the
+   value gives, or that a commit other than a `docs:` commit changing only `docs/`
+   follows in its pull request, fails a check. A version outside `X.Y.Z` and
+   `X.Y.Z-rc.N`, `N` from 1, fails it.
 4. A release tag's run creates the tag's release, holding every package at the tag's
-   version, only once its gates have passed, and no other job of the pipeline can write
-   to the repository's contents.
+   version, a release candidate's marked as a pre-release, only once its gates have
+   passed, and no other job of the pipeline can write to the repository's contents.
 
 ---
 
