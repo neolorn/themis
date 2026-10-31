@@ -15,6 +15,12 @@ namespace Themis.Repository.Tests;
 [Trait("Category", "unit")]
 public sealed class WorkflowTests
 {
+    private const string AssetsLine = "$assets = @(Get-ChildItem -Path artifacts/packages -Filter '*.nupkg' -File | ForEach-Object FullName)";
+
+    private const string CreateLine = "gh release create $env:TAG --verify-tag --title $env:TAG --notes-file RELEASE-NOTES.md @arguments @assets";
+
+    private const string PreReleaseLine = @"if ($env:TAG -cmatch '^v\d+\.\d+\.\d+-rc\.[1-9]\d*$') { $arguments += '--prerelease' }";
+
     private static readonly string[] Lines = File.ReadAllLines(RepositoryRoot.Combine(".github", "workflows", "gates.yml"));
 
     [Fact]
@@ -52,8 +58,27 @@ public sealed class WorkflowTests
         Assert.Contains("./build/gates/pack-packages.ps1 -Version $version", release, StringComparison.Ordinal);
         Assert.Contains("gh release create $env:TAG", release, StringComparison.Ordinal);
         Assert.Contains("--notes-file RELEASE-NOTES.md", release, StringComparison.Ordinal);
-        Assert.Contains("if ($env:TAG.Contains('-rc.')) { $arguments += '--prerelease' }", release, StringComparison.Ordinal);
         Assert.DoesNotContain("dotnet nuget push", release, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void APR_ENG_011_AC4_ReleaseStepAttachesThePackagesAloneAndMarksTheReleaseCandidateFormAloneAPreRelease()
+    {
+        Assert.Empty(ReleaseStepViolations(Job("release")));
+    }
+
+    [Theory]
+    [InlineData(AssetsLine, AssetsLine + " + 'CHANGELOG.md'", "the release attaches something other than the packages")]
+    [InlineData(CreateLine, CreateLine + " CHANGELOG.md", "the release attaches something other than the packages")]
+    [InlineData(PreReleaseLine, "", "the release candidate's release is not marked a pre-release by its tag's exact form")]
+    [InlineData(PreReleaseLine, "$arguments += '--prerelease'", "the release candidate's release is not marked a pre-release by its tag's exact form")]
+    [InlineData(PreReleaseLine, "if ($env:TAG.Contains('-rc.')) { $arguments += '--prerelease' }", "the release candidate's release is not marked a pre-release by its tag's exact form")]
+    [InlineData(PreReleaseLine, @"if ($env:TAG -cmatch '-rc\.\d+') { $arguments += '--prerelease' }", "the release candidate's release is not marked a pre-release by its tag's exact form")]
+    public void APR_ENG_011_AC4_ReleaseStepOutsideTheRuleIsFound(string line, string replacement, string expected)
+    {
+        string[] release = [.. Job("release").Select(found => found.Trim() == line ? found.Replace(line, replacement, StringComparison.Ordinal) : found)];
+
+        Assert.Contains(expected, ReleaseStepViolations(release));
     }
 
     [Fact]
@@ -63,6 +88,29 @@ public sealed class WorkflowTests
 
         Assert.Contains("./build/gates/run-gates.ps1 -Base $base -Head $head", gates, StringComparison.Ordinal);
         Assert.DoesNotContain("contents: write", gates, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The problems of the release step: it attaches the packages packed and nothing else, and
+    /// marks the release a pre-release where, and only where, its tag has the release
+    /// candidate's form, <c>vX.Y.Z-rc.N</c> with <c>N</c> from 1 (<c>05</c> APR-ENG-011).
+    /// </summary>
+    private static List<string> ReleaseStepViolations(string[] release)
+    {
+        List<string> violations = [];
+        string[] lines = [.. release.Select(line => line.Trim())];
+        if (!lines.Contains(AssetsLine, StringComparer.Ordinal) || !lines.Contains(CreateLine, StringComparer.Ordinal))
+        {
+            violations.Add("the release attaches something other than the packages");
+        }
+
+        string[] marked = [.. lines.Where(line => line.Contains("--prerelease", StringComparison.Ordinal))];
+        if (marked is not [PreReleaseLine])
+        {
+            violations.Add("the release candidate's release is not marked a pre-release by its tag's exact form");
+        }
+
+        return violations;
     }
 
     private static string[] Jobs()

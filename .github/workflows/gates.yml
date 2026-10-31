@@ -90,8 +90,8 @@ jobs:
           }
           $version = $env:TAG.Substring(1)
           ./build/gates/pack-packages.ps1 -Version $version
-          $assets = @(Get-ChildItem -Path artifacts/packages -Filter '*.nupkg' -File | ForEach-Object FullName) + 'CHANGELOG.md'
+          $assets = @(Get-ChildItem -Path artifacts/packages -Filter '*.nupkg' -File | ForEach-Object FullName)
           $arguments = @()
-          if ($env:TAG.Contains('-rc.')) { $arguments += '--prerelease' }
+          if ($env:TAG -cmatch '^v\d+\.\d+\.\d+-rc\.[1-9]\d*$') { $arguments += '--prerelease' }
           gh release create $env:TAG --verify-tag --title $env:TAG --notes-file RELEASE-NOTES.md @arguments @assets
           if ($LASTEXITCODE -ne 0) { throw "gh release create failed with exit code $LASTEXITCODE." }
