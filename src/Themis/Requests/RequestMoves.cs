@@ -144,6 +144,52 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
         counts.Add(() => metrics.RequestsClosed.Add(1, new KeyValuePair<string, object?>("type", type), new KeyValuePair<string, object?>("status", spelt)));
     }
 
+    /// <summary>
+    /// Escalates the step <paramref name="number"/> at its deadline (<c>01</c> APR-REQ-009): its
+    /// <c>EscalateTo</c> resolved now, less the exclusions of a step's start and the persons it
+    /// already holds, each added as an escalation assignment that no earlier decision satisfies,
+    /// so a deadline never approves; where no one is left, the step's fallback, then the type's;
+    /// where both are excluded too, the step keeps its own assignees and
+    /// <c>request-unassignable</c> occurs. The <c>escalated</c> event names the persons added.
+    /// </summary>
+    internal async Task EscalateAsync(RequestRow request, ApprovalTypeDefinition definition, StepDefinition step, int number, CancellationToken cancellationToken)
+    {
+        IReadOnlyDictionary<string, FieldValue> snapshot = CanonicalForm.ReadSnapshot(request.Snapshot);
+        ApproverReference escalateTo = step.Deadline?.EscalateTo ?? throw new InvalidOperationException("An escalating deadline names no one to escalate to.");
+        IReadOnlyList<string> resolved = escalateTo switch
+        {
+            ApproverReference.Person person => [person.Reference],
+            ApproverReference.Permission permission => await directory.ResolveAsync(permission.Name, Query(request, snapshot, number), cancellationToken).ConfigureAwait(false),
+            _ => throw new InvalidOperationException("An approver reference is of no case of ApproverReference."),
+        };
+        List<string> persons = [.. resolved.Distinct(StringComparer.Ordinal)];
+        if (persons.Count > MostPersons)
+        {
+            throw Refusal.Of(Codes.DirectoryTooMany);
+        }
+
+        Dictionary<string, Guid> approvedEarlier = await ApprovedEarlierAsync(request.Id, number, cancellationToken).ConfigureAwait(false);
+        HashSet<string> holding = new(await context.Assignments.Where(row => row.Request == request.Id && row.Step == number).Select(row => row.Person).ToListAsync(cancellationToken).ConfigureAwait(false), StringComparer.Ordinal);
+        bool requireOther = definition.Duplicates == DuplicateRule.RequireOther;
+        bool Excluded(string person) => person == request.Requester || person == request.Subject || (requireOther && approvedEarlier.ContainsKey(person)) || holding.Contains(person);
+
+        List<AssignmentRow> added = [.. persons.Where(person => !Excluded(person)).Select(person => Assignment(request.Id, number, person, AssignmentOrigin.Escalation, escalateTo))];
+        if (added.Count == 0)
+        {
+            string? fallback = new[] { step.Fallback, definition.Fallback }.FirstOrDefault(person => !Excluded(person));
+            if (fallback is null)
+            {
+                await OccurAsync(request, number, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            added.Add(Assignment(request.Id, number, fallback, AssignmentOrigin.Fallback, new ApproverReference.Person(fallback)));
+        }
+
+        context.Assignments.AddRange(added);
+        await WriteAsync(request, definition, snapshot, EventKind.Escalated, number, actor: null, actingFor: null, reasonCode: null, [.. added.Select(assignment => assignment.Person)], cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Counts a decision of <paramref name="type"/> with <paramref name="outcome"/>.</summary>
     internal void CountDecision(string type, DecisionOutcome outcome)
     {

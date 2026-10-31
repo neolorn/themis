@@ -797,14 +797,14 @@ internal sealed partial class ApprovalService(
         return request ?? throw Refusal.Of(Codes.RequestUnknown);
     }
 
-    private static async Task<ApprovalTypeDefinition> DefinitionAsync(ApprovalsContext context, RequestRow request, CancellationToken cancellationToken)
+    internal static async Task<ApprovalTypeDefinition> DefinitionAsync(ApprovalsContext context, RequestRow request, CancellationToken cancellationToken)
     {
         string definition = await context.Versions.Where(version => version.Key == request.Type && version.Version == request.Version).Select(version => version.Definition).SingleAsync(cancellationToken).ConfigureAwait(false);
         return CanonicalForm.Read(System.Text.Encoding.UTF8.GetBytes(definition));
     }
 
     /// <summary>The steps the request took: its policy's, or the type's fallback step where it took none.</summary>
-    private static IReadOnlyList<StepDefinition> StepsOf(ApprovalTypeDefinition definition, RequestRow request)
+    internal static IReadOnlyList<StepDefinition> StepsOf(ApprovalTypeDefinition definition, RequestRow request)
     {
         return request.Policy is null ? [PolicyChoice.FallbackStep(definition)] : definition.Policies.Single(policy => policy.Name == request.Policy).Steps;
     }
