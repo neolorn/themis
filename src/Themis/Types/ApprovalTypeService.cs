@@ -36,14 +36,12 @@ internal sealed partial class ApprovalTypeService(
         ArgumentNullException.ThrowIfNull(definition);
         ready.ThrowIfNotReady();
 
-        string? member = DefinitionRules.Invalid(definition);
-        if (member is not null)
+        if (DefinitionRules.Invalid(definition, out byte[] form) is { } member)
         {
             Dictionary<string, string> details = new(StringComparer.Ordinal) { ["member"] = member };
             return Result.Fail<PublishedVersion>(new Failure { Code = Codes.TypeInvalid, Details = details.ToFrozenDictionary(StringComparer.Ordinal) });
         }
 
-        byte[] form = CanonicalForm.Write(definition);
         byte[] hash = CanonicalForm.Hash(form);
         string text = Encoding.UTF8.GetString(form);
         string key = definition.Key;

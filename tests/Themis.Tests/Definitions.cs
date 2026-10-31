@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 using Themis.Core;
+using Themis.Types;
 
 namespace Themis.Tests;
 
@@ -24,6 +27,8 @@ internal static class Definitions
     internal const string AuditorRole = "role-auditor-c28b";
 
     internal const string Region = "value-region-e604";
+
+    private const int LongestReference = 128;
 
     /// <summary>The person references, roles and values the definition holds, none of which a log line may hold (<c>04</c> APR-OPS-005).</summary>
     internal static string[] Unloggable => [Approver, StepFallback, Watcher, TypeFallback, BuyerRole, AuditorRole, Region];
@@ -91,6 +96,30 @@ internal static class Definitions
         Fallback = TypeFallback,
     };
 
+    /// <summary>
+    /// <see cref="Valid"/> with policies added whose steps' approvers are persons of long
+    /// references, so its canonical form is exactly <paramref name="bytes"/> bytes, each member
+    /// within its rule.
+    /// </summary>
+    internal static ApprovalTypeDefinition OfSize(int bytes)
+    {
+        List<int> lengths = [];
+        ApprovalTypeDefinition sized = Valid;
+        while (CanonicalForm.Write(sized).Length <= bytes)
+        {
+            lengths.Add(LongestReference);
+            sized = Padded(lengths);
+        }
+
+        for (int last = lengths.Count - 1; CanonicalForm.Write(sized).Length > bytes; last--)
+        {
+            lengths[last] -= Math.Min(CanonicalForm.Write(sized).Length - bytes, LongestReference - 1);
+            sized = Padded(lengths);
+        }
+
+        return sized;
+    }
+
     /// <summary><see cref="Valid"/> with its key <paramref name="key"/>.</summary>
     internal static ApprovalTypeDefinition Keyed(string key)
     {
@@ -114,6 +143,33 @@ internal static class Definitions
             steps[step] = change(steps[step]);
             return changed with { Steps = steps };
         });
+    }
+
+    /// <summary><see cref="Valid"/> with an approver of each length of <paramref name="lengths"/>, 16 to a step and 10 steps to an added policy.</summary>
+    private static ApprovalTypeDefinition Padded(List<int> lengths)
+    {
+        List<PolicyDefinition> policies = [.. Valid.Policies];
+        IEnumerable<int[]> steps = lengths.Chunk(16);
+        int policy = 0;
+        foreach (int[][] padding in steps.Chunk(10))
+        {
+            policies.Add(new PolicyDefinition
+            {
+                Name = $"padding{policy++}",
+                Steps =
+                [
+                    .. padding.Select((approvers, step) => new StepDefinition
+                    {
+                        Name = $"step{step}",
+                        Approvers = [.. approvers.Select(length => new ApproverReference.Person(new string('r', length)))],
+                        Mode = ApprovalMode.AnyOne,
+                        Fallback = StepFallback,
+                    }),
+                ],
+            });
+        }
+
+        return Valid with { Policies = policies };
     }
 
     /// <summary><paramref name="definition"/> with the first policy's start condition <paramref name="condition"/>.</summary>

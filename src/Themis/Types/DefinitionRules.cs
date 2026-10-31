@@ -34,14 +34,45 @@ internal static class DefinitionRules
 
     private const int MostNodes = 64;
 
+    /// <summary>The most bytes of a canonical form, 64 KiB.</summary>
+    private const int MostFormBytes = 64 * 1024;
+
     private static readonly TimeSpan ShortestDeadline = TimeSpan.FromMinutes(1);
 
     private static readonly TimeSpan LongestDeadline = TimeSpan.FromDays(365);
 
-    /// <summary>The path of the first member of <paramref name="definition"/> outside its rule, or none where every member is within it.</summary>
+    /// <summary>The path of the first member of <paramref name="definition"/> outside its rule, or the empty path where its canonical form is over 64 KiB, or none where it is within every rule.</summary>
     internal static string? Invalid(ApprovalTypeDefinition definition)
     {
+        return Invalid(definition, out _);
+    }
+
+    /// <summary>
+    /// The path of the first member of <paramref name="definition"/> outside its rule; where
+    /// every member is within it, the empty path, the definition itself, where its canonical
+    /// form is over 64 KiB (T-021); or none. <paramref name="form"/> is the canonical form where it is within every rule, and empty otherwise.
+    /// </summary>
+    internal static string? Invalid(ApprovalTypeDefinition definition, out byte[] form)
+    {
         ArgumentNullException.ThrowIfNull(definition);
+        form = [];
+        if (InvalidMember(definition) is { } member)
+        {
+            return member;
+        }
+
+        byte[] written = CanonicalForm.Write(definition);
+        if (written.Length > MostFormBytes)
+        {
+            return string.Empty;
+        }
+
+        form = written;
+        return null;
+    }
+
+    private static string? InvalidMember(ApprovalTypeDefinition definition)
+    {
         if (!TextRules.IsName(definition.Key))
         {
             return "key";

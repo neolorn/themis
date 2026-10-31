@@ -57,6 +57,7 @@ internal static class InvalidDefinitions
         ["fallback of 129 characters"] = (Definitions.Valid with { Fallback = new string('p', 129) }, "fallback"),
         ["fallback holding a control character"] = (Definitions.Valid with { Fallback = ControlCharacter }, "fallback"),
         ["fallback holding a lone surrogate"] = (Definitions.Valid with { Fallback = LoneSurrogate }, "fallback"),
+        ["canonical form of 64 KiB and a byte"] = (Definitions.OfSize(65_537), string.Empty),
     };
 
     /// <summary>A definition outside a rule of a step, <c>02</c> APR-TYPE-004, by the rule.</summary>
@@ -134,6 +135,7 @@ internal static class InvalidDefinitions
         ["nested eight levels deep"] = Definitions.Valid.WithStartCondition(Nested(8)),
         ["64 nodes"] = Definitions.Valid.WithStartCondition(new Condition.AnyOf([.. Enumerable.Range(0, 3).Select(_ => new Condition.AllOf([.. Enumerable.Repeat<Condition>(new Condition.SubjectHas("auditor"), 16)])), new Condition.AllOf([.. Enumerable.Repeat<Condition>(new Condition.SubjectHas("auditor"), 11)])])),
         ["one of 32 values"] = Definitions.Valid.WithStartCondition(new Condition.OneOf("count", [.. Enumerable.Range(0, 32).Select(index => new FieldValue.WholeNumber(index))])),
+        ["canonical form of 64 KiB"] = Definitions.OfSize(65_536),
     };
 
     /// <summary>A chain of negations <paramref name="levels"/> levels deep, its last level a role condition.</summary>

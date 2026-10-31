@@ -46,6 +46,28 @@ public sealed class DefinitionRulesTests
         Assert.Equal("policies[0].steps[1].mode", DefinitionRules.Invalid(definition));
     }
 
+    [Fact]
+    public void Invalid_CanonicalFormOf64KiB_AnswersNoneAndTheFormAndOneByteMoreAnswersTheEmptyPath()
+    {
+        ApprovalTypeDefinition largest = Definitions.OfSize(65_536);
+        ApprovalTypeDefinition larger = Definitions.OfSize(65_537);
+
+        Assert.Equal((65_536, 65_537), (CanonicalForm.Write(largest).Length, CanonicalForm.Write(larger).Length));
+        Assert.Null(DefinitionRules.Invalid(largest, out byte[] form));
+        Assert.Equal(CanonicalForm.Write(largest), form);
+        Assert.Equal(string.Empty, DefinitionRules.Invalid(larger, out byte[] none));
+        Assert.Empty(none);
+    }
+
+    [Fact]
+    public void Invalid_CanonicalFormOver64KiBAndAMemberOutsideItsRule_AnswersTheMember()
+    {
+        ApprovalTypeDefinition definition = Definitions.OfSize(70_000) with { Fallback = "person-" + (char)7 };
+
+        Assert.True(CanonicalForm.Write(definition).Length > 65_536);
+        Assert.Equal("fallback", DefinitionRules.Invalid(definition));
+    }
+
     private static (ApprovalTypeDefinition Definition, string Member) Find(string rule)
     {
         foreach (IReadOnlyDictionary<string, (ApprovalTypeDefinition, string)> rules in new[] { InvalidDefinitions.TypeRules, InvalidDefinitions.StepRules, InvalidDefinitions.ConditionRules })

@@ -110,6 +110,34 @@ public sealed class PublishTests(PostgresFixture postgres) : IClassFixture<Postg
     }
 
     [Fact]
+    public async Task PublishAsync_CanonicalFormOf64KiB_IsPublishedAsItsForm()
+    {
+        await using TypeHost host = await TypeHost.StartAsync(postgres);
+        ApprovalTypeDefinition largest = Definitions.OfSize(65_536);
+
+        Result<PublishedVersion> published = await host.PublishAsync(largest);
+
+        Assert.Equal((1, true), (published.Value!.Version, published.Value.Created));
+        Assert.Equal(65_536, Encoding.UTF8.GetByteCount(Assert.Single(await host.VersionsAsync()).Definition));
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Fact]
+    public async Task PublishAsync_CanonicalFormOver64KiBAndAMemberOutsideItsRule_IsRefusedNamingTheMember()
+    {
+        await using TypeHost host = await TypeHost.StartAsync(postgres);
+
+        ApprovalTypeDefinition definition = Definitions.OfSize(70_000) with { Fallback = string.Empty };
+        Assert.True(CanonicalForm.Write(definition).Length > 65_536);
+
+        Result<PublishedVersion> refused = await host.PublishAsync(definition);
+
+        Assert.Equal(("approvals.type.invalid", "fallback"), (refused.Failure?.Code, refused.Failure?.Details.GetValueOrDefault("member")));
+        Assert.Empty(await host.VersionsAsync());
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Fact]
     public async Task ReadAsync_NoVersionNamed_AnswersTheLatestAndAVersionNamedAnswersIt()
     {
         await using TypeHost host = await TypeHost.StartAsync(postgres);
