@@ -215,6 +215,22 @@ public sealed class DelegationTests(PostgresFixture postgres) : IClassFixture<Po
     }
 
     [Fact]
+    public async Task Pending_DelegateWhoDecidedTheStepInTheirOwnName_NoLongerListsItForTheLender()
+    {
+        await using RequestHost host = await RequestHost.StartAsync(postgres, clock: new ClockFake(Midnight));
+        await host.PublishAsync(Type(Step("review", ApprovalMode.All, Person(A), Person(B))));
+        await host.DelegatedAsync(Lend(A, B));
+        RequestId request = await host.CreatedAsync(Request());
+
+        await host.DecideAsync(request, B);
+        PendingPage page = (await host.PendingAsync(B)).Value!;
+
+        Assert.Empty(page.Items);
+        Assert.Equal(request, Assert.Single((await host.PendingAsync(A)).Value!.Items).Request);
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Fact]
     public async Task Create_Delegation_WritesItsDelegationCreatedEventNamingTheDelegate()
     {
         await using RequestHost host = await RequestHost.StartAsync(postgres, clock: new ClockFake(Midnight));

@@ -66,6 +66,7 @@ internal sealed partial class ApprovalService(
         JOIN approvals.requests AS request ON request.id = assignment.request
         WHERE assignment.decision IS NULL AND step.status = 'current' AND request.status = 'pending'
             AND request.requester <> @person AND (request.subject IS NULL OR request.subject <> @person)
+            AND NOT EXISTS (SELECT 1 FROM approvals.decisions AS decision WHERE decision.request = step.request AND decision.step = step.number AND decision.decider = @person)
             AND (assignment.person = @person OR EXISTS (
                 SELECT 1 FROM approvals.delegations AS delegation
                 WHERE delegation.from_person = assignment.person AND delegation.to_person = @person AND delegation.ended_at IS NULL
