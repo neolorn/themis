@@ -9,7 +9,7 @@
     line of at most 72 characters; a body, if any, of dash fragments of at most 72 characters;
     and a footer, if any, of "Implements:" and "BREAKING CHANGE:" lines alone. A commit of type
     feat, fix or perf, or marked as breaking, adds its line under the changelog's Unreleased
-    section, under "Added" while no release is tagged. No commit changes or deletes an existing
+    section, under "Added" while no release, final or release candidate, is tagged. No commit changes or deletes an existing
     PublicAPI.Shipped.txt or build/gates/release-baseline.json, and moving one deletes it;
     adding one is no change.
 .PARAMETER Repository
@@ -34,7 +34,9 @@ $scopes = 'core|engine|testing|cli|sample'
 $headerPattern = "^(?<type>$types)(\((?<scope>$scopes)\))?(?<breaking>!)?: (?<description>\S(.*\S)?)$"
 $footerPattern = '^(Implements: APR-[A-Z]+-\d{3}(, APR-[A-Z]+-\d{3})*|BREAKING CHANGE: \S.*)$'
 $sectionTypes = 'Added|Changed|Deprecated|Removed|Fixed|Security'
-$releaseTagPattern = '^v\d+\.\d+\.\d+$'
+# A release is a final release X.Y.Z or a release candidate X.Y.Z-rc.N, N from 1 (T-020).
+$versionPattern = '(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-rc\.[1-9]\d*)?'
+$releaseTagPattern = "^v$versionPattern$"
 $platformCommitter = 'noreply@github.com'
 $emptyTree = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
