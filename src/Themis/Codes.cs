@@ -37,6 +37,8 @@ internal static class Codes
 
     internal const string RequestClosed = "approvals.request.closed";
 
+    internal const string NotApproved = "approvals.request.notapproved";
+
     internal const string CursorInvalid = "approvals.request.cursorinvalid";
 
     internal const string NotAssigned = "approvals.decision.notassigned";

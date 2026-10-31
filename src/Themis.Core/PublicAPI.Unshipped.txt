@@ -685,6 +685,8 @@ Themis.Core.IApprovalObserver.ObserveAsync(Themis.Core.ApprovalEvent! approvalEv
 Themis.Core.IApprovals
 Themis.Core.IApprovals.CancelAsync(Themis.Core.CancelRequest! cancel, System.Data.Common.DbTransaction! transaction, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result!>
 Themis.Core.IApprovals.CancelAsync(Themis.Core.CancelRequest! cancel, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result!>
+Themis.Core.IApprovals.CompleteAsync(Themis.Core.RequestId request, string! actor, System.Data.Common.DbTransaction! transaction, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result!>
+Themis.Core.IApprovals.CompleteAsync(Themis.Core.RequestId request, string! actor, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result!>
 Themis.Core.IApprovals.CreateAsync(Themis.Core.ApprovalRequest! request, System.Data.Common.DbTransaction! transaction, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result<Themis.Core.CreatedRequest!>!>
 Themis.Core.IApprovals.CreateAsync(Themis.Core.ApprovalRequest! request, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result<Themis.Core.CreatedRequest!>!>
 Themis.Core.IApprovals.DecideAsync(Themis.Core.DecisionRequest! decision, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result<Themis.Core.DecisionReceipt!>!>

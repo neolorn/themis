@@ -65,6 +65,27 @@ public interface IApprovals
     /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
     ValueTask<Result> CancelAsync(CancelRequest cancel, DbTransaction transaction, CancellationToken cancellationToken);
 
+    /// <summary>Marks an approved request completed once the host has acted on it, after which no change voids it (<c>01</c> APR-REQ-012), in a transaction of its own.</summary>
+    /// <param name="request">The request.</param>
+    /// <param name="actor">The person the host says completed it.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>A success; or <c>approvals.request.notapproved</c> where it is pending, <c>approvals.request.closed</c> where it is closed, <c>approvals.request.unknown</c>, nothing changed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="actor"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="actor"/> is outside its rule.</exception>
+    /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
+    ValueTask<Result> CompleteAsync(RequestId request, string actor, CancellationToken cancellationToken);
+
+    /// <summary>Completes an approved request as <see cref="CompleteAsync(RequestId, string, CancellationToken)"/> does, on the host's <paramref name="transaction"/>, so the host's action and the completion commit together.</summary>
+    /// <param name="request">The request.</param>
+    /// <param name="actor">The person the host says completed it.</param>
+    /// <param name="transaction">The host's open <c>NpgsqlTransaction</c>.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>A success; or the failure that refused it, nothing of the call's left on the transaction.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="actor"/> or <paramref name="transaction"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="actor"/> is outside its rule, or <paramref name="transaction"/> is of another provider or has ended.</exception>
+    /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
+    ValueTask<Result> CompleteAsync(RequestId request, string actor, DbTransaction transaction, CancellationToken cancellationToken);
+
     /// <summary>Reads a request's whole record (<c>01</c> APR-REQ-013).</summary>
     /// <param name="request">The request.</param>
     /// <param name="cancellationToken">Cancels the call.</param>

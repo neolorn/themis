@@ -131,6 +131,21 @@ internal sealed partial class ApprovalService(
         return CancelOnAsync(cancel, host, cancellationToken);
     }
 
+    public ValueTask<Result> CompleteAsync(RequestId request, string actor, CancellationToken cancellationToken)
+    {
+        CheckReference(actor, nameof(actor));
+        ready.ThrowIfNotReady();
+        return CompleteOnAsync(request, actor, host: null, cancellationToken);
+    }
+
+    public ValueTask<Result> CompleteAsync(RequestId request, string actor, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        CheckReference(actor, nameof(actor));
+        NpgsqlTransaction host = HostTransactions.Check(transaction);
+        ready.ThrowIfNotReady();
+        return CompleteOnAsync(request, actor, host, cancellationToken);
+    }
+
     public async ValueTask<Result<RequestRecord>> ReadAsync(RequestId request, CancellationToken cancellationToken)
     {
         ready.ThrowIfNotReady();
@@ -371,6 +386,13 @@ internal sealed partial class ApprovalService(
         return answer;
     }
 
+    private async ValueTask<Result> CompleteOnAsync(RequestId request, string actor, NpgsqlTransaction? host, CancellationToken cancellationToken)
+    {
+        Result<(bool Completed, RequestMoves Moves)> completed = await RunAsync(host, (context, cancel) => CompleteInAsync(context, request, actor, cancel), cancellationToken).ConfigureAwait(false);
+        Result<bool> answer = Answer(completed);
+        return answer.Failure is { } failure ? Result.Fail(failure) : Result.Success();
+    }
+
     private async ValueTask<Result> CancelOnAsync(CancelRequest cancel, NpgsqlTransaction? host, CancellationToken cancellationToken)
     {
         if (!ReasonWithinRule(cancel.Reason))
@@ -586,6 +608,26 @@ internal sealed partial class ApprovalService(
         return context.Delegations.AnyAsync(
             row => row.From == decision.ActingFor && row.To == decision.Decider && row.EndedAt == null && row.Starts <= now && row.Ends > now && (row.Types.Count == 0 || row.Types.Contains(type)),
             cancellationToken);
+    }
+
+    private async Task<(bool, RequestMoves)> CompleteInAsync(ApprovalsContext context, RequestId id, string actor, CancellationToken cancellationToken)
+    {
+        RequestMoves moves = Moves(context);
+        RequestRow request = await LockAsync(context, id.Value, cancellationToken).ConfigureAwait(false);
+        if (request.Status == RequestStatus.Pending)
+        {
+            throw Refusal.Of(Codes.NotApproved);
+        }
+
+        if (request.Status != RequestStatus.Approved)
+        {
+            throw Refusal.Of(Codes.RequestClosed);
+        }
+
+        ApprovalTypeDefinition definition = await DefinitionAsync(context, request, cancellationToken).ConfigureAwait(false);
+        await moves.CloseAsync(request, definition, RequestStatus.Completed, EventKind.Completed, actor, actingFor: null, reason: null, reasonCode: null, cancellationToken).ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return (true, moves);
     }
 
     /// <summary>Locks the request's row, <c>SELECT ... FOR UPDATE</c>, before any other row of it is read for change, and answers it; or refuses with <c>approvals.request.unknown</c>.</summary>

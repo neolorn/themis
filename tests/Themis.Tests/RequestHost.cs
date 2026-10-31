@@ -161,6 +161,16 @@ internal sealed class RequestHost : IAsyncDisposable
         return CallAsync<IApprovals, Result>(approvals => approvals.CancelAsync(cancel, TestContext.Current.CancellationToken));
     }
 
+    internal Task<Result> CompleteAsync(RequestId request, string actor)
+    {
+        return CallAsync<IApprovals, Result>(approvals => approvals.CompleteAsync(request, actor, TestContext.Current.CancellationToken));
+    }
+
+    internal Task<Result> CompleteAsync(RequestId request, string actor, DbTransaction transaction)
+    {
+        return CallAsync<IApprovals, Result>(approvals => approvals.CompleteAsync(request, actor, transaction, TestContext.Current.CancellationToken));
+    }
+
     internal Task<Result<CreatedRequest>> CreateAsync(ApprovalRequest request, DbTransaction transaction)
     {
         return CallAsync<IApprovals, Result<CreatedRequest>>(approvals => approvals.CreateAsync(request, transaction, TestContext.Current.CancellationToken));
