@@ -143,8 +143,7 @@ public sealed class PackageAllowListTests
     public void APR_ENG_009_AC1_LibrarysOwnPackagesTheSampleHostTakesAreNoThirdPartyPackages()
     {
         using RepositoryFixture fixture = new();
-        string props = File.ReadAllText(Path.Combine(fixture.Root, "Directory.Packages.props"));
-        fixture.Write("Directory.Packages.props", props.Replace("</Project>", "  <ItemGroup><PackageVersion Include=\"Themis\" Version=\"$(ThemisVersion)\" /><PackageVersion Include=\"Themis.Testing\" Version=\"$(ThemisVersion)\" /></ItemGroup>\n</Project>", StringComparison.Ordinal));
+        fixture.Write("Directory.Packages.props", """<Project><ItemGroup><PackageVersion Include="Themis" Version="$(ThemisVersion)" /><PackageVersion Include="Themis.Testing" Version="$(ThemisVersion)" /></ItemGroup></Project>""");
 
         Assert.Empty(PackageRules.AllowListViolations(fixture.Root));
     }

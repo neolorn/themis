@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Built only from the packages packed from the same commit, which change with every
+       commit, so it has no lockfile and no locked restore (05 APR-ENG-001). -->
+  <PropertyGroup>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Themis" />
+  </ItemGroup>
+
+</Project>

@@ -130,6 +130,29 @@ public sealed class RepositoryLayoutTests
     }
 
     [Fact]
+    public void APR_ENG_001_AC1_SampleHostsEntryPointOfTopLevelStatementsDeclaringNoNamespaceIsAccepted()
+    {
+        using RepositoryFixture fixture = new();
+        fixture.Write("samples/Observatory/Observatory.csproj", """<Project Sdk="Microsoft.NET.Sdk.Web" />""");
+        fixture.Write("samples/Observatory/Program.cs", "using Microsoft.AspNetCore.Builder;\n\nWebApplication.CreateBuilder(args).Build().Run();\n");
+
+        Assert.Empty(LayoutRules.FolderViolations(fixture.Root));
+    }
+
+    [Theory]
+    [InlineData("samples/Observatory/Endpoints.cs")]
+    [InlineData("samples/Observatory.Tests/Program.cs")]
+    public void APR_ENG_001_AC1_SampleFileOtherThanTheHostsEntryPointDeclaringNoNamespaceIsFound(string path)
+    {
+        using RepositoryFixture fixture = new();
+        fixture.Write("samples/Observatory/Observatory.csproj", """<Project Sdk="Microsoft.NET.Sdk.Web" />""");
+        fixture.Write("samples/Observatory.Tests/Observatory.Tests.csproj", """<Project Sdk="Microsoft.NET.Sdk" />""");
+        fixture.Write(path, "internal static class Endpoints;\n");
+
+        Assert.Contains($"{path} declares no namespace.", LayoutRules.FolderViolations(fixture.Root));
+    }
+
+    [Fact]
     public void APR_ENG_001_AC1_TwoPublicTypesInOneFileAreFound()
     {
         using RepositoryFixture fixture = new();
@@ -260,6 +283,57 @@ public sealed class RepositoryLayoutTests
     }
 
     [Fact]
+    public void APR_ENG_001_AC1_SampleHostsPackageSourcesFollowTheRule()
+    {
+        Assert.Empty(LayoutRules.SamplePackageSourceViolations(RepositoryRoot.Path));
+    }
+
+    [Fact]
+    public void APR_ENG_001_AC1_SampleHostsPackageSourcesWithinTheRuleAreAccepted()
+    {
+        using RepositoryFixture fixture = new();
+        fixture.Write("samples/nuget.config", SampleSources(SampleSourcesWithinTheRule, SampleMappingWithinTheRule));
+
+        Assert.Empty(LayoutRules.SamplePackageSourceViolations(fixture.Root));
+    }
+
+    [Theory]
+    [InlineData("<add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" /><add key=\"artifacts\" value=\"../artifacts/packages/\" />", "samples/nuget.config does not clear the package sources first.")]
+    [InlineData("<clear /><add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" />", "samples/nuget.config does not add nuget.org, https://api.nuget.org/v3/index.json, and ../artifacts/packages/ as its two sources.")]
+    [InlineData("<clear /><add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" /><add key=\"artifacts\" value=\"../packages/\" />", "samples/nuget.config does not add nuget.org, https://api.nuget.org/v3/index.json, and ../artifacts/packages/ as its two sources.")]
+    [InlineData("<clear /><add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" /><add key=\"artifacts\" value=\"../artifacts/packages/\" /><add key=\"other\" value=\"https://example.invalid/v3/index.json\" />", "samples/nuget.config does not add nuget.org, https://api.nuget.org/v3/index.json, and ../artifacts/packages/ as its two sources.")]
+    public void APR_ENG_001_AC1_SampleHostsPackageSourcesOutsideTheRuleAreFound(string sources, string expected)
+    {
+        using RepositoryFixture fixture = new();
+        fixture.Write("samples/nuget.config", SampleSources(sources, SampleMappingWithinTheRule));
+
+        Assert.Contains(expected, LayoutRules.SamplePackageSourceViolations(fixture.Root));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("<packageSource key=\"nuget.org\"><package pattern=\"*\" /></packageSource><packageSource key=\"artifacts\"><package pattern=\"Themis.*\" /></packageSource>")]
+    [InlineData("<packageSource key=\"nuget.org\"><package pattern=\"*\" /><package pattern=\"Themis\" /></packageSource><packageSource key=\"artifacts\"><package pattern=\"Themis.Core\" /><package pattern=\"Themis.Testing\" /><package pattern=\"Themis.Cli\" /></packageSource>")]
+    [InlineData("<packageSource key=\"nuget.org\"><package pattern=\"*\" /></packageSource><packageSource key=\"artifacts\"><package pattern=\"*\" /><package pattern=\"Themis\" /><package pattern=\"Themis.Core\" /><package pattern=\"Themis.Testing\" /><package pattern=\"Themis.Cli\" /></packageSource>")]
+    public void APR_ENG_001_AC1_SampleHostsPackageSourceMappingOutsideTheRuleIsFound(string mapping)
+    {
+        using RepositoryFixture fixture = new();
+        fixture.Write("samples/nuget.config", SampleSources(SampleSourcesWithinTheRule, mapping));
+
+        Assert.Contains(
+            "samples/nuget.config does not map the library's own packages to ../artifacts/packages/ alone and every other identifier, \"*\", to nuget.org alone.",
+            LayoutRules.SamplePackageSourceViolations(fixture.Root));
+    }
+
+    [Fact]
+    public void SamplePackageSourceViolations_NoFile_IsFound()
+    {
+        using RepositoryFixture fixture = new();
+
+        Assert.Contains("samples/nuget.config is missing.", LayoutRules.SamplePackageSourceViolations(fixture.Root));
+    }
+
+    [Fact]
     public void APR_ENG_001_AC1_IgnoreFileListsThePackedPackages()
     {
         Assert.Empty(LayoutRules.IgnoreViolations(RepositoryRoot.Path));
@@ -312,5 +386,15 @@ public sealed class RepositoryLayoutTests
         Assert.Empty(PackageRules.MockingViolations(fixture.Root));
         Assert.Empty(ReferenceRules.ReferenceViolations(fixture.Root));
         Assert.Empty(ScannerConfigurationRules.Violations(fixture.Root));
+    }
+    private const string SampleSourcesWithinTheRule =
+        "<clear /><add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" /><add key=\"artifacts\" value=\"../artifacts/packages/\" />";
+
+    private const string SampleMappingWithinTheRule =
+        "<packageSource key=\"nuget.org\"><package pattern=\"*\" /></packageSource><packageSource key=\"artifacts\"><package pattern=\"Themis\" /><package pattern=\"Themis.Core\" /><package pattern=\"Themis.Testing\" /><package pattern=\"Themis.Cli\" /></packageSource>";
+
+    private static string SampleSources(string sources, string mapping)
+    {
+        return $"<configuration><packageSources>{sources}</packageSources><packageSourceMapping>{mapping}</packageSourceMapping></configuration>";
     }
 }
