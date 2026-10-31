@@ -25,3 +25,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A condition on a request's snapshot and roles, a whole number and a decimal compared as decimals
 - The choice of a request's policy, and the fallback step of a type where no policy holds
 - The tables of approval types and their versions, a version's definition kept as text beside its hash
+- `IApprovalTypes`, which publishes numbered versions under the type's lock, reads them and retires a type
