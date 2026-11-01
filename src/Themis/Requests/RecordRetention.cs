@@ -38,17 +38,20 @@ internal sealed class RecordRetention(
     internal const string Prefix = "erased:";
 
     /// <summary>
-    /// Whether the person takes part in a pending request: its requester or subject, holding an
-    /// assignment of it or having decided on it, or the delegate, by a delegation that has not
-    /// ended, of a person holding an open assignment of its current step.
+    /// Whether a pending request names the person (<c>04</c> APR-OPS-003), so the erasure locks
+    /// no pending request's row: as its requester or subject, holding an assignment of it, open
+    /// or decided, or named by its assignments, decisions or events; or whether the person is
+    /// its delegate, by a delegation of any type that has not ended, from a person holding an
+    /// open assignment of its current step (<c>01</c> APR-REQ-015).
     /// </summary>
     private const string Pending = """
         SELECT EXISTS (
             SELECT 1 FROM approvals.requests r
             WHERE r.status = 'pending' AND (
-                r.requester = @person OR r.subject = @person
-                OR EXISTS (SELECT 1 FROM approvals.assignments a WHERE a.request = r.id AND a.person = @person)
-                OR EXISTS (SELECT 1 FROM approvals.decisions d WHERE d.request = r.id AND d.decider = @person)
+                @person IN (r.requester, r.subject, r.closed_by, r.closed_for)
+                OR EXISTS (SELECT 1 FROM approvals.assignments a WHERE a.request = r.id AND (a.person = @person OR a.via = @via))
+                OR EXISTS (SELECT 1 FROM approvals.decisions d WHERE d.request = r.id AND @person IN (d.decider, d.acting_for))
+                OR EXISTS (SELECT 1 FROM approvals.events e WHERE e.request = r.id AND (@person IN (e.actor, e.acting_for) OR @person = ANY(e.notify)))
                 OR EXISTS (
                     SELECT 1 FROM approvals.assignments a
                     JOIN approvals.delegations g ON g.from_person = a.person
@@ -179,8 +182,13 @@ internal sealed class RecordRetention(
             throw Refusal.Of(Codes.RetentionNotGranted);
         }
 
+        string via = CanonicalForm.WriteApprover(new ApproverReference.Person(person));
         bool pending = await context.Database
-            .SqlQueryRaw<bool>(Pending, new NpgsqlParameter("person", person), new NpgsqlParameter("now", NpgsqlDbType.TimestampTz) { Value = clock.GetUtcNow().UtcDateTime })
+            .SqlQueryRaw<bool>(
+                Pending,
+                new NpgsqlParameter("person", person),
+                new NpgsqlParameter("via", via),
+                new NpgsqlParameter("now", NpgsqlDbType.TimestampTz) { Value = clock.GetUtcNow().UtcDateTime })
             .SingleAsync(cancellationToken)
             .ConfigureAwait(false);
         if (pending)
@@ -190,7 +198,6 @@ internal sealed class RecordRetention(
 
         List<TypeVersionReference> kept = await KeptVersionsAsync(context, person, cancellationToken).ConfigureAwait(false);
         string alias = Pseudonym();
-        string via = CanonicalForm.WriteApprover(new ApproverReference.Person(person));
         string aliasVia = CanonicalForm.WriteApprover(new ApproverReference.Person(alias));
         await context.Database.ExecuteSqlRawAsync(Locked, [new NpgsqlParameter("person", person), new NpgsqlParameter("via", via)], cancellationToken).ConfigureAwait(false);
         int changed = 0;

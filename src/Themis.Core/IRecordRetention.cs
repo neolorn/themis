@@ -22,8 +22,8 @@ public interface IRecordRetention
     /// <returns>
     /// The number of rows changed, 0 where nothing names the person, and the older versions that
     /// still name them; or, the first that holds, <c>approvals.retention.notgranted</c> where the
-    /// session lacks the retention grant, <c>approvals.erasure.pending</c> where the person is
-    /// the requester, subject, assignee or delegate of a pending request,
+    /// session lacks the retention grant, <c>approvals.erasure.pending</c> where a pending request names
+    /// the person or the person is the delegate of one of its open assignees,
     /// <c>approvals.erasure.typeversion</c>, naming the type, where the newest version of a type
     /// names the person.
     /// </returns>

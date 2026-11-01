@@ -65,7 +65,7 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
     }
 
     [Fact]
-    public async Task APR_REQ_015_AC6_ErasureOfTheRequesterSubjectAssigneeOrDelegateOfAPendingRequestIsRefusedWithErasurePending()
+    public async Task APR_REQ_015_AC6_ErasureOfTheRequesterSubjectAssigneeDelegateOrAnyoneElseAPendingRequestNamesIsRefusedWithErasurePending()
     {
         ClockFake clock = new(Midnight);
         await using RequestHost host = await RequestHost.StartAsync(postgres, clock: clock);
@@ -73,7 +73,7 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
         await host.DelegatedAsync(new DelegationDefinition { From = A, To = C, Starts = Midnight, Ends = Midnight + TimeSpan.FromDays(10), CreatedBy = A });
         RequestId pending = await host.CreatedAsync(Request(subject: Subject));
 
-        string?[] refused = [.. await Task.WhenAll(new[] { Requester, Subject, A, C }.Select(async person => (await EraseAsync(host, person)).Failure?.Code))];
+        string?[] refused = [.. await Task.WhenAll(new[] { Requester, Subject, A, C, Watcher }.Select(async person => (await EraseAsync(host, person)).Failure?.Code))];
         Result<ErasureReceipt> uninvolved = await EraseAsync(host, B);
         await host.CancelAsync(pending, Requester);
         Result<ErasureReceipt> closed = await EraseAsync(host, Requester);
