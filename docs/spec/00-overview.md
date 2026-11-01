@@ -28,7 +28,7 @@ reasoning is one lookup away.
 
 | Document | Covers |
 |---|---|
-| **00-overview** | This document: what the library is, its parts, what is in and out of the first release, glossary |
+| **00-overview** | This document: what the library is, its parts, what each release builds, glossary |
 | **01-requests** | A request's life: creating it, its steps and assignments, decisions, delegation, deadlines, cancelling, protected fields, completion, events and the audit record |
 | **02-approval-types** | What a host publishes: approval types, their versions, policies, steps, approvers, conditions and watchers |
 | **03-library-contract** | Packages, the public surface and its signatures, registration, the seams a host supplies, versioning, the testing package |
@@ -127,29 +127,31 @@ Versions are pinned in `05` APR-ENG-009.
 | `Themis` | The approval engine: approval types, requests, decisions, delegation, deadlines, the event outbox, the schema and the background work | An application that asks for approvals or decides them |
 | `Themis.Testing` | An in-memory approver directory, a recording observer, fixed secrets, an on-demand run of the background work and a test database's migration | A host's tests, and the sample host (`05` APR-ENG-001) |
 | `Themis.Cli` | A .NET tool, command `themis`, that applies the migrations (`04` APR-OPS-002) | A deployment's pipeline |
+| `Themis.Endpoints` | HTTP endpoints for an approver's queue, decisions and delegations, mapped by the host | An ASP.NET Core host that serves its approvers over HTTP (`03` APR-LIB-004) |
 
 No package knows another library: a host that uses this library beside others (an
 identity library, a messaging library) connects them in its own code, through the seams
 of `03` APR-LIB-005 and the events of `01` APR-REQ-014 (T-001).
 
-*Source: T-001, T-006*
+*Source: T-001, T-006, T-025*
 
 ---
 
-## 3. The first release, and what it is designed for
+## 3. The first release, what it is designed for, and the second
 
-**APR-OVR-003** — The first release SHALL build every requirement of `01` to `07`, and
-SHALL be designed so that each item below is added later without a breaking change to
-the public surface (`03` APR-LIB-006):
+**APR-OVR-003** — The first release SHALL build every requirement of `01` to `07` but
+the items below, and SHALL be designed so that each item below is added later without a
+breaking change to the public surface (`03` APR-LIB-006); the second release SHALL build
+them, each as a new member, a new case or a new package (T-025):
 
-| Designed for, not built | Where its design lives |
+| Designed for in the first release, built in the second | Where it is specified |
 |---|---|
 | HTTP endpoints for an approver's queue, decisions and delegations | `03` APR-LIB-004 |
 | Deleting closed requests after a retention period, and erasing a person | `01` APR-REQ-015 |
 | A step whose approvers are a number out of a list (two of five) | `02` APR-TYPE-004 |
 | Reminders before a deadline | `01` APR-REQ-009 |
 
-*Source: T-013, T-015*
+*Source: T-013, T-015, T-025*
 
 ---
 

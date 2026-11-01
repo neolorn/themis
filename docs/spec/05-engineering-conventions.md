@@ -12,7 +12,7 @@ per package of `03` APR-LIB-001 under `src/` and one test project per source pro
 under `tests/`, and a sample host with its test project in a solution of its own under
 `samples/`, built only from the packed packages.
 
-**Values (T-017).** A source project is `src/<Package>`; its test project
+**Values (T-017, T-025).** A source project is `src/<Package>`; its test project
 `tests/<Package>.Tests`; the tests over the whole repository (its projects' references
 and grants, its layout and shared settings, the secret scan, the contract tests over the
 packages' built assemblies, `03` APR-LIB-001 and APR-LIB-002, `07` APR-THR-003) live in
@@ -33,11 +33,13 @@ released together (`03` APR-LIB-001).
 
 The sample host is an ASP.NET Core application with an invented domain naming no real
 product or company (checked in review): it publishes two approval types at its start,
-one with two steps and a deadline and one with a condition, maps a few endpoints of its
-own that create, decide, cancel and complete requests and read a person's pending list,
-answers the directory from a small table of its own, and logs the events its observer
-receives. Its tests run through `Themis.Testing` (`03` APR-LIB-007) against a real
-database. It runs in the gate (APR-ENG-012) from packages packed from the same commit
+one with two steps and a deadline and one with a condition, maps the endpoints of
+`Themis.Endpoints` (`03` APR-LIB-004), to which its own approval endpoints give way,
+supplying the person from its `X-Person` header through `ICurrentPerson` (in the sample
+only), keeps endpoints of its own for what those do not serve (creating, cancelling and
+completing requests), answers the directory from a small table of its own, and logs the
+events its observer receives. Its tests run through `Themis.Testing` (`03` APR-LIB-007)
+against a real database. It runs in the gate (APR-ENG-012) from packages packed from the same commit
 into `artifacts/packages/`, which `.gitignore` lists, at a version the gate passes it;
 it alone has no lockfile and no locked restore, since its packages change with every
 commit. The sample host and its test project are outside `Themis.sln`, in
@@ -73,7 +75,7 @@ gates' scripts are PowerShell 7 scripts, and the pipeline runs on GitHub's
 (the SDK of `global.json`), each at its latest release when the workflow is written and
 pinned by that release's full commit SHA (all checked in review).
 
-*Source: T-017, T-024*
+*Source: T-017, T-024, T-025*
 
 **Acceptance criteria**
 1. A test fails on a project outside this layout, a grant outside this rule, or an entry
