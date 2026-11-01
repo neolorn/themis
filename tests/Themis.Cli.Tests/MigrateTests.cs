@@ -256,7 +256,7 @@ public sealed class MigrateTests(PostgresFixture postgres) : IClassFixture<Postg
     }
 
     [Fact]
-    public async Task APR_REQ_015_AC6_LoginNamedInRetentionRolesHoldsThemisRetentionWhichDeletesFromTheRequestAndDelegationTablesAndUpdatesTheirPersonAndReasonColumnsOnly()
+    public async Task APR_REQ_015_AC6_LoginNamedInRetentionRolesHoldsApprovalsRetentionWhichDeletesFromTheRequestAndDelegationTablesAndUpdatesTheirPersonAndReasonColumnsOnly()
     {
         (string name, string connection) = await postgres.NewDatabaseAsync();
         string login = NewName("app");

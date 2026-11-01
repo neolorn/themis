@@ -104,13 +104,13 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
     }
 
     [Fact]
-    public async Task APR_REQ_015_AC6_ErasureWithoutTheRetentionGrantThrowsNamingRetentionNotGranted()
+    public async Task APR_REQ_015_AC6_ErasureWithoutTheRetentionGrantIsRefusedWithRetentionNotGranted()
     {
         await using RequestHost host = await RetentionTests.ApplicationHostAsync(postgres, configuration: null, TimeProvider.System, retention: false);
 
-        InvalidOperationException refused = await Assert.ThrowsAsync<InvalidOperationException>(() => EraseAsync(host, B));
+        Result<ErasureReceipt> erased = await EraseAsync(host, B);
 
-        Assert.StartsWith("approvals.retention.notgranted", refused.Message, StringComparison.Ordinal);
+        Assert.Equal("approvals.retention.notgranted", erased.Failure?.Code);
         host.AssertNoLogHoldsAValueUsed();
     }
 
@@ -134,27 +134,34 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
     }
 
     [Fact]
-    public async Task CreateAsync_RequesterBeingErased_WaitsUntilTheErasureEnds()
+    public async Task APR_REQ_015_AC10_ErasureRacingACreateNamingThePersonEndsWithOneAfterTheOtherNeverADeadlock()
     {
-        await using RequestHost host = await RequestHost.StartAsync(postgres);
-        await host.PublishAsync(Type(Step("review", ApprovalMode.AnyOne, Person(A))));
-        await using NpgsqlConnection eraser = new(host.Connection);
-        await eraser.OpenAsync(TestContext.Current.CancellationToken);
-        await using NpgsqlTransaction erasure = await eraser.BeginTransactionAsync(TestContext.Current.CancellationToken);
-        await using (NpgsqlCommand take = new("SELECT pg_advisory_xact_lock(@lock)", eraser, erasure))
+        ClockFake clock = new(Midnight);
+        await using RequestHost host = await RequestHost.StartAsync(postgres, clock: clock);
+        RequestId made = await NameBAsync(host);
+        await using NpgsqlConnection holder = new(host.Connection);
+        await holder.OpenAsync(TestContext.Current.CancellationToken);
+        long deadlocksBefore = await DeadlocksAsync(holder);
+        await using NpgsqlTransaction held = await holder.BeginTransactionAsync(TestContext.Current.CancellationToken);
+        await using (NpgsqlCommand take = new("SELECT pg_advisory_xact_lock(@lock)", holder, held))
         {
             take.Parameters.AddWithValue("lock", Themis.Requests.PersonLock.Key(B));
             await take.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
-        Task<Result<CreatedRequest>> create = host.CreateAsync(Request() with { Requester = B });
-        await host.WaitForLockWaitersAsync(1);
-        bool waited = !create.IsCompleted;
-        await erasure.CommitAsync(TestContext.Current.CancellationToken);
+        Task<Result<ErasureReceipt>> erase = EraseAsync(host, B);
+        Task<Result<CreatedRequest>> create = host.CreateAsync(On("order-made") with { Requester = B, Previous = made });
+        await host.WaitForLockWaitersAsync(2);
+        await held.CommitAsync(TestContext.Current.CancellationToken);
+        Result<ErasureReceipt> erased = await erase;
         Result<CreatedRequest> created = await create;
+        await Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
 
-        Assert.True(waited);
         Assert.True(created.IsSuccess, created.Failure?.Code);
+        Assert.True(erased.IsSuccess || erased.Failure?.Code == "approvals.erasure.pending", erased.Failure?.Code);
+        RequestRecord record = await host.ReadAsync(created.Value!.Request);
+        Assert.Equal(B, record.Requester);
+        Assert.Equal(deadlocksBefore, await DeadlocksAsync(holder));
         host.AssertNoLogHoldsAValueUsed();
     }
 
@@ -200,9 +207,10 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
     /// Records <see cref="Requests.B"/> in every place a person is named: as a requester who
     /// cancelled with a reason, a subject, an approver of version 1 by reference, a decider who
     /// rejected with a reason, a person decided for through a delegation, a delegation's lender,
-    /// its ender and an event's notified; then publishes version 2, which names them no more.
+    /// its ender and an event's notified; then publishes version 2, which names them no more,
+    /// and answers the request they made.
     /// </summary>
-    private static async Task NameBAsync(RequestHost host)
+    private static async Task<RequestId> NameBAsync(RequestHost host)
     {
         await host.PublishAsync(Type(Step("review", ApprovalMode.AnyOne, Person(A), Person(B))));
         DelegationId lent = await host.DelegatedAsync(new DelegationDefinition { From = B, To = C, Starts = Midnight, Ends = Midnight + TimeSpan.FromDays(10), CreatedBy = B });
@@ -216,6 +224,7 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
         await host.DecideAsync(forThem, C, DecisionOutcome.Reject, OtherReason, actingFor: B);
         await host.EndDelegationAsync(lent, B);
         await host.PublishAsync(Type(Step("review", ApprovalMode.AnyOne, Person(A), Person(C))));
+        return made;
     }
 
     private static ApprovalRequest On(string target)
@@ -266,5 +275,14 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
         }
 
         return found;
+    }
+    /// <summary>The deadlocks the server has counted in the database of <paramref name="database"/>, read afresh.</summary>
+    private static async Task<long> DeadlocksAsync(NpgsqlConnection database)
+    {
+        await using NpgsqlCommand read = new("SELECT pg_stat_clear_snapshot(); SELECT deadlocks FROM pg_stat_database WHERE datname = current_database()", database);
+        await using NpgsqlDataReader reader = await read.ExecuteReaderAsync(TestContext.Current.CancellationToken);
+        await reader.NextResultAsync(TestContext.Current.CancellationToken);
+        await reader.ReadAsync(TestContext.Current.CancellationToken);
+        return reader.GetInt64(0);
     }
 }

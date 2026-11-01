@@ -21,12 +21,14 @@ public interface IRecordRetention
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>
     /// The number of rows changed, 0 where nothing names the person, and the older versions that
-    /// still name them; or <c>approvals.erasure.pending</c> where the person is the requester,
-    /// subject, assignee or delegate of a pending request, <c>approvals.erasure.typeversion</c>,
-    /// naming the type, where the newest version of a type names the person.
+    /// still name them; or, the first that holds, <c>approvals.retention.notgranted</c> where the
+    /// session lacks the retention grant, <c>approvals.erasure.pending</c> where the person is
+    /// the requester, subject, assignee or delegate of a pending request,
+    /// <c>approvals.erasure.typeversion</c>, naming the type, where the newest version of a type
+    /// names the person.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="person"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="person"/> is outside its rule.</exception>
-    /// <exception cref="InvalidOperationException">The startup checks have not run, or the application lacks the retention grant, the message naming <c>approvals.retention.notgranted</c>.</exception>
+    /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>
     ValueTask<Result<ErasureReceipt>> EraseAsync(string person, CancellationToken cancellationToken);
 }

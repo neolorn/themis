@@ -173,13 +173,12 @@ internal sealed class RecordRetention(
 
     private async Task<ErasureReceipt> EraseInAsync(ApprovalsContext context, string person, CancellationToken cancellationToken)
     {
+        await PersonLock.TakeAsync(context, person, cancellationToken).ConfigureAwait(false);
         if (!await RetentionGrant.HeldForErasureAsync(context, cancellationToken).ConfigureAwait(false))
         {
-            throw new InvalidOperationException($"{Codes.RetentionNotGranted}: the application's role holds no DELETE on the request and delegation tables, or no UPDATE on their person and reason columns; grant it the role {RetentionGrant.Role}.");
+            throw Refusal.Of(Codes.RetentionNotGranted);
         }
 
-        await PersonLock.TakeAsync(context, person, cancellationToken).ConfigureAwait(false);
-        await context.Database.ExecuteSqlRawAsync(Locked, [new NpgsqlParameter("person", person), new NpgsqlParameter("via", CanonicalForm.WriteApprover(new ApproverReference.Person(person)))], cancellationToken).ConfigureAwait(false);
         bool pending = await context.Database
             .SqlQueryRaw<bool>(Pending, new NpgsqlParameter("person", person), new NpgsqlParameter("now", NpgsqlDbType.TimestampTz) { Value = clock.GetUtcNow().UtcDateTime })
             .SingleAsync(cancellationToken)
@@ -193,6 +192,7 @@ internal sealed class RecordRetention(
         string alias = Pseudonym();
         string via = CanonicalForm.WriteApprover(new ApproverReference.Person(person));
         string aliasVia = CanonicalForm.WriteApprover(new ApproverReference.Person(alias));
+        await context.Database.ExecuteSqlRawAsync(Locked, [new NpgsqlParameter("person", person), new NpgsqlParameter("via", via)], cancellationToken).ConfigureAwait(false);
         int changed = 0;
         foreach (string rewrite in Rewrites)
         {

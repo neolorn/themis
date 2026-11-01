@@ -80,8 +80,8 @@ internal static class SchemaMigration
 
     /// <summary>
     /// Creates the role <c>approvals_retention</c> where it is absent, unable to log in, and grants
-    /// it the use of the schema, the reading of and <c>DELETE</c> on the request and delegation
-    /// tables, and <c>UPDATE</c> on their person and reason columns (<c>01</c> APR-REQ-015).
+    /// it <c>DELETE</c> on the request and delegation tables and <c>UPDATE</c> on their person
+    /// and reason columns (<c>01</c> APR-REQ-015).
     /// </summary>
     private const string RetentionGrantSql = """
         DO $$
@@ -89,8 +89,7 @@ internal static class SchemaMigration
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'approvals_retention') THEN
                 CREATE ROLE approvals_retention NOLOGIN;
             END IF;
-            GRANT USAGE ON SCHEMA approvals TO approvals_retention;
-            GRANT SELECT, DELETE ON approvals.requests, approvals.steps, approvals.assignments, approvals.decisions, approvals.events, approvals.delegations TO approvals_retention;
+            GRANT DELETE ON approvals.requests, approvals.steps, approvals.assignments, approvals.decisions, approvals.events, approvals.delegations TO approvals_retention;
             GRANT UPDATE (requester, subject, closed_by, closed_for, reason) ON approvals.requests TO approvals_retention;
             GRANT UPDATE (person, via) ON approvals.assignments TO approvals_retention;
             GRANT UPDATE (decider, acting_for, reason) ON approvals.decisions TO approvals_retention;
@@ -103,8 +102,7 @@ internal static class SchemaMigration
     /// <summary>Whether <c>approvals_retention</c> holds each privilege <see cref="RetentionGrantSql"/> gives, the tables and columns as <see cref="RetentionGrant"/> names them.</summary>
     private const string RetentionHolds = """
         SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'approvals_retention')
-            AND (SELECT bool_and(has_table_privilege('approvals_retention', format('approvals.%I', name), 'SELECT')
-                AND has_table_privilege('approvals_retention', format('approvals.%I', name), 'DELETE')) FROM unnest(@tables) AS name)
+            AND (SELECT bool_and(has_table_privilege('approvals_retention', format('approvals.%I', name), 'DELETE')) FROM unnest(@tables) AS name)
             AND (SELECT bool_and(has_column_privilege('approvals_retention', format('approvals.%I', split_part(name, '.', 1)), split_part(name, '.', 2), 'UPDATE')) FROM unnest(@columns) AS name)
         """;
 

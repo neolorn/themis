@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IRecordRetention`, which erases a person by replacing every reference to them with one pseudonym
 - The role `approvals_retention`, which `themis migrate` creates and grants to the logins of `retentionRoles`
 - The counters `approvals.retention.deleted` and `approvals.erasures`
+- A person's lock, which an erasure takes exclusive and a create, an assignment or a delegation shared
 
 ## [1.0.0-rc.1] - 2026-10-31
 

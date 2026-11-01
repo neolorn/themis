@@ -169,7 +169,7 @@ public sealed class RetentionTests(PostgresFixture postgres) : IClassFixture<Pos
     }
 
     [Fact]
-    public async Task APR_REQ_015_AC6_RunWithoutTheRetentionGrantFailsNamingRetentionNotGrantedAndRunsOnceTheLoginHoldsThemisRetention()
+    public async Task APR_REQ_015_AC6_RunWithoutTheRetentionGrantFailsNamingRetentionNotGrantedAndRunsOnceTheLoginHoldsApprovalsRetention()
     {
         ClockFake clock = new(Midnight);
         (_, string connection) = await postgres.NewMigratedDatabaseAsync();

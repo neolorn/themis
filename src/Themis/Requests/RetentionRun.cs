@@ -22,9 +22,9 @@ namespace Themis.Requests;
 /// request linked to it through <c>previous</c>, in one transaction, once each of them is closed
 /// past the period and every event of each has been taken; a delegation goes once its event has
 /// been taken. At most 1,000 requests go in one run, a chain that does not fit what is left
-/// waiting for the next unless it alone holds more, and at most 1,000 delegations; a row a
-/// host's transaction holds is left for a later run. Where the period is unset, nothing is read or
-/// deleted; where the session lacks the retention grant, the run fails naming
+/// waiting for the next unless it alone holds more, when it goes alone in a run, and at most
+/// 1,000 delegations; a row a host's transaction holds is left for a later run. Where the
+/// period is unset, nothing is read or deleted; where the session lacks the retention grant, the run fails naming
 /// <c>approvals.retention.notgranted</c>.
 /// </summary>
 internal sealed class RetentionRun(ApprovalsDatabase database, ApprovalsOptions options, ApprovalsMetrics metrics, TimeProvider clock)
@@ -151,7 +151,7 @@ internal sealed class RetentionRun(ApprovalsDatabase database, ApprovalsOptions 
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
         List<Guid> again = await ChainAsync(context, request, cancellationToken).ConfigureAwait(false);
-        bool room = ids.Length > MostPerRun || deleted + ids.Length <= MostPerRun;
+        bool room = deleted + ids.Length <= MostPerRun || deleted == 0;
         if (!room || locked.Count != ids.Length || !again.ToHashSet().SetEquals(ids) || await DueCountAsync(context, ids, cutoff, cancellationToken).ConfigureAwait(false) != ids.Length)
         {
             return (ids, false);
