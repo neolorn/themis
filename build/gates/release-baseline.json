@@ -10,6 +10,8 @@
     "approvals.delegation.unknown",
     "approvals.directory.toomany",
     "approvals.directory.unavailable",
+    "approvals.erasure.pending",
+    "approvals.erasure.typeversion",
     "approvals.field.locked",
     "approvals.migrate.connectionfailed",
     "approvals.migrate.failed",
@@ -23,6 +25,7 @@
     "approvals.request.previousinvalid",
     "approvals.request.snapshotinvalid",
     "approvals.request.unknown",
+    "approvals.retention.notgranted",
     "approvals.startup.configurationinvalid",
     "approvals.startup.schemamismatch",
     "approvals.startup.seammissing",
@@ -43,17 +46,20 @@
     "Themis:Jobs:StallFactor",
     "Themis:Observer:Enabled",
     "Themis:Observer:LagThreshold",
+    "Themis:Retention:ClosedRequests",
     "Themis:Timeout"
   ],
   "spellings": {
     "ApprovalJob": {
       "Deadlines": "deadlines",
       "Observer": "observer",
+      "Retention": "retention",
       "Watch": "watch"
     },
     "ApprovalMode": {
       "All": "all",
-      "AnyOne": "anyone"
+      "AnyOne": "anyone",
+      "AtLeast": "atleast"
     },
     "AssignmentOrigin": {
       "Approver": "approver",
@@ -88,6 +94,7 @@
       "DelegationCreated": "delegationcreated",
       "Escalated": "escalated",
       "Rejected": "rejected",
+      "Reminded": "reminded",
       "Requested": "requested",
       "StepStarted": "stepstarted",
       "Voided": "voided"
@@ -126,9 +133,12 @@
   },
   "metrics": {
     "approvals.decisions": "Counter",
+    "approvals.erasures": "Counter",
     "approvals.events.delivered": "Counter",
     "approvals.events.pending": "Observable gauge",
+    "approvals.reminders": "Counter",
     "approvals.requests.closed": "Counter",
-    "approvals.requests.created": "Counter"
+    "approvals.requests.created": "Counter",
+    "approvals.retention.deleted": "Counter"
   }
 }
