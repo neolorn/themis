@@ -27,6 +27,7 @@ public sealed class ProjectReferenceTests
     [InlineData(Packages.Core, Packages.Engine)]
     [InlineData(Packages.Engine, Packages.Testing)]
     [InlineData(Packages.Testing, Packages.Cli)]
+    [InlineData(Packages.Endpoints, Packages.Testing)]
     public void APR_LIB_001_AC1_ProjectReferenceOutsideTheTableIsFound(string project, string reference)
     {
         using RepositoryFixture fixture = new();
@@ -42,6 +43,7 @@ public sealed class ProjectReferenceTests
     [InlineData(Packages.Core, "Microsoft.EntityFrameworkCore")]
     [InlineData(Packages.Testing, "Microsoft.EntityFrameworkCore")]
     [InlineData(Packages.Testing, "xunit.v3")]
+    [InlineData(Packages.Endpoints, "Microsoft.EntityFrameworkCore")]
     public void APR_LIB_001_AC1_PackageReferenceOutsideTheTableIsFound(string project, string package)
     {
         using RepositoryFixture fixture = new();
@@ -165,6 +167,8 @@ public sealed class ProjectReferenceTests
     [InlineData("src/Themis.Core/Themis.Core.csproj", "Microsoft.AspNetCore.App")]
     [InlineData("tests/Themis.Tests/Themis.Tests.csproj", "Microsoft.AspNetCore.App")]
     [InlineData("src/Themis.Testing/Themis.Testing.csproj", "Microsoft.WindowsDesktop.App")]
+    [InlineData("src/Themis.Endpoints/Themis.Endpoints.csproj", "Microsoft.WindowsDesktop.App")]
+    [InlineData("tests/Themis.Endpoints.Tests/Themis.Endpoints.Tests.csproj", "Microsoft.AspNetCore.App")]
     public void APR_LIB_001_AC1_FrameworkReferenceIsFound(string project, string framework)
     {
         ArgumentNullException.ThrowIfNull(project);

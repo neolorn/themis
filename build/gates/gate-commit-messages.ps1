@@ -37,7 +37,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $types = 'feat|fix|refactor|perf|test|docs|build|ci|chore'
-$scopes = 'core|engine|testing|cli|sample'
+$scopes = 'core|engine|testing|cli|endpoints|sample'
 $headerPattern = "^(?<type>$types)(\((?<scope>$scopes)\))?(?<breaking>!)?: (?<description>\S(.*\S)?)$"
 $footerPattern = '^(Implements: APR-[A-Z]+-\d{3}(, APR-[A-Z]+-\d{3})*|BREAKING CHANGE: \S.*)$'
 $sectionTypes = 'Added|Changed|Deprecated|Removed|Fixed|Security'

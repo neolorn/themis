@@ -47,6 +47,10 @@ public sealed class ConfigurationTests
         { "Alerts:Repeat", "00:00:59" },
         { "Alerts:Repeat", "1.00:00:01" },
         { "Alerts:Repeat", "hourly" },
+        { "Retention:ClosedRequests", "29.00:00:00" },
+        { "Retention:ClosedRequests", "10951.00:00:00" },
+        { "Retention:ClosedRequests", "30.12:00:00" },
+        { "Retention:ClosedRequests", "a month" },
     };
 
     /// <summary>Each key's rule at its edges, which it accepts.</summary>
@@ -71,6 +75,8 @@ public sealed class ConfigurationTests
         { "Observer:LagThreshold", "1.00:00:00" },
         { "Alerts:Repeat", "00:01:00" },
         { "Alerts:Repeat", "1.00:00:00" },
+        { "Retention:ClosedRequests", "30.00:00:00" },
+        { "Retention:ClosedRequests", "10950.00:00:00" },
     };
 
     [Fact]
@@ -134,6 +140,20 @@ public sealed class ConfigurationTests
     }
 
     [Fact]
+    public void ApprovalsOptionsValidator_RetentionPeriodOutsideItsRange_IsRefused()
+    {
+        ApprovalsOptions options = new() { Retention = new RetentionOptions { ClosedRequests = TimeSpan.FromDays(29) } };
+
+        Assert.True(new ApprovalsOptionsValidator().Validate(null, options).Failed);
+    }
+
+    [Fact]
+    public void ApprovalsOptionsValidator_RetentionPeriodUnset_IsAccepted()
+    {
+        Assert.True(new ApprovalsOptionsValidator().Validate(null, new ApprovalsOptions()).Succeeded);
+    }
+
+    [Fact]
     public void ApprovalsOptionsValidator_ValueOutsideItsRange_IsRefused()
     {
         ApprovalsOptions options = new() { Timeout = TimeSpan.FromMinutes(2) };
@@ -157,13 +177,15 @@ public sealed class ConfigurationTests
             ["Observer:Enabled"] = Text(options.Observer.Enabled),
             ["Observer:LagThreshold"] = Text(options.Observer.LagThreshold),
             ["Alerts:Repeat"] = Text(options.Alerts.Repeat),
+            ["Retention:ClosedRequests"] = Text(options.Retention.ClosedRequests),
         };
     }
 
-    private static string Text(object value)
+    private static string Text(object? value)
     {
         return value switch
         {
+            null => "None",
             bool flag => flag ? "true" : "false",
             TimeSpan duration => duration.ToString("c", CultureInfo.InvariantCulture),
             _ => Convert.ToString(value, CultureInfo.InvariantCulture)!,

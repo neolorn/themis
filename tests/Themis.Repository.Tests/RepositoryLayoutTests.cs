@@ -391,7 +391,7 @@ public sealed class RepositoryLayoutTests
         "<clear /><add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" /><add key=\"artifacts\" value=\"../artifacts/packages/\" />";
 
     private const string SampleMappingWithinTheRule =
-        "<packageSource key=\"nuget.org\"><package pattern=\"*\" /></packageSource><packageSource key=\"artifacts\"><package pattern=\"Themis\" /><package pattern=\"Themis.Core\" /><package pattern=\"Themis.Testing\" /><package pattern=\"Themis.Cli\" /></packageSource>";
+        "<packageSource key=\"nuget.org\"><package pattern=\"*\" /></packageSource><packageSource key=\"artifacts\"><package pattern=\"Themis\" /><package pattern=\"Themis.Core\" /><package pattern=\"Themis.Testing\" /><package pattern=\"Themis.Cli\" /><package pattern=\"Themis.Endpoints\" /></packageSource>";
 
     private static string SampleSources(string sources, string mapping)
     {

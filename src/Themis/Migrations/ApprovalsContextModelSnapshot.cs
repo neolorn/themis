@@ -305,7 +305,7 @@ namespace Themis.Migrations
 
                     b.ToTable("events", "approvals", t =>
                         {
-                            t.HasCheckConstraint("ck_events_kind", "kind IN ('requested', 'stepstarted', 'escalated', 'approved', 'rejected', 'cancelled', 'voided', 'completed', 'delegationcreated')");
+                            t.HasCheckConstraint("ck_events_kind", "kind IN ('requested', 'stepstarted', 'escalated', 'approved', 'rejected', 'cancelled', 'voided', 'completed', 'delegationcreated', 'reminded')");
 
                             t.HasCheckConstraint("ck_events_reason_code", "reason_code IS NULL OR reason_code IN ('noapprover', 'deadline', 'fieldchanged')");
 
@@ -344,7 +344,7 @@ namespace Themis.Migrations
 
                     b.ToTable("jobs", "approvals", t =>
                         {
-                            t.HasCheckConstraint("ck_jobs_name", "name IN ('deadlines', 'observer', 'watch')");
+                            t.HasCheckConstraint("ck_jobs_name", "name IN ('deadlines', 'observer', 'watch', 'retention')");
                         });
 
                     b.HasData(
@@ -359,6 +359,10 @@ namespace Themis.Migrations
                         new
                         {
                             Name = "watch"
+                        },
+                        new
+                        {
+                            Name = "retention"
                         });
                 });
 
@@ -517,6 +521,18 @@ namespace Themis.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<DateTimeOffset?>("RemindAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("remind_at");
+
+                    b.Property<int>("RemindersSent")
+                        .HasColumnType("integer")
+                        .HasColumnName("reminders_sent");
+
+                    b.Property<int?>("Required")
+                        .HasColumnType("integer")
+                        .HasColumnName("required");
+
                     b.Property<DateTimeOffset?>("StartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
@@ -533,11 +549,17 @@ namespace Themis.Migrations
                         .HasDatabaseName("ix_steps_due")
                         .HasFilter("status = 'current' AND deadline_ran_at IS NULL");
 
+                    b.HasIndex("RemindAt")
+                        .HasDatabaseName("ix_steps_remind")
+                        .HasFilter("status = 'current' AND deadline_ran_at IS NULL AND remind_at IS NOT NULL");
+
                     b.ToTable("steps", "approvals", t =>
                         {
-                            t.HasCheckConstraint("ck_steps_mode", "mode IN ('anyone', 'all')");
+                            t.HasCheckConstraint("ck_steps_mode", "mode IN ('anyone', 'all', 'atleast')");
 
                             t.HasCheckConstraint("ck_steps_number", "number >= 1");
+
+                            t.HasCheckConstraint("ck_steps_required", "(mode = 'atleast' AND required BETWEEN 2 AND 16) OR (mode <> 'atleast' AND required IS NULL)");
 
                             t.HasCheckConstraint("ck_steps_status", "status IN ('waiting', 'current', 'done', 'skipped', 'closed')");
                         });

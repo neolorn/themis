@@ -23,6 +23,9 @@ public sealed class MigrateInputTests
     [InlineData("{\"connection\": \"Host=h\", \"applicationRoles\": null}", "applicationRoles")]
     [InlineData("{\"connection\": \"Host=h\", \"applicationRoles\": [5]}", "applicationRoles")]
     [InlineData("{\"connection\": \"Host=h\", \"applicationRoles\": [\"\"]}", "applicationRoles")]
+    [InlineData("{\"connection\": \"Host=h\", \"retentionRoles\": \"app\"}", "retentionRoles")]
+    [InlineData("{\"connection\": \"Host=h\", \"retentionRoles\": [5]}", "retentionRoles")]
+    [InlineData("{\"connection\": \"Host=h\", \"retentionRoles\": [\"\"]}", "retentionRoles")]
     public async Task APR_OPS_002_AC3_InputThatDoesNotReadExitsOneWithInputInvalid(string input, string? member)
     {
         Tool.ToolRun run = await Tool.RunAsync(input);

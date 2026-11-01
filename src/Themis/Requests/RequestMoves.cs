@@ -25,6 +25,9 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
     /// <summary>The most persons a step's approvers may resolve to (<c>01</c> APR-REQ-003).</summary>
     internal const int MostPersons = 200;
 
+    /// <summary>No decision of a step that is starting.</summary>
+    private static readonly Dictionary<Guid, string> NoDecisions = new();
+
     private readonly List<Action> counts = [];
 
     internal DateTimeOffset Now => now;
@@ -79,7 +82,10 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
             row.Status = StepStatus.Current;
             row.StartedAt = now;
             row.DueAt = step.Deadline is null ? null : now + step.Deadline.After;
+            row.RemindersSent = 0;
+            row.RemindAt = ReminderTimes(step, row.DueAt).Select(at => (DateTimeOffset?)at).FirstOrDefault();
             request.Step = number;
+            await PersonLock.ShareAsync(context, assignments.Select(assignment => assignment.Person), cancellationToken).ConfigureAwait(false);
             context.Assignments.AddRange(assignments);
             if (requested)
             {
@@ -91,7 +97,7 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
                 requested = true;
             }
 
-            if (!Satisfied(step.Mode, deadlineRan: false, assignments))
+            if (!Satisfied(step.Mode, step.Required, deadlineRan: false, assignments, thisStep: NoDecisions))
             {
                 return;
             }
@@ -186,8 +192,67 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
             added.Add(Assignment(request.Id, number, fallback, AssignmentOrigin.Fallback, new ApproverReference.Person(fallback)));
         }
 
+        await PersonLock.ShareAsync(context, added.Select(assignment => assignment.Person), cancellationToken).ConfigureAwait(false);
         context.Assignments.AddRange(added);
         await WriteAsync(request, definition, snapshot, EventKind.Escalated, number, actor: null, actingFor: null, reasonCode: null, [.. added.Select(assignment => assignment.Person)], cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends the reminders of the request's step <paramref name="row"/> that are due (<c>01</c> APR-REQ-009, T-025):
+    /// while the deadline is ahead, one <c>reminded</c> event for the latest due, naming the step's open assignees,
+    /// each with the delegates who hold their assignment through a live delegation covering the type, and counted
+    /// once; the earlier ones due are passed. Where the deadline has passed, every reminder left is passed and
+    /// none is sent. Answers whether one was sent.
+    /// </summary>
+    internal async Task<bool> RemindAsync(RequestRow request, ApprovalTypeDefinition definition, StepDefinition step, StepRow row, CancellationToken cancellationToken)
+    {
+        DateTimeOffset[] times = [.. ReminderTimes(step, row.DueAt)];
+        if (row.DueAt is not DateTimeOffset due || due <= now)
+        {
+            row.RemindersSent = times.Length;
+            row.RemindAt = null;
+            return false;
+        }
+
+        int sent = row.RemindersSent;
+        while (sent < times.Length && times[sent] <= now)
+        {
+            sent++;
+        }
+
+        bool remind = sent > row.RemindersSent;
+        row.RemindersSent = sent;
+        row.RemindAt = sent < times.Length ? times[sent] : null;
+        if (!remind)
+        {
+            return false;
+        }
+
+        List<string> open = await context.Assignments
+            .Where(assignment => assignment.Request == request.Id && assignment.Step == row.Number && assignment.Decision == null)
+            .OrderBy(assignment => assignment.Origin)
+            .ThenBy(assignment => assignment.Person)
+            .Select(assignment => assignment.Person)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        string type = request.Type;
+        var lent = await context.Delegations
+            .Where(delegation => open.Contains(delegation.From) && delegation.EndedAt == null && delegation.Starts <= now && delegation.Ends > now && (delegation.Types.Count == 0 || delegation.Types.Contains(type)))
+            .OrderBy(delegation => delegation.To)
+            .Select(delegation => new { delegation.From, delegation.To })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        List<string> notify = [.. open.SelectMany(person => lent.Where(delegation => delegation.From == person).Select(delegation => delegation.To).Prepend(person))];
+        IReadOnlyDictionary<string, FieldValue> snapshot = CanonicalForm.ReadSnapshot(request.Snapshot);
+        await WriteAsync(request, definition, snapshot, EventKind.Reminded, row.Number, actor: null, actingFor: null, reasonCode: null, notify, cancellationToken).ConfigureAwait(false);
+        counts.Add(() => metrics.Reminders.Add(1, new KeyValuePair<string, object?>("type", type)));
+        return true;
+    }
+
+    /// <summary>The instants of <paramref name="step"/>'s reminders before its deadline <paramref name="due"/>, earliest first; none without a deadline.</summary>
+    internal static IEnumerable<DateTimeOffset> ReminderTimes(StepDefinition step, DateTimeOffset? due)
+    {
+        return due is DateTimeOffset at && step.Deadline is { } deadline ? deadline.RemindBefore.OrderByDescending(before => before).Select(before => at - before) : [];
     }
 
     /// <summary>Counts a decision of <paramref name="type"/> with <paramref name="outcome"/>.</summary>
@@ -205,14 +270,32 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
 
     /// <summary>
     /// Whether a step of <paramref name="mode"/> is complete with <paramref name="assignments"/>: any satisfied for <c>AnyOne</c>,
-    /// every one for <c>All</c>, or an escalation assignment satisfied, or, where the step's deadline has run (<paramref name="deadlineRan"/>)
+    /// every one for <c>All</c>, <paramref name="required"/> approvals counted per distinct person for <c>AtLeast</c>, each assignment
+    /// satisfied by a decision of this step, <paramref name="thisStep"/>, counted as its decider and one an earlier decision satisfied
+    /// under <c>Skip</c> as its own person, or a fallback assignment satisfied for <c>AtLeast</c>, the step having started with fewer
+    /// assignments than it requires (<c>02</c> APR-TYPE-004, T-025); or an escalation assignment satisfied, or, where the step's deadline has run (<paramref name="deadlineRan"/>)
     /// and it holds no escalation assignment, a fallback assignment satisfied, which the escalation assigned in its place (<c>01</c> APR-REQ-009, T-023).
     /// </summary>
-    internal static bool Satisfied(ApprovalMode mode, bool deadlineRan, IReadOnlyCollection<AssignmentRow> assignments)
+    internal static bool Satisfied(ApprovalMode mode, int? required, bool deadlineRan, IReadOnlyCollection<AssignmentRow> assignments, IReadOnlyDictionary<Guid, string> thisStep)
     {
         bool standsIn = deadlineRan && !assignments.Any(assignment => assignment.Origin == AssignmentOrigin.Escalation);
-        return assignments.Any(assignment => assignment.Decision is not null && (assignment.Origin == AssignmentOrigin.Escalation || (standsIn && assignment.Origin == AssignmentOrigin.Fallback)))
-            || (mode == ApprovalMode.AnyOne ? assignments.Any(assignment => assignment.Decision is not null) : assignments.All(assignment => assignment.Decision is not null));
+        if (assignments.Any(assignment => assignment.Decision is not null && (assignment.Origin == AssignmentOrigin.Escalation || (standsIn && assignment.Origin == AssignmentOrigin.Fallback))))
+        {
+            return true;
+        }
+
+        return mode switch
+        {
+            ApprovalMode.AnyOne => assignments.Any(assignment => assignment.Decision is not null),
+            ApprovalMode.All => assignments.All(assignment => assignment.Decision is not null),
+            ApprovalMode.AtLeast => assignments.Any(assignment => assignment.Decision is not null && assignment.Origin == AssignmentOrigin.Fallback)
+                || assignments
+                    .Where(assignment => assignment.Decision is not null)
+                    .Select(assignment => thisStep.TryGetValue(assignment.Decision!.Value, out string? decider) ? decider : assignment.Person)
+                    .Distinct(StringComparer.Ordinal)
+                    .Count() >= (required ?? throw new InvalidOperationException("An AtLeast step holds no Required.")),
+            _ => throw new InvalidOperationException("A step is of no mode of ApprovalMode."),
+        };
     }
 
     /// <summary>The query the directory is asked with for the request's step <paramref name="step"/>, or none when watchers are resolved.</summary>
@@ -267,8 +350,9 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
         bool Excluded(string person) => person == request.Requester || person == request.Subject || (requireOther && approvedEarlier.ContainsKey(person));
 
         List<AssignmentRow> assignments = [.. named.Where(entry => !Excluded(entry.Person)).Select(entry => Assignment(request.Id, number, entry.Person, AssignmentOrigin.Approver, entry.Via))];
-        if (assignments.Count == 0)
+        if (assignments.Count == 0 || (step.Mode == ApprovalMode.AtLeast && assignments.Count < step.Required))
         {
+            assignments.Clear();
             string? fallback = new[] { step.Fallback, definition.Fallback }.FirstOrDefault(person => !Excluded(person));
             if (fallback is null)
             {
@@ -322,12 +406,12 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
 
     /// <summary>
     /// Writes the request's next event of <paramref name="kind"/>, naming <paramref name="notify"/>
-    /// and, for every kind but <c>stepstarted</c>, the type's watchers resolved now
+    /// and, for every kind but <c>stepstarted</c>, <c>escalated</c> and <c>reminded</c>, the type's watchers resolved now
     /// (<c>01</c> APR-REQ-014; <c>02</c> APR-TYPE-006).
     /// </summary>
     private async Task WriteAsync(RequestRow request, ApprovalTypeDefinition definition, IReadOnlyDictionary<string, FieldValue> snapshot, EventKind kind, int? step, string? actor, string? actingFor, ReasonCode? reasonCode, List<string> notify, CancellationToken cancellationToken)
     {
-        if (kind is not (EventKind.StepStarted or EventKind.Escalated))
+        if (kind is not (EventKind.StepStarted or EventKind.Escalated or EventKind.Reminded))
         {
             ApproverQuery query = Query(request, snapshot, step: null);
             foreach (ApproverReference watcher in definition.Watchers)

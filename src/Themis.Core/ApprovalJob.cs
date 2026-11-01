@@ -16,4 +16,8 @@ public enum ApprovalJob
     /// <summary>Judges the alert conditions.</summary>
     [JsonStringEnumMemberName("watch")]
     Watch,
+
+    /// <summary>Deletes the closed requests and the ended delegations past the retention period.</summary>
+    [JsonStringEnumMemberName("retention")]
+    Retention,
 }

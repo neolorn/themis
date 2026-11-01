@@ -255,6 +255,62 @@ public sealed class MigrateTests(PostgresFixture postgres) : IClassFixture<Postg
         Assert.Empty(await HistoryAsync(connection));
     }
 
+    [Fact]
+    public async Task APR_REQ_015_AC6_LoginNamedInRetentionRolesHoldsApprovalsRetentionWhichDeletesFromTheRequestAndDelegationTablesAndUpdatesTheirPersonReasonAndSnapshotColumnsOnly()
+    {
+        (string name, string connection) = await postgres.NewDatabaseAsync();
+        string login = NewName("app");
+        await postgres.RunAsync($"CREATE ROLE {login} LOGIN PASSWORD 'test';");
+
+        Tool.ToolRun first = await Tool.RunAsync(Tool.Input(connection, [login], [login]));
+        Tool.ToolRun second = await Tool.RunAsync(Tool.Input(connection, [login], [login]));
+
+        Assert.Equal((0, string.Empty), (first.Exit, first.Error));
+        Assert.Equal((0, string.Empty), (second.Exit, second.Error));
+        await using NpgsqlConnection database = new(postgres.Connection(name));
+        await database.OpenAsync(TestContext.Current.CancellationToken);
+        await using NpgsqlCommand read = new(
+            """
+            SELECT
+                (SELECT NOT rolcanlogin FROM pg_roles WHERE rolname = 'approvals_retention'),
+                pg_has_role(@login::name, 'approvals_retention', 'USAGE'),
+                (SELECT string_agg(c.relname, ',' ORDER BY c.relname) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'approvals' AND c.relkind IN ('r', 'p') AND has_table_privilege('approvals_retention', c.oid, 'DELETE')),
+                (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'approvals' AND c.relkind IN ('r', 'p') AND has_table_privilege('approvals_retention', c.oid, 'UPDATE')),
+                (SELECT string_agg(c.relname || '.' || a.attname, ',' ORDER BY c.relname, a.attname) FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+                    WHERE n.nspname = 'approvals' AND c.relkind IN ('r', 'p') AND has_column_privilege('approvals_retention', c.oid, a.attnum, 'UPDATE'))
+            """,
+            database);
+        read.Parameters.AddWithValue("login", login);
+        await using NpgsqlDataReader reader = await read.ExecuteReaderAsync(TestContext.Current.CancellationToken);
+        await reader.ReadAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(reader.GetBoolean(0), "approvals_retention can log in");
+        Assert.True(reader.GetBoolean(1), "the login does not hold approvals_retention");
+        Assert.Equal("assignments,decisions,delegations,events,requests,steps", reader.GetString(2));
+        Assert.Equal(0L, reader.GetInt64(3));
+        Assert.Equal(
+            "assignments.person,assignments.via,decisions.acting_for,decisions.decider,decisions.reason,delegations.created_by,delegations.ended_by,"
+                + "delegations.from_person,delegations.to_person,events.acting_for,events.actor,events.notify,requests.closed_by,requests.closed_for,"
+                + "requests.reason,requests.requester,requests.snapshot,requests.subject",
+            reader.GetString(4));
+    }
+
+    [Fact]
+    public async Task APR_OPS_002_AC4_LoginInRetentionRolesTheDatabaseLacksExitsOneWithInputInvalidNamingRetentionRolesAndAppliesNothing()
+    {
+        (_, string connection) = await postgres.NewDatabaseAsync();
+        string present = NewName("app");
+        await postgres.RunAsync($"CREATE ROLE {present};");
+
+        Tool.ToolRun run = await Tool.RunAsync(Tool.Input(connection, [present], [NewName("missing")]));
+
+        AssertFailure(run, "approvals.migrate.inputinvalid", "member", "retentionRoles");
+        Assert.Empty(await HistoryAsync(connection));
+    }
+
     private static string NewName(string prefix)
     {
         return prefix + "_" + Guid.NewGuid().ToString("N")[..12];

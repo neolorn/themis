@@ -17,6 +17,9 @@ public sealed record StepRecord
     /// <summary>How many of its assignments must approve.</summary>
     public required ApprovalMode Mode { get; init; }
 
+    /// <summary>How many approvals complete it where its mode is <c>AtLeast</c>, or none.</summary>
+    public int? Required { get; init; }
+
     /// <summary>Its status.</summary>
     public required StepStatus Status { get; init; }
 
@@ -34,7 +37,7 @@ public sealed record StepRecord
 
     private bool PrintMembers(StringBuilder builder)
     {
-        builder.Append(CultureInfo.InvariantCulture, $"Number = {Number}, Name = {Name}, Mode = {Mode}, Status = {Status}, StartedAt = {StartedAt:O}, DueAt = {DueAt:O}, DeadlineRanAt = {DeadlineRanAt:O}");
+        builder.Append(CultureInfo.InvariantCulture, $"Number = {Number}, Name = {Name}, Mode = {Mode}, Required = {Required}, Status = {Status}, StartedAt = {StartedAt:O}, DueAt = {DueAt:O}, DeadlineRanAt = {DeadlineRanAt:O}");
         return true;
     }
 }

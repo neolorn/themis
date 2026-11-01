@@ -58,7 +58,7 @@ public sealed class RequestSchemaTests(PostgresFixture postgres) : IClassFixture
         await database.OpenAsync(TestContext.Current.CancellationToken);
         await using NpgsqlCommand names = new("SELECT string_agg(name, ',' ORDER BY name) FROM approvals.jobs", database);
 
-        Assert.Equal("deadlines,observer,watch", await names.ExecuteScalarAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("deadlines,observer,retention,watch", await names.ExecuteScalarAsync(TestContext.Current.CancellationToken));
     }
 
     private static string Request(string id, string status)

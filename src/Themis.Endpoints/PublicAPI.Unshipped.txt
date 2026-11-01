@@ -1,0 +1,5 @@
+#nullable enable
+Themis.Endpoints.ApprovalsEndpointRouteBuilderExtensions
+Themis.Endpoints.ICurrentPerson
+Themis.Endpoints.ICurrentPerson.ReadAsync(Microsoft.AspNetCore.Http.HttpContext! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<string?>
+static Themis.Endpoints.ApprovalsEndpointRouteBuilderExtensions.MapThemisApprovals(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! prefix) -> Microsoft.AspNetCore.Routing.RouteGroupBuilder!

@@ -13,7 +13,7 @@ namespace Themis.Cli;
 /// <summary>The command <c>themis</c>, whose one command, <c>migrate</c>, applies the release's migrations (<c>04</c> APR-OPS-002).</summary>
 internal static class Program
 {
-    private const string Usage = "Usage: themis migrate, reading {\"connection\": \"...\", \"applicationRoles\": [\"...\"]} on standard input.";
+    private const string Usage = "Usage: themis migrate, reading {\"connection\": \"...\", \"applicationRoles\": [\"...\"], \"retentionRoles\": [\"...\"]} on standard input.";
 
     private static async Task<int> Main(string[] args)
     {
@@ -35,7 +35,7 @@ internal static class Program
         }
 
         string text = await input.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-        MigrationFailure? failure = MigrationInput.Read(text, out MigrationInput? read) ?? await SchemaMigration.ApplyAsync(read!.Connection, read.ApplicationRoles, cancellationToken).ConfigureAwait(false);
+        MigrationFailure? failure = MigrationInput.Read(text, out MigrationInput? read) ?? await SchemaMigration.ApplyAsync(read!.Connection, read.ApplicationRoles, read.RetentionRoles, cancellationToken).ConfigureAwait(false);
         if (failure is null)
         {
             return 0;

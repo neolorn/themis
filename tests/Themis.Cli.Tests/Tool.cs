@@ -39,6 +39,31 @@ internal static class Tool
         return Encoding.UTF8.GetString(buffer.ToArray());
     }
 
+    /// <summary>The input naming <paramref name="applicationRoles"/> and <paramref name="retentionRoles"/>.</summary>
+    internal static string Input(string connection, string[] applicationRoles, string[] retentionRoles)
+    {
+        using MemoryStream buffer = new();
+        using (Utf8JsonWriter writer = new(buffer))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("connection", connection);
+            foreach ((string member, string[] roles) in new[] { ("applicationRoles", applicationRoles), ("retentionRoles", retentionRoles) })
+            {
+                writer.WriteStartArray(member);
+                foreach (string role in roles)
+                {
+                    writer.WriteStringValue(role);
+                }
+
+                writer.WriteEndArray();
+            }
+
+            writer.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(buffer.ToArray());
+    }
+
     /// <summary>A run's exit code and what it wrote on standard error.</summary>
     internal sealed record ToolRun(int Exit, string Error)
     {

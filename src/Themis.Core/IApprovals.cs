@@ -139,7 +139,7 @@ public interface IApprovals
     /// <summary>Reads what the record holds that names <paramref name="person"/> (<c>01</c> APR-REQ-015): the requests they made or are the subject of, their assignments, the decisions they made or that were made for them, and the delegations from and to them.</summary>
     /// <param name="person">The person reference.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
-    /// <returns>The export.</returns>
+    /// <returns>The export; empty for a reference an erasure replaced, and for a pseudonym it drew, <c>erased:</c> and what follows.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="person"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="person"/> is outside its rule.</exception>
     /// <exception cref="InvalidOperationException">The startup checks have not run.</exception>

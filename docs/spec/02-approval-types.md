@@ -97,32 +97,56 @@ policy never approves by its conditions alone. Where no policy holds:
 ---
 
 **APR-TYPE-004** — Each step SHALL name who may approve it, how many of them must, a
-fallback approver, and MAY name a condition and a deadline.
+fallback approver, and MAY name a condition and a deadline, with reminders before it.
 
-**Values (T-005, T-012).** A step holds:
+**Values (T-005, T-012, T-025).** A step holds:
 - `Approvers`: 1 to 16 approver references, each `Permission(name)` (every person the
   host's directory answers for that permission, `03` APR-LIB-005) or
   `Person(reference)`;
-- `Mode`: `AnyOne` (one approval completes the step) or `All` (every assignment must be
-  approved);
+- `Mode`: `AnyOne` (one approval completes the step), `All` (every assignment must be
+  approved) or `AtLeast` (`Required` approvals complete it);
+- `Required`: required for `AtLeast` and refused for any other mode; 2 to 16 (one is
+  `AnyOne`); where every approver is a `Person`, at most the number of distinct persons
+  they name, and where any is a `Permission`, checked when the step starts;
 - `Condition`: optional; a step whose condition is false when the request reaches it is
   skipped (`01` APR-REQ-003);
 - `Fallback`: a person reference, the approver where the step's exclusions leave no one
   (`01` APR-REQ-007);
 - `Deadline`: optional; `After`, 1 minute to 365 days from the step's start in whole
-  seconds, and `Action`, one of `Escalate` (with `EscalateTo`, one approver reference,
-  required for it alone), `Reject` and `Cancel` (`01` APR-REQ-009). No action approves.
+  seconds; `Action`, one of `Escalate` (with `EscalateTo`, one approver reference,
+  required for it alone), `Reject` and `Cancel` (`01` APR-REQ-009); and `RemindBefore`,
+  up to three durations before the deadline at which the step's open assignees are
+  reminded (`01` APR-REQ-009), each at least 1 hour in whole seconds, shorter than
+  `After` and distinct, only on a step with a deadline. No action approves.
 
-*Designed for, not built:* a mode needing a number of approvals out of the assignments
-(`AtLeast(n)`), a new case of the mode that changes no table, since a step's
-assignments and decisions are kept one by one already.
+**A number out of a list (T-025).** An `AtLeast` step completes at `Required` approvals
+counted per distinct person: a person holding two assignments of it, their own and one
+through a delegation, counts once, and an assignment `Skip` satisfied counts as one
+approval of its person (`01` APR-REQ-006). Any rejection rejects the request, as in
+every mode (`01` APR-REQ-005). A step that starts with fewer assignments than its
+`Required`, once its exclusions are applied, is treated as one with none: its fallback
+is assigned, whose first approval completes it (`01` APR-REQ-007, T-023), else the
+request is cancelled with `noapprover` and `request-unassignable` is raised. An
+escalation or fallback assignee's first approval completes the step whatever its mode
+(`01` APR-REQ-009, T-023). The canonical form leaves `Required` out where it is absent,
+and `RemindBefore` where it is empty (`05` APR-ENG-006), so every version published
+before them keeps its hash.
 
-*Source: T-005, T-012*
+*Source: T-005, T-012, T-025*
 
 **Acceptance criteria**
 1. A step with no approver, more than 16, a deadline outside its range, an `Escalate`
    without a target or a target without `Escalate`, or a fallback that is not a person
    reference, refuses the publish.
+2. Publish refuses `AtLeast` without `Required`, `Required` with another mode, a
+   `Required` outside 2 to 16, and one above the distinct persons a step's approvers
+   name where every one is a `Person`.
+3. A step needing two of five completes at the second approval by two persons, not by
+   one person twice.
+4. A rejection in an `AtLeast` step rejects the request.
+5. An `AtLeast` step that starts with fewer assignments than its `Required` goes to its
+   fallback, else raises `request-unassignable`.
+6. A version published before `AtLeast` existed keeps its hash.
 
 ---
 

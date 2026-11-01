@@ -28,4 +28,7 @@ internal sealed class ApprovalsOptions
 
     [ValidateObjectMembers]
     public AlertsOptions Alerts { get; set; } = new();
+
+    [ValidateObjectMembers]
+    public RetentionOptions Retention { get; set; } = new();
 }

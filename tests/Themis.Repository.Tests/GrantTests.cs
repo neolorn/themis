@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 using Xunit;
 
@@ -40,5 +41,15 @@ public sealed class GrantTests
         fixture.Write("samples/Observatory/Program.cs", "System.Console.WriteLine();\n");
 
         Assert.DoesNotContain(ReferenceRules.GrantViolations(fixture.Root), violation => violation.StartsWith("samples/", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("src/Themis/Themis.csproj", Packages.Engine, Packages.Endpoints, true)]
+    [InlineData("src/Themis/Themis.csproj", Packages.Engine, Packages.Cli, true)]
+    [InlineData("src/Themis.Core/Themis.Core.csproj", Packages.Core, Packages.Endpoints, false)]
+    [InlineData("src/Themis.Endpoints/Themis.Endpoints.csproj", Packages.Endpoints, Packages.Engine, false)]
+    public void APR_ENG_001_AC1_OnlyThemisGrantsThemisEndpointsItsInternals(string path, string name, string grantee, bool allowed)
+    {
+        Assert.Equal(allowed, !ReferenceRules.GrantViolations(path, name, [grantee]).Any());
     }
 }

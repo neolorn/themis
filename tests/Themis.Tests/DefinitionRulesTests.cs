@@ -12,7 +12,7 @@ namespace Themis.Tests;
 [Trait("Category", "unit")]
 public sealed class DefinitionRulesTests
 {
-    public static TheoryData<string> OutsideARule => [.. InvalidDefinitions.TypeRules.Keys.Concat(InvalidDefinitions.StepRules.Keys).Concat(InvalidDefinitions.ConditionRules.Keys)];
+    public static TheoryData<string> OutsideARule => [.. InvalidDefinitions.TypeRules.Keys.Concat(InvalidDefinitions.StepRules.Keys).Concat(InvalidDefinitions.RequiredRules.Keys).Concat(InvalidDefinitions.ReminderRules.Keys).Concat(InvalidDefinitions.ConditionRules.Keys)];
 
     public static TheoryData<string> AtTheEdge => [.. InvalidDefinitions.AtTheEdge.Keys];
 
@@ -70,7 +70,7 @@ public sealed class DefinitionRulesTests
 
     private static (ApprovalTypeDefinition Definition, string Member) Find(string rule)
     {
-        foreach (IReadOnlyDictionary<string, (ApprovalTypeDefinition, string)> rules in new[] { InvalidDefinitions.TypeRules, InvalidDefinitions.StepRules, InvalidDefinitions.ConditionRules })
+        foreach (IReadOnlyDictionary<string, (ApprovalTypeDefinition, string)> rules in new[] { InvalidDefinitions.TypeRules, InvalidDefinitions.StepRules, InvalidDefinitions.RequiredRules, InvalidDefinitions.ReminderRules, InvalidDefinitions.ConditionRules })
         {
             if (rules.TryGetValue(rule, out (ApprovalTypeDefinition, string) found))
             {

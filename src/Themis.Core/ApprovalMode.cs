@@ -12,4 +12,8 @@ public enum ApprovalMode
     /// <summary>Every assignment must be approved.</summary>
     [JsonStringEnumMemberName("all")]
     All,
+
+    /// <summary><c>Required</c> approvals, counted per distinct person, complete the step.</summary>
+    [JsonStringEnumMemberName("atleast")]
+    AtLeast,
 }

@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\src\Themis\Themis.csproj" />
     <ProjectReference Include="..\..\src\Themis.Testing\Themis.Testing.csproj" />
     <ProjectReference Include="..\..\src\Themis.Cli\Themis.Cli.csproj" />
+    <ProjectReference Include="..\..\src\Themis.Endpoints\Themis.Endpoints.csproj" />
   </ItemGroup>
 
 </Project>

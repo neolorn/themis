@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Themis:Retention:ClosedRequests`, how long a closed request is kept, unset by default so every request stays
+- The job `retention`, which deletes the closed requests and the ended delegations past that period, an event the observer has not taken holding them one period more at most
+- `IRecordRetention`, which erases a person no pending request names, nor an approved one as its subject, by replacing every reference to them with one pseudonym and clearing the snapshots of the closed requests whose subject they are
+- The role `approvals_retention`, which `themis migrate` creates and grants to the logins of `retentionRoles`
+- The counters `approvals.retention.deleted` and `approvals.erasures`
+- A person's lock, which an erasure takes exclusive and a create, an assignment or a delegation shared
+- The approval mode `AtLeast`, whose step completes at `Required` approvals counted per distinct person
+- `Deadline.RemindBefore`, up to three reminders before a step's deadline, each sent once as a `reminded` event while the deadline is ahead
+- The counter `approvals.reminders`
+- The package `Themis.Endpoints`, whose `MapThemisApprovals` maps HTTP endpoints for an approver's pending list, a request's record, decisions and delegations
+- The seam `ICurrentPerson`, through which a host names the person each HTTP request acts for, required where the endpoints are mapped
+
 ## [1.0.0-rc.1] - 2026-10-31
 
 ### Added

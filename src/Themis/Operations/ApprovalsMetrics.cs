@@ -29,6 +29,9 @@ internal sealed class ApprovalsMetrics : IDisposable
         RequestsClosed = meter.CreateCounter<long>("approvals.requests.closed", "{request}", "Each request reaching a final status");
         Decisions = meter.CreateCounter<long>("approvals.decisions", "{decision}", "Each decision recorded");
         EventsDelivered = meter.CreateCounter<long>("approvals.events.delivered", "{event}", "Each event the observer took");
+        RetentionDeleted = meter.CreateCounter<long>("approvals.retention.deleted", "{record}", "Each request or delegation the retention job deleted");
+        Erasures = meter.CreateCounter<long>("approvals.erasures", "{erasure}", "Each erasure that changed a row");
+        Reminders = meter.CreateCounter<long>("approvals.reminders", "{reminder}", "Each reminder sent before a step's deadline");
         meter.CreateObservableGauge("approvals.events.pending", Observe, "{event}", "The events not yet taken");
     }
 
@@ -43,6 +46,15 @@ internal sealed class ApprovalsMetrics : IDisposable
 
     /// <summary>Tagged <c>kind</c>.</summary>
     internal Counter<long> EventsDelivered { get; }
+
+    /// <summary>Tagged <c>kind</c>, <c>request</c> or <c>delegation</c>.</summary>
+    internal Counter<long> RetentionDeleted { get; }
+
+    /// <summary>Untagged.</summary>
+    internal Counter<long> Erasures { get; }
+
+    /// <summary>Tagged <c>type</c>.</summary>
+    internal Counter<long> Reminders { get; }
 
     /// <summary>Sets the number of events not yet taken, as a <c>watch</c> run counted them.</summary>
     internal void Pending(long count)

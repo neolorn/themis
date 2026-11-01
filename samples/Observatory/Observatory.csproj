@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Themis" />
+    <PackageReference Include="Themis.Endpoints" />
   </ItemGroup>
 
 </Project>

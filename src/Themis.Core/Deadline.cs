@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Themis.Core;
 
@@ -16,4 +17,7 @@ public sealed record Deadline
 
     /// <summary>Who the step escalates to, required for <see cref="DeadlineAction.Escalate"/> alone; otherwise none.</summary>
     public ApproverReference? EscalateTo { get; init; }
+
+    /// <summary>Up to three durations before the deadline at which the step's open assignees are reminded, each at least an hour in whole seconds, shorter than <see cref="After"/> and distinct; empty where none is given.</summary>
+    public IReadOnlyList<TimeSpan> RemindBefore { get; init; } = [];
 }

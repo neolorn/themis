@@ -37,12 +37,13 @@ internal static class PublicTypeTable
             "RequestRecord", "StepRecord", "AssignmentRecord", "DecisionRecord",
             "PendingPage", "PendingItem", "RequestSummary",
             "PersonExport", "AssignmentExport", "DecisionExport",
+            "ErasureReceipt", "TypeVersionReference",
 
             // Delegations and events.
             "DelegationDefinition", "DelegationRecord", "ApprovalEvent",
 
             // Operations.
-            "IApprovalTypes", "IApprovals", "IDelegations", "IApprovalJobs",
+            "IApprovalTypes", "IApprovals", "IDelegations", "IApprovalJobs", "IRecordRetention",
 
             // Seams a host supplies.
             "IApproverDirectory", "ApproverQuery", "ApproverCheck",
@@ -57,6 +58,7 @@ internal static class PublicTypeTable
             "ApprovalsTestDatabase", "ApprovalsTestingServiceCollectionExtensions",
         ],
         [Packages.Cli] = [],
+        [Packages.Endpoints] = ["ICurrentPerson", "ApprovalsEndpointRouteBuilderExtensions"],
     }.ToFrozenDictionary(
         entry => entry.Key,
         entry => entry.Value.Select(type => entry.Key + "." + type).ToFrozenSet(StringComparer.Ordinal),

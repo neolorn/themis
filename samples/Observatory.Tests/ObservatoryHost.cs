@@ -75,19 +75,19 @@ internal sealed class ObservatoryHost : IAsyncDisposable
         return created.RootElement.GetProperty("request").GetGuid();
     }
 
-    /// <summary>Decides <paramref name="request"/> as <paramref name="person"/> and answers the request's status after it.</summary>
-    internal async Task<string> DecideAsync(Guid request, string person, string outcome, string? reason = null)
+    /// <summary>Decides <paramref name="request"/> as <paramref name="person"/>, for <paramref name="actingFor"/> where given, through the library's endpoints and answers the request's status after it.</summary>
+    internal async Task<string> DecideAsync(Guid request, string person, string outcome, string? reason = null, string? actingFor = null)
     {
-        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, $"/requests/{request}/decisions", person, new { outcome, reason });
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, $"/approvals/requests/{request}/decisions", person, new { outcome, reason, actingFor });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using JsonDocument decided = await ReadAsync(response);
         return decided.RootElement.GetProperty("status").GetString()!;
     }
 
-    /// <summary>The requests and steps of <paramref name="person"/>'s pending list.</summary>
+    /// <summary>The requests and steps of <paramref name="person"/>'s pending list, read through the library's endpoints.</summary>
     internal async Task<IReadOnlyList<(Guid Request, string StepName)>> PendingAsync(string person)
     {
-        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "/pending", person);
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "/approvals/pending", person);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using JsonDocument pending = await ReadAsync(response);
         return [.. pending.RootElement.GetProperty("items").EnumerateArray().Select(item => (item.GetProperty("request").GetGuid(), item.GetProperty("stepName").GetString()!))];

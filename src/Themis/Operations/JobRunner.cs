@@ -16,8 +16,9 @@ namespace Themis.Operations;
 /// <see cref="IApprovalJobs"/> and on the hosted timer, each run under its job's claim. The
 /// <c>deadlines</c> job runs the action of each step whose deadline has passed; the
 /// <c>observer</c> job delivers the events, completing at once where
-/// <c>Themis:Observer:Enabled</c> is off; the <c>watch</c> job judges the alert conditions.
-/// The seams are resolved when a run needs them, so a host without one is stopped by the
+/// <c>Themis:Observer:Enabled</c> is off; the <c>watch</c> job judges the alert conditions; the
+/// <c>retention</c> job deletes the closed requests and the ended delegations past
+/// <c>Themis:Retention:ClosedRequests</c>, and nothing where it is unset. The seams are resolved when a run needs them, so a host without one is stopped by the
 /// start's seam check (<c>03</c> APR-LIB-005).
 /// </summary>
 internal sealed partial class JobRunner(
@@ -31,7 +32,7 @@ internal sealed partial class JobRunner(
 {
     public ValueTask<int> RunAsync(ApprovalJob job, CancellationToken cancellationToken)
     {
-        if (job is not (ApprovalJob.Deadlines or ApprovalJob.Observer or ApprovalJob.Watch))
+        if (job is not (ApprovalJob.Deadlines or ApprovalJob.Observer or ApprovalJob.Watch or ApprovalJob.Retention))
         {
             throw new ArgumentOutOfRangeException(nameof(job), job, "The job is no member of ApprovalJob.");
         }
@@ -64,6 +65,7 @@ internal sealed partial class JobRunner(
                 ApprovalJob.Deadlines => await new DeadlineRun(database, settings, services.GetRequiredService<IApproverDirectory>(), metrics, clock).RunAsync(claim, cancellationToken).ConfigureAwait(false),
                 ApprovalJob.Observer when settings.Observer.Enabled => await new ObserverDelivery(database, settings, services.GetRequiredService<IApprovalObserver>(), metrics, clock, logger).RunAsync(claim, cancellationToken).ConfigureAwait(false),
                 ApprovalJob.Watch => await new AlertWatch(database, settings, services.GetRequiredService<IAlertSink>(), metrics, clock, logger).RunAsync(claim, cancellationToken).ConfigureAwait(false),
+                ApprovalJob.Retention => await new RetentionRun(database, settings, metrics, clock, logger).RunAsync(claim, cancellationToken).ConfigureAwait(false),
                 _ => 0,
             };
             completed = true;

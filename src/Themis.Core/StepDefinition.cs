@@ -28,9 +28,12 @@ public sealed record StepDefinition
     /// <summary>What happens once the step is undecided for a time, or none.</summary>
     public Deadline? Deadline { get; init; }
 
+    /// <summary>How many approvals, counted per distinct person, complete an <c>AtLeast</c> step, 2 to 16; none for any other mode.</summary>
+    public int? Required { get; init; }
+
     private bool PrintMembers(StringBuilder builder)
     {
-        builder.Append(CultureInfo.InvariantCulture, $"Name = {Name}, Mode = {Mode}, Condition = {Condition}, Deadline = {Deadline}");
+        builder.Append(CultureInfo.InvariantCulture, $"Name = {Name}, Mode = {Mode}, Condition = {Condition}, Deadline = {Deadline}, Required = {Required}");
         return true;
     }
 }

@@ -39,7 +39,7 @@ internal static class ReferenceRules
     /// <summary>The test packages of <c>05</c> APR-ENG-009.</summary>
     internal static IReadOnlyList<string> TestPackages { get; } = ["xunit.v3", "Testcontainers.PostgreSql", "Microsoft.AspNetCore.Mvc.Testing"];
 
-    /// <summary>ASP.NET Core's shared framework, which the sample host's row alone allows.</summary>
+    /// <summary>ASP.NET Core's shared framework, which the rows of <c>Themis.Endpoints</c> and the sample host alone allow.</summary>
     internal const string AspNetCore = "Microsoft.AspNetCore.App";
 
     /// <summary>The library's own projects each package's project may reference.</summary>
@@ -49,6 +49,7 @@ internal static class ReferenceRules
         [Packages.Engine] = [Packages.Core],
         [Packages.Testing] = [Packages.Core, Packages.Engine],
         [Packages.Cli] = [Packages.Engine],
+        [Packages.Endpoints] = [Packages.Engine],
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>The packages each package's project may reference at run time.</summary>
@@ -58,6 +59,7 @@ internal static class ReferenceRules
         [Packages.Engine] = [.. DataAccess, .. HostingAbstractions],
         [Packages.Testing] = [],
         [Packages.Cli] = [],
+        [Packages.Endpoints] = [],
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>Answers each reference of a project of the repository at <paramref name="root"/> that APR-LIB-001 does not allow.</summary>
@@ -115,10 +117,11 @@ internal static class ReferenceRules
                 }
             }
 
-            // No row of the table gives a project of src/ or tests/ a shared framework, since no
-            // shipped project references ASP.NET Core; the sample host's row gives its two
-            // projects ASP.NET Core's alone.
-            foreach (string framework in project.FrameworkReferences.Where(framework => !sample || !string.Equals(framework, AspNetCore, StringComparison.Ordinal)))
+            // No shipped project but Themis.Endpoints references ASP.NET Core, and no test project
+            // a shared framework; the rows of Themis.Endpoints and the sample host give them
+            // ASP.NET Core's alone.
+            bool web = sample || (shipped && string.Equals(project.Name, Packages.Endpoints, StringComparison.Ordinal));
+            foreach (string framework in project.FrameworkReferences.Where(framework => !web || !string.Equals(framework, AspNetCore, StringComparison.Ordinal)))
             {
                 violations.Add($"{project.RelativePath} references the framework {framework}, which APR-LIB-001 does not allow it.");
             }
@@ -213,8 +216,9 @@ internal static class ReferenceRules
 
     /// <summary>
     /// A source project grants its own test project, and <c>Themis</c> grants <c>Themis.Cli</c>,
-    /// which applies the migrations it holds, and <c>Themis.Testing</c>, which removes the hosted
-    /// jobs by their types and applies the migrations for a test.
+    /// which applies the migrations it holds, <c>Themis.Testing</c>, which removes the hosted
+    /// jobs by their types and applies the migrations for a test, and <c>Themis.Endpoints</c>,
+    /// which asks whether a request's events name a person.
     /// </summary>
     private static bool IsAllowedGrant(string relativePath, string name, string grantee)
     {
@@ -228,7 +232,7 @@ internal static class ReferenceRules
             return true;
         }
 
-        string[] allowed = string.Equals(name, Packages.Engine, StringComparison.Ordinal) ? [Packages.Cli, Packages.Testing] : [];
+        string[] allowed = string.Equals(name, Packages.Engine, StringComparison.Ordinal) ? [Packages.Cli, Packages.Testing, Packages.Endpoints] : [];
         return allowed.Contains(grantee, StringComparer.Ordinal);
     }
 
