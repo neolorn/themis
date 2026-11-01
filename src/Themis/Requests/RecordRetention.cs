@@ -25,7 +25,8 @@ namespace Themis.Requests;
 /// own: every reference to the person in the requests, assignments, decisions, delegations and
 /// events becomes one pseudonym drawn for the call, <c>erased:</c> and 128 random bits in
 /// base64url, so the person's rows stay linked to each other and to no one, and the reasons the
-/// person wrote are cleared. The steps hold no person. Published versions are never changed.
+/// person wrote are cleared, as is the snapshot of each closed request whose subject they are. The
+/// steps hold no person. Published versions are never changed.
 /// </summary>
 internal sealed class RecordRetention(
     ApprovalsReady ready,
@@ -42,12 +43,13 @@ internal sealed class RecordRetention(
     /// no pending request's row: as its requester or subject, holding an assignment of it, open
     /// or decided, or named by its assignments, decisions or events; or whether the person is
     /// its delegate, by a delegation of any type that has not ended, from a person holding an
-    /// open assignment of its current step (<c>01</c> APR-REQ-015).
+    /// open assignment of its current step (<c>01</c> APR-REQ-015); or whether an approved request
+    /// has the person as its subject, its snapshot still covering its fields.
     /// </summary>
     private const string Pending = """
         SELECT EXISTS (
             SELECT 1 FROM approvals.requests r
-            WHERE r.status = 'pending' AND (
+            WHERE (r.status = 'approved' AND r.subject = @person) OR (r.status = 'pending' AND (
                 @person IN (r.requester, r.subject, r.closed_by, r.closed_for)
                 OR EXISTS (SELECT 1 FROM approvals.assignments a WHERE a.request = r.id AND (a.person = @person OR a.via = @via))
                 OR EXISTS (SELECT 1 FROM approvals.decisions d WHERE d.request = r.id AND @person IN (d.decider, d.acting_for))
@@ -56,7 +58,7 @@ internal sealed class RecordRetention(
                     SELECT 1 FROM approvals.assignments a
                     JOIN approvals.delegations g ON g.from_person = a.person
                     WHERE a.request = r.id AND a.step = r.step AND a.decision IS NULL
-                        AND g.to_person = @person AND g.ended_at IS NULL AND g.ends > @now))) AS "Value"
+                        AND g.to_person = @person AND g.ended_at IS NULL AND g.ends > @now)))) AS "Value"
         """;
 
     /// <summary>Locks, <c>FOR UPDATE</c> and in identifier order, each request the erasure changes: the requests whose own row, assignments, decisions or events name the person.</summary>
@@ -70,7 +72,7 @@ internal sealed class RecordRetention(
         FOR UPDATE
         """;
 
-    /// <summary>The rewrites, each changing a row once however many of its columns name the person.</summary>
+    /// <summary>The rewrites, each changing a row once however many of its columns name the person. A brace is written twice, as the raw SQL's format reads it, so <c>'{{}}'</c> is the empty snapshot.</summary>
     private static readonly string[] Rewrites =
     [
         """
@@ -79,7 +81,8 @@ internal sealed class RecordRetention(
             subject = CASE WHEN subject = @person THEN @alias ELSE subject END,
             closed_by = CASE WHEN closed_by = @person THEN @alias ELSE closed_by END,
             closed_for = CASE WHEN closed_for = @person THEN @alias ELSE closed_for END,
-            reason = CASE WHEN closed_by = @person THEN NULL ELSE reason END
+            reason = CASE WHEN closed_by = @person THEN NULL ELSE reason END,
+            snapshot = CASE WHEN subject = @person AND status IN ('completed', 'rejected', 'cancelled', 'void') THEN '{{}}' ELSE snapshot END
         WHERE requester = @person OR subject = @person OR closed_by = @person OR closed_for = @person
         """,
         """

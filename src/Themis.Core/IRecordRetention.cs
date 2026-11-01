@@ -15,7 +15,8 @@ public interface IRecordRetention
     /// <summary>
     /// Replaces every reference to <paramref name="person"/> in the requests, assignments,
     /// decisions, delegations and events with one pseudonym drawn for the call, and clears the
-    /// reasons the person wrote, at once.
+    /// reasons the person wrote and the snapshot of each closed request whose subject they are,
+    /// at once.
     /// </summary>
     /// <param name="person">The person reference.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
@@ -23,7 +24,8 @@ public interface IRecordRetention
     /// The number of rows changed, 0 where nothing names the person, and the older versions that
     /// still name them; or, the first that holds, <c>approvals.retention.notgranted</c> where the
     /// session lacks the retention grant, <c>approvals.erasure.pending</c> where a pending request names
-    /// the person or the person is the delegate of one of its open assignees,
+    /// the person, the person is the delegate of one of its open assignees, or an approved
+    /// request's subject is the person,
     /// <c>approvals.erasure.typeversion</c>, naming the type, where the newest version of a type
     /// names the person.
     /// </returns>

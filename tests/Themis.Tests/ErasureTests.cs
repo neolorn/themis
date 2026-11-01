@@ -40,12 +40,13 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
     private static readonly DateTimeOffset Midnight = new(2026, 10, 1, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task APR_REQ_015_AC5_ErasureReplacesEveryReferenceWithOnePseudonymClearsThePersonsReasonsAndASecondCallAnswersZero()
+    public async Task APR_REQ_015_AC5_ErasureReplacesEveryReferenceWithOnePseudonymClearsThePersonsReasonsAndTheirSubjectsSnapshotsAndASecondCallAnswersZero()
     {
         ClockFake clock = new(Midnight);
         await using RequestHost host = await RequestHost.StartAsync(postgres, clock: clock);
         await NameBAsync(host);
         (int naming, int reasons, int others) = await CountsAsync(host, B);
+        string snapshots = await SnapshotsAsync(host);
 
         Result<ErasureReceipt> erased = await EraseAsync(host, B);
         Result<ErasureReceipt> again = await EraseAsync(host, B);
@@ -58,6 +59,7 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
         string pseudonym = Assert.Single(await PseudonymsAsync(host));
         Assert.Matches("^erased:[A-Za-z0-9_-]{22}$", pseudonym);
         Assert.Equal((naming, 0, others), await CountsAsync(host, pseudonym));
+        Assert.Equal(("0,0,4", "1,1,4"), (snapshots, await SnapshotsAsync(host)));
         Assert.True(again.IsSuccess, again.Failure?.Code);
         Assert.Equal(0, again.Value!.Changed);
         Assert.Single(await PseudonymsAsync(host));
@@ -65,23 +67,29 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
     }
 
     [Fact]
-    public async Task APR_REQ_015_AC6_ErasureOfTheRequesterSubjectAssigneeDelegateOrAnyoneElseAPendingRequestNamesIsRefusedWithErasurePending()
+    public async Task APR_REQ_015_AC6_ErasureOfAnyoneAPendingRequestNamesOrOfAnApprovedRequestsSubjectIsRefusedWithErasurePending()
     {
         ClockFake clock = new(Midnight);
         await using RequestHost host = await RequestHost.StartAsync(postgres, clock: clock);
         await host.PublishAsync(Type(Step("review", ApprovalMode.AnyOne, Person(A))));
         await host.DelegatedAsync(new DelegationDefinition { From = A, To = C, Starts = Midnight, Ends = Midnight + TimeSpan.FromDays(10), CreatedBy = A });
         RequestId pending = await host.CreatedAsync(Request(subject: Subject));
+        RequestId approved = await host.CreatedAsync(On("order-approved") with { Subject = Late });
+        await host.DecideAsync(approved, A);
 
-        string?[] refused = [.. await Task.WhenAll(new[] { Requester, Subject, A, C, Watcher }.Select(async person => (await EraseAsync(host, person)).Failure?.Code))];
+        string?[] refused = [.. await Task.WhenAll(new[] { Requester, Subject, A, C, Watcher, Late }.Select(async person => (await EraseAsync(host, person)).Failure?.Code))];
         Result<ErasureReceipt> uninvolved = await EraseAsync(host, B);
         await host.CancelAsync(pending, Requester);
+        await host.CompleteAsync(approved, Requester);
         Result<ErasureReceipt> closed = await EraseAsync(host, Requester);
+        Result<ErasureReceipt> completed = await EraseAsync(host, Late);
 
         Assert.All(refused, code => Assert.Equal("approvals.erasure.pending", code));
         Assert.Equal((true, 0), (uninvolved.IsSuccess, uninvolved.Value?.Changed));
         Assert.True(closed.IsSuccess, closed.Failure?.Code);
         Assert.True(closed.Value!.Changed > 0);
+        Assert.True(completed.IsSuccess, completed.Failure?.Code);
+        Assert.True(completed.Value!.Changed > 0);
         host.AssertNoLogHoldsAValueUsed();
     }
 
@@ -259,6 +267,20 @@ public sealed class ErasureTests(PostgresFixture postgres) : IClassFixture<Postg
         await using NpgsqlDataReader reader = await count.ExecuteReaderAsync(TestContext.Current.CancellationToken);
         await reader.ReadAsync(TestContext.Current.CancellationToken);
         return (reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2));
+    }
+
+    /// <summary>The requests whose snapshot is empty, those of them whose subject is a pseudonym, and all the requests, as one text.</summary>
+    private static async Task<string> SnapshotsAsync(RequestHost host)
+    {
+        await using NpgsqlConnection database = new(host.Connection);
+        await database.OpenAsync(TestContext.Current.CancellationToken);
+        await using NpgsqlCommand count = new(
+            """
+            SELECT concat_ws(',', count(*) FILTER (WHERE snapshot = '{}'), count(*) FILTER (WHERE snapshot = '{}' AND subject LIKE 'erased:%'), count(*))
+            FROM approvals.requests
+            """,
+            database);
+        return (string)(await count.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
     }
 
     /// <summary>The distinct pseudonyms the record holds.</summary>

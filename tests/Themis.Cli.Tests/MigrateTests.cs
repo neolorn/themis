@@ -256,7 +256,7 @@ public sealed class MigrateTests(PostgresFixture postgres) : IClassFixture<Postg
     }
 
     [Fact]
-    public async Task APR_REQ_015_AC6_LoginNamedInRetentionRolesHoldsApprovalsRetentionWhichDeletesFromTheRequestAndDelegationTablesAndUpdatesTheirPersonAndReasonColumnsOnly()
+    public async Task APR_REQ_015_AC6_LoginNamedInRetentionRolesHoldsApprovalsRetentionWhichDeletesFromTheRequestAndDelegationTablesAndUpdatesTheirPersonReasonAndSnapshotColumnsOnly()
     {
         (string name, string connection) = await postgres.NewDatabaseAsync();
         string login = NewName("app");
@@ -294,7 +294,7 @@ public sealed class MigrateTests(PostgresFixture postgres) : IClassFixture<Postg
         Assert.Equal(
             "assignments.person,assignments.via,decisions.acting_for,decisions.decider,decisions.reason,delegations.created_by,delegations.ended_by,"
                 + "delegations.from_person,delegations.to_person,events.acting_for,events.actor,events.notify,requests.closed_by,requests.closed_for,"
-                + "requests.reason,requests.requester,requests.subject",
+                + "requests.reason,requests.requester,requests.snapshot,requests.subject",
             reader.GetString(4));
     }
 

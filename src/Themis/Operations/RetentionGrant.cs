@@ -21,10 +21,10 @@ internal static class RetentionGrant
     /// <summary>The request and delegation tables, the ones the role may delete from.</summary>
     internal static readonly string[] Tables = ["requests", "steps", "assignments", "decisions", "events", "delegations"];
 
-    /// <summary>The person and reason columns an erasure rewrites, as <c>table.column</c>, on which the role holds <c>UPDATE</c>.</summary>
+    /// <summary>The person and reason columns and the snapshot an erasure rewrites, as <c>table.column</c>, on which the role holds <c>UPDATE</c>.</summary>
     internal static readonly string[] Columns =
     [
-        "requests.requester", "requests.subject", "requests.closed_by", "requests.closed_for", "requests.reason",
+        "requests.requester", "requests.subject", "requests.closed_by", "requests.closed_for", "requests.reason", "requests.snapshot",
         "assignments.person", "assignments.via",
         "decisions.decider", "decisions.acting_for", "decisions.reason",
         "delegations.from_person", "delegations.to_person", "delegations.created_by", "delegations.ended_by",

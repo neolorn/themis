@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `Themis:Retention:ClosedRequests`, how long a closed request is kept, unset by default so every request stays
-- The job `retention`, which deletes the closed requests and the ended delegations past that period
-- `IRecordRetention`, which erases a person no pending request names by replacing every reference to them with one pseudonym
+- The job `retention`, which deletes the closed requests and the ended delegations past that period, an event the observer has not taken holding them one period more at most
+- `IRecordRetention`, which erases a person no pending request names, nor an approved one as its subject, by replacing every reference to them with one pseudonym and clearing the snapshots of the closed requests whose subject they are
 - The role `approvals_retention`, which `themis migrate` creates and grants to the logins of `retentionRoles`
 - The counters `approvals.retention.deleted` and `approvals.erasures`
 - A person's lock, which an erasure takes exclusive and a create, an assignment or a delegation shared

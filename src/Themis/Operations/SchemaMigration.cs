@@ -81,7 +81,7 @@ internal static class SchemaMigration
     /// <summary>
     /// Creates the role <c>approvals_retention</c> where it is absent, unable to log in, and grants
     /// it <c>DELETE</c> on the request and delegation tables and <c>UPDATE</c> on their person
-    /// and reason columns (<c>01</c> APR-REQ-015).
+    /// and reason columns and a request's snapshot (<c>01</c> APR-REQ-015).
     /// </summary>
     private const string RetentionGrantSql = """
         DO $$
@@ -90,7 +90,7 @@ internal static class SchemaMigration
                 CREATE ROLE approvals_retention NOLOGIN;
             END IF;
             GRANT DELETE ON approvals.requests, approvals.steps, approvals.assignments, approvals.decisions, approvals.events, approvals.delegations TO approvals_retention;
-            GRANT UPDATE (requester, subject, closed_by, closed_for, reason) ON approvals.requests TO approvals_retention;
+            GRANT UPDATE (requester, subject, closed_by, closed_for, reason, snapshot) ON approvals.requests TO approvals_retention;
             GRANT UPDATE (person, via) ON approvals.assignments TO approvals_retention;
             GRANT UPDATE (decider, acting_for, reason) ON approvals.decisions TO approvals_retention;
             GRANT UPDATE (from_person, to_person, created_by, ended_by) ON approvals.delegations TO approvals_retention;

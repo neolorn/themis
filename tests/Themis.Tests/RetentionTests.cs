@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 using Npgsql;
 
@@ -85,7 +86,7 @@ public sealed class RetentionTests(PostgresFixture postgres) : IClassFixture<Pos
     }
 
     [Fact]
-    public async Task APR_REQ_015_AC4_UndeliveredEventHoldsARequestPastThePeriodUntilTheObserverTakesIt()
+    public async Task APR_REQ_015_AC4_UndeliveredEventYoungerThanTwiceThePeriodHoldsARequestPastThePeriodUntilTheObserverTakesIt()
     {
         ClockFake clock = new(Midnight);
         await using RequestHost host = await RequestHost.StartAsync(postgres, ThirtyDays, clock: clock);
@@ -106,7 +107,7 @@ public sealed class RetentionTests(PostgresFixture postgres) : IClassFixture<Pos
     }
 
     [Fact]
-    public async Task APR_REQ_015_AC9_UndeliveredEventHoldsADelegationPastThePeriodUntilTheObserverTakesIt()
+    public async Task APR_REQ_015_AC9_UndeliveredEventYoungerThanTwiceThePeriodHoldsADelegationPastThePeriodUntilTheObserverTakesIt()
     {
         ClockFake clock = new(Midnight);
         await using RequestHost host = await RequestHost.StartAsync(postgres, ThirtyDays, clock: clock);
@@ -121,6 +122,50 @@ public sealed class RetentionTests(PostgresFixture postgres) : IClassFixture<Pos
         Assert.Equal((0, "1,1"), (held, delegationHeld));
         Assert.Equal(1, gone);
         Assert.Equal("0,0", await DelegationRowsAsync(host, delegation));
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Fact]
+    public async Task APR_REQ_015_AC4_UndeliveredEventOlderThanTwiceThePeriodNoLongerHoldsItsRequestWhichGoesAndTheRunLogsOneWarningWithTheirCount()
+    {
+        ClockFake clock = new(Midnight);
+        await using RequestHost host = await RequestHost.StartAsync(postgres, ThirtyDays, clock: clock);
+        await host.PublishAsync(OneStep);
+        RequestId request = await host.CreatedAsync(Request());
+        await host.CancelAsync(request, Requester);
+        clock.Advance(TimeSpan.FromDays(59));
+
+        int held = await host.RunAsync(ApprovalJob.Retention);
+        string requestHeld = await RowsAsync(host, request);
+        clock.Advance(TimeSpan.FromDays(2));
+        int gone = await host.RunAsync(ApprovalJob.Retention);
+
+        Assert.Equal((0, "1,1,1,0,2"), (held, requestHeld));
+        Assert.Equal(1, gone);
+        Assert.Equal("0,0,0,0,0", await RowsAsync(host, request));
+        Assert.Equal("The retention job deleted 2 events the observer had not taken, each older than twice the retention period.", Assert.Single(host.Logs.Entries, entry => entry.Level == LogLevel.Warning).Message);
+        Assert.Equal(0, await host.RunAsync(ApprovalJob.Retention));
+        Assert.Single(host.Logs.Entries, entry => entry.Level == LogLevel.Warning);
+        host.AssertNoLogHoldsAValueUsed();
+    }
+
+    [Fact]
+    public async Task APR_REQ_015_AC9_UndeliveredEventOlderThanTwiceThePeriodNoLongerHoldsItsDelegationWhichGoesAndTheRunLogsOneWarningWithTheirCount()
+    {
+        ClockFake clock = new(Midnight);
+        await using RequestHost host = await RequestHost.StartAsync(postgres, ThirtyDays, clock: clock);
+        DelegationId delegation = await host.DelegatedAsync(Lend(A, B, TimeSpan.FromDays(1)));
+        clock.Advance(TimeSpan.FromDays(59));
+
+        int held = await host.RunAsync(ApprovalJob.Retention);
+        string delegationHeld = await DelegationRowsAsync(host, delegation);
+        clock.Advance(TimeSpan.FromDays(2));
+        int gone = await host.RunAsync(ApprovalJob.Retention);
+
+        Assert.Equal((0, "1,1"), (held, delegationHeld));
+        Assert.Equal(1, gone);
+        Assert.Equal("0,0", await DelegationRowsAsync(host, delegation));
+        Assert.Equal("The retention job deleted 1 events the observer had not taken, each older than twice the retention period.", Assert.Single(host.Logs.Entries, entry => entry.Level == LogLevel.Warning).Message);
         host.AssertNoLogHoldsAValueUsed();
     }
 

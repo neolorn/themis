@@ -65,7 +65,7 @@ internal sealed partial class JobRunner(
                 ApprovalJob.Deadlines => await new DeadlineRun(database, settings, services.GetRequiredService<IApproverDirectory>(), metrics, clock).RunAsync(claim, cancellationToken).ConfigureAwait(false),
                 ApprovalJob.Observer when settings.Observer.Enabled => await new ObserverDelivery(database, settings, services.GetRequiredService<IApprovalObserver>(), metrics, clock, logger).RunAsync(claim, cancellationToken).ConfigureAwait(false),
                 ApprovalJob.Watch => await new AlertWatch(database, settings, services.GetRequiredService<IAlertSink>(), metrics, clock, logger).RunAsync(claim, cancellationToken).ConfigureAwait(false),
-                ApprovalJob.Retention => await new RetentionRun(database, settings, metrics, clock).RunAsync(claim, cancellationToken).ConfigureAwait(false),
+                ApprovalJob.Retention => await new RetentionRun(database, settings, metrics, clock, logger).RunAsync(claim, cancellationToken).ConfigureAwait(false),
                 _ => 0,
             };
             completed = true;
