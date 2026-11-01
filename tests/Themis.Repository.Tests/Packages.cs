@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Themis.Repository.Tests;
 
 /// <summary>
-/// The packages of the first release (<c>00</c> section 2.2, <c>03</c> APR-LIB-001), each a
+/// The library's packages (<c>00</c> section 2.2, <c>03</c> APR-LIB-001), each a
 /// project under <c>src/</c>.
 /// </summary>
 internal static class Packages
@@ -18,6 +18,8 @@ internal static class Packages
 
     internal const string Cli = "Themis.Cli";
 
+    internal const string Endpoints = "Themis.Endpoints";
+
     /// <summary>The packages' authors, the name the lead's first message of phase 0 gives (<c>05</c> APR-ENG-011).</summary>
     internal const string Authors = "Hossam Ismail";
 
@@ -27,7 +29,7 @@ internal static class Packages
     /// <summary>The test project over the whole repository, the one with no source project.</summary>
     internal const string RepositoryTests = "Themis.Repository.Tests";
 
-    internal static IReadOnlyList<string> All { get; } = [Core, Engine, Testing, Cli];
+    internal static IReadOnlyList<string> All { get; } = [Core, Engine, Testing, Cli, Endpoints];
 
     /// <summary>The packages whose projects the repository holds, every package from phase 1 (plan).</summary>
     internal static IReadOnlyList<string> Present { get; } = All;

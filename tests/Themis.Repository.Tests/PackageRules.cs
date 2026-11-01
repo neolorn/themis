@@ -36,9 +36,14 @@ internal static class PackageRules
     /// <summary>The element <c>Themis.Cli</c> alone carries, its package type as a .NET tool, which the SDK writes for a tool package.</summary>
     private const string ToolPackageType = "packageTypes";
 
-    private static bool IsToolPackageType(PackageManifest manifest, string element)
+    /// <summary>The element <c>Themis.Endpoints</c> alone carries, its reference to ASP.NET Core's shared framework (<c>03</c> APR-LIB-001), which the SDK writes for it.</summary>
+    private const string FrameworkReferences = "frameworkReferences";
+
+    /// <summary>Whether <paramref name="element"/> is one the SDK writes for <paramref name="manifest"/>'s package alone: the tool's package type, or the endpoints' framework reference.</summary>
+    private static bool IsWrittenByTheSdk(PackageManifest manifest, string element)
     {
-        return string.Equals(element, ToolPackageType, StringComparison.Ordinal) && string.Equals(manifest.Id, Packages.Cli, StringComparison.Ordinal);
+        return (string.Equals(element, ToolPackageType, StringComparison.Ordinal) && string.Equals(manifest.Id, Packages.Cli, StringComparison.Ordinal))
+            || (string.Equals(element, FrameworkReferences, StringComparison.Ordinal) && string.Equals(manifest.Id, Packages.Endpoints, StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -73,7 +78,7 @@ internal static class PackageRules
     internal static IEnumerable<string> ManifestViolations(PackageManifest manifest)
     {
         ArgumentNullException.ThrowIfNull(manifest);
-        foreach (string element in manifest.Elements.Where(element => !ManifestElements.Contains(element) && !IsToolPackageType(manifest, element)))
+        foreach (string element in manifest.Elements.Where(element => !ManifestElements.Contains(element) && !IsWrittenByTheSdk(manifest, element)))
         {
             yield return $"{manifest.Id} carries the package property {element}, which is left unset.";
         }

@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The approval mode `AtLeast`, whose step completes at `Required` approvals counted per distinct person
 - `Deadline.RemindBefore`, up to three reminders before a step's deadline, each sent once as a `reminded` event while the deadline is ahead
 - The counter `approvals.reminders`
+- The package `Themis.Endpoints`, whose `MapThemisApprovals` maps HTTP endpoints for an approver's pending list, a request's record, decisions and delegations
+- The seam `ICurrentPerson`, through which a host names the person each HTTP request acts for, required where the endpoints are mapped
 
 ## [1.0.0-rc.1] - 2026-10-31
 

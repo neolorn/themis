@@ -138,22 +138,40 @@ public sealed class ObservatoryTests(PostgresFixture postgres) : IClassFixture<P
     }
 
     [Fact]
-    public async Task Decision_ByAPersonTheTableDoesNotName_IsRefusedWithTheLibrarysCode()
+    public async Task Decision_ByAPersonNotAssigned_IsForbiddenWithTheLibrarysCode()
     {
         await using ObservatoryHost host = await ObservatoryHost.StartAsync(postgres);
         Guid request = await host.CreateAsync("/telescope-time", new { proposal = Proposal, hours = 1m }, Astronomer);
 
-        using HttpResponseMessage refused = await host.SendAsync(HttpMethod.Post, $"/requests/{request}/decisions", Engineer, new { outcome = "approve" });
+        using HttpResponseMessage refused = await host.SendAsync(HttpMethod.Post, $"/approvals/requests/{request}/decisions", Engineer, new { outcome = "approve" });
 
-        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
         using JsonDocument body = await JsonDocument.ParseAsync(await refused.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken), cancellationToken: TestContext.Current.CancellationToken);
-        Assert.StartsWith("approvals.", body.RootElement.GetProperty("code").GetString(), StringComparison.Ordinal);
+        Assert.Equal("approvals.decision.notassigned", body.RootElement.GetProperty("code").GetString());
+        host.AssertNoLogHoldsAValueUsed(Unloggable);
+    }
+
+    [Fact]
+    public async Task APR_LIB_004_AC5_SampleHostServesTheLibrarysEndpointsForThePersonOfItsHeader()
+    {
+        await using ObservatoryHost host = await ObservatoryHost.StartAsync(postgres);
+        Guid request = await host.CreateAsync("/telescope-time", new { proposal = Proposal, hours = 4m }, Astronomer);
+
+        using HttpResponseMessage read = await host.SendAsync(HttpMethod.Get, $"/approvals/requests/{request}", Astronomer);
+        using HttpResponseMessage hidden = await host.SendAsync(HttpMethod.Get, $"/approvals/requests/{request}", Engineer);
+        using HttpResponseMessage created = await host.SendAsync(HttpMethod.Post, "/approvals/delegations", Scheduler, new { to = Deputy, starts = ObservatoryHost.Start, ends = ObservatoryHost.Start.AddDays(7) });
+
+        Assert.Equal((HttpStatusCode.OK, HttpStatusCode.NotFound, HttpStatusCode.Created), (read.StatusCode, hidden.StatusCode, created.StatusCode));
+        Assert.Equal([(request, "schedule")], await host.PendingAsync(Deputy));
+        Assert.Equal("pending", await host.DecideAsync(request, Deputy, "approve", actingFor: Scheduler));
+        Assert.Equal(Scheduler, (await host.ReadAsync(request)).Decisions.Single().ActingFor);
         host.AssertNoLogHoldsAValueUsed(Unloggable);
     }
 
     [Theory]
     [InlineData("POST", "/telescope-time")]
-    [InlineData("GET", "/pending")]
+    [InlineData("GET", "/approvals/pending")]
+    [InlineData("GET", "/approvals/delegations")]
     public async Task Endpoints_NoPerson_AreRefused(string method, string path)
     {
         await using ObservatoryHost host = await ObservatoryHost.StartAsync(postgres);

@@ -49,6 +49,7 @@ public sealed class CommitMessageGateTests
     [Theory]
     [InlineData("build: add the IApprovals interface")]
     [InlineData("feat(engine): add the Npgsql connection")]
+    [InlineData("feat(endpoints): add the Npgsql connection")]
     public async Task APR_ENG_011_AC1_NameInItsOwnSpellingPasses(string message)
     {
         ArgumentNullException.ThrowIfNull(message);

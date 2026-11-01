@@ -76,6 +76,20 @@ public sealed class PackageManifestRuleTests
         Assert.Equal(["Themis.Core carries the package property packageTypes, which is left unset."], PackageRules.ManifestViolations(other));
     }
 
+    [Fact]
+    public void ManifestViolations_FrameworkReference_IsAcceptedOnTheEndpointsAlone()
+    {
+        const string framework = "<frameworkReferences><group targetFramework=\"net10.0\"><frameworkReference name=\"Microsoft.AspNetCore.App\" /></group></frameworkReferences></metadata>";
+        PackageManifest endpoints = Parse(Core
+            .Replace("</metadata>", framework, StringComparison.Ordinal)
+            .Replace("<id>Themis.Core</id>", "<id>Themis.Endpoints</id>", StringComparison.Ordinal)
+            .Replace("The public types and contracts every other package shares", "HTTP endpoints for an approver's queue, decisions and delegations, mapped by the host", StringComparison.Ordinal));
+        PackageManifest other = Parse(Core.Replace("</metadata>", framework, StringComparison.Ordinal));
+
+        Assert.Empty(PackageRules.ManifestViolations(endpoints));
+        Assert.Equal(["Themis.Core carries the package property frameworkReferences, which is left unset."], PackageRules.ManifestViolations(other));
+    }
+
     [Theory]
     [InlineData("<tags>approvals</tags>", "Themis.Core carries the package property tags, which is left unset.")]
     [InlineData("<license type=\"expression\">MIT</license>", "Themis.Core carries the package property license, which is left unset.")]

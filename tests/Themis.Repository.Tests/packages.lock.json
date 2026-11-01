@@ -247,6 +247,12 @@
       "themis.core": {
         "type": "Project"
       },
+      "themis.endpoints": {
+        "type": "Project",
+        "dependencies": {
+          "Themis": "[1.0.0, )"
+        }
+      },
       "themis.testing": {
         "type": "Project",
         "dependencies": {

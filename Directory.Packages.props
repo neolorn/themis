@@ -4,7 +4,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
-  <!-- Themis and Themis.Testing, which only the sample host takes as packages, are at the
+  <!-- Themis, Themis.Endpoints and Themis.Testing, which only the sample host takes as packages, are at the
        version packed from the same commit, which its gate passes as ThemisVersion (05 APR-ENG-001). -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.14" />
@@ -24,6 +24,7 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="Themis" Version="$(ThemisVersion)" />
+    <PackageVersion Include="Themis.Endpoints" Version="$(ThemisVersion)" />
     <PackageVersion Include="Themis.Testing" Version="$(ThemisVersion)" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>

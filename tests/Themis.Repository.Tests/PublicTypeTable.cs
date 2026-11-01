@@ -58,6 +58,7 @@ internal static class PublicTypeTable
             "ApprovalsTestDatabase", "ApprovalsTestingServiceCollectionExtensions",
         ],
         [Packages.Cli] = [],
+        [Packages.Endpoints] = ["ICurrentPerson", "ApprovalsEndpointRouteBuilderExtensions"],
     }.ToFrozenDictionary(
         entry => entry.Key,
         entry => entry.Value.Select(type => entry.Key + "." + type).ToFrozenSet(StringComparer.Ordinal),
