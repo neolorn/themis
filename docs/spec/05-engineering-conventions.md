@@ -27,9 +27,11 @@ APR-LIB-002 makes them public, and its public types sit at its root, so each is 
 package's namespace; a test project's test classes are public, since xUnit.net runs no
 other. `InternalsVisibleTo` is granted only from a source project to its own test
 project, and from `Themis` to `Themis.Cli`, which applies the migrations `Themis` holds
-(`04` APR-OPS-002), and to `Themis.Testing`, which removes the hosted jobs by their
-types and applies the migrations for a test (`03` APR-LIB-007). The packages are
-released together (`03` APR-LIB-001).
+(`04` APR-OPS-002), to `Themis.Testing`, which removes the hosted jobs by their types
+and applies the migrations for a test (`03` APR-LIB-007), and to `Themis.Endpoints`,
+which asks an internal query whether a person is named in the `Notify` of a request's
+events, its watcher check (`03` APR-LIB-004); no public member changes for it. The
+packages are released together (`03` APR-LIB-001).
 
 The sample host is an ASP.NET Core application with an invented domain naming no real
 product or company (checked in review): it publishes two approval types at its start,

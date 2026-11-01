@@ -187,20 +187,25 @@ registering its own before or after the call.
 
 **APR-LIB-004** — HTTP endpoints for an approver's queue, decisions and delegations SHALL
 come as a package of their own, `Themis.Endpoints`, which the host maps, acting only for
-the person the host's seam names and calling the operations of APR-LIB-002 alone, so no
-engine member changes.
+the person the host's seam names and calling the operations of APR-LIB-002 and one
+internal query of `Themis` alone, so no public member changes.
 
 **Values (T-015, T-025).** A host's own API still serves what shows the host's data (the
 order, the person), which the library does not hold; these endpoints serve the
-library's own records. `MapThemisApprovals(routes, prefix)` maps them under the prefix
-the host chooses and answers the group's `RouteGroupBuilder`, to which the host adds its
-own authorization and antiforgery:
+library's own records. `MapThemisApprovals(routes, prefix)` checks that `ICurrentPerson`
+is registered, throwing an `ApprovalsStartupException` with
+`approvals.startup.seammissing`, `details.key` `currentPerson`, where it is not
+(APR-LIB-005), maps the endpoints under the prefix the host chooses, and answers the
+group's `RouteGroupBuilder`, to which the host adds its own authorization and
+antiforgery:
 - `GET {prefix}/pending?cursor=&size=`: the person's pending list, delegations included
   (`01` APR-REQ-013);
 - `GET {prefix}/requests/{id}`: the request's record (`01` APR-REQ-013) where the person
   is a party to it, else 404: its requester or subject; an assignee of it, open or
-  decided; a delegate holding a live delegation from one of its assignees; or a watcher,
-  a person one of its events names in `Notify`;
+  decided; a delegate of one of its assignees, through a delegation that covers the
+  request's type (`Types` empty, or holding it) and is live at the call (started, not
+  ended, and before its `Ends`); or a watcher, a person one of its events names in
+  `Notify`, which an internal query of `Themis` answers (`05` APR-ENG-001);
 - `POST {prefix}/requests/{id}/decisions` with `outcome`, `reason` and `actingFor`: the
   person's decision (`01` APR-REQ-004);
 - `GET {prefix}/delegations`: the person's delegations (`ListAsync`);
@@ -210,13 +215,19 @@ own authorization and antiforgery:
 - `POST {prefix}/delegations/{id}/end`: `EndAsync` with the person as its actor, the
   library's own rules deciding whether it ends (`01` APR-REQ-008).
 
-Each call reads its person through `ICurrentPerson` (APR-LIB-005), bounded by the HTTP
-request's own cancellation alone; where it answers none, the call answers 401, and where
-it throws, a fault of the host's code, 500 with no details. A failure answers RFC 9457
-problem details carrying the library's `code` and `details` (`06` section 1): a code
-naming something not found 404, one refusing the person 403, one refusing the input 400,
-and one refusing the state (closed, decided, changed, concurrent) 409; anything else
-answers 500 with no details. JSON is the library's types as they are, in camel case,
+A success answers 200 for each `GET` and for a decision (its `DecisionReceipt`), 201 for
+a delegation created, with its identifier as a string and no `Location`, and 204 for an
+ending. Each call reads its person through `ICurrentPerson` (APR-LIB-005), bounded by
+the HTTP request's own cancellation alone; where it answers none, the call answers 401,
+and where it throws, or answers a person reference outside `00` section 1.5's rule,
+both faults of the host's code, 500 with no details. The caller's own malformed input (a
+body that does not parse, a member missing, a value the library refuses with
+`ArgumentException`) answers 400 problem details with no code and no details. A failure
+answers RFC 9457 problem details carrying the library's `code` and `details`, with the
+status `06` section 1 gives its code: 404 for a code naming something not found, 403
+for one refusing the person, 400 for one refusing the input, 409 for one refusing the
+state, 503 with no details for `approvals.directory.unavailable`, and 500 with no
+details for any other. JSON is the library's types as they are, in camel case,
 identifiers as strings and enumerations by their spellings (`06` section 2); a body that
 is not `application/json` answers 415.
 
@@ -225,9 +236,16 @@ is not `application/json` answers 415.
 **Acceptance criteria**
 1. A call with no person answers 401 on every route.
 2. Each route does what its library call does, for the person only.
-3. A request of which the person is no party answers 404.
-4. Each class of failure answers its status above.
+3. A request of which the person is no party answers 404, a delegate through a
+   delegation that does not cover its type or is not live at the call included.
+4. Each code answers the status `06` section 1 gives it, 503 and 500 with no details.
 5. The sample host serves the endpoints in the gate (`05` APR-ENG-001).
+6. Each route answers its success status: 200 for a `GET` and a decision, 201 with the
+   identifier and no `Location` for a delegation created, and 204 for an ending.
+7. Malformed input answers 400 with no code and no details; a person reference from
+   `ICurrentPerson` outside its rule answers 500.
+8. `MapThemisApprovals` without `ICurrentPerson` registered throws
+   `approvals.startup.seammissing` naming `currentPerson`.
 
 ---
 
@@ -243,7 +261,7 @@ request.
 | `ISecretSource` | Always | `secretSource` |
 | `IApproverDirectory` | Always | `approverDirectory` |
 | `IApprovalObserver` | Where `Themis:Observer:Enabled` is on (the default) and the application runs the jobs (`Themis:Jobs:Enabled`) | `approvalObserver` |
-| `ICurrentPerson` | Where the endpoints are mapped (APR-LIB-004) | `currentPerson` |
+| `ICurrentPerson` | Where the endpoints are mapped, `MapThemisApprovals` checking it as it maps them (APR-LIB-004) | `currentPerson` |
 | `IAlertSink` | No: the library's own logs each condition at the error level | |
 | `TimeProvider` | No: the system clock | |
 

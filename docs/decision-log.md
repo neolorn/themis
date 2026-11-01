@@ -816,6 +816,31 @@ and counters; `implementation-plan.md` section 4.
 >    and after a gap the latest reminder due is sent once, while the deadline is ahead.
 >    It replaces section 25.3's criterion 4, "misses none".
 
+> **Amended.** The lead, 2026-11-01, for phase 9's endpoints (`03` APR-LIB-004, AC6 to
+> AC8 added):
+> 1. **Internals.** `Themis` grants `InternalsVisibleTo` to `Themis.Endpoints`, for an
+>    internal query asking whether a person is named in the `Notify` of a request's
+>    events, the watcher check (`05` APR-ENG-001). No public member changes.
+> 2. **A delegate party.** A delegate is a party through a delegation that covers the
+>    request's type (`Types` empty, or holding it) and is live at the call: started, not
+>    ended, and before its `Ends`.
+> 3. **Malformed input.** The caller's own malformed input (a body that does not parse, a
+>    member missing, a value the library refuses with `ArgumentException`) answers 400
+>    problem details with no code and no details. A person reference from
+>    `ICurrentPerson` outside its rule answers 500.
+> 4. **Successes.** 200 for the `GET` routes and a decision (`DecisionReceipt`); 201 for
+>    a delegation created, its identifier as a string and no `Location`; 204 for `/end`.
+> 5. **The seam.** `MapThemisApprovals` checks for `ICurrentPerson` as it maps, and throws
+>    `approvals.startup.seammissing`, `details.key` `currentPerson`, without it.
+> 6. **Status classes,** each code's in `06` section 1: 404 for `type.unknown`,
+>    `request.unknown` and `delegation.unknown`; 403 for `decision.notassigned`,
+>    `decision.separation` and `decision.notpermitted`; 400 for `request.cursorinvalid`,
+>    `decision.reasonrequired`, `reason.invalid`, `delegation.invalid`, `type.invalid`,
+>    `request.snapshotinvalid` and `request.previousinvalid`; 409 for `request.closed`,
+>    `decision.duplicate`, `delegation.ended`, `request.open`, `request.notapproved`,
+>    `field.locked` and `type.retired`; 503, with no details, for
+>    `directory.unavailable`; 500, with no details, for any other code.
+
 ---
 
 # Index
