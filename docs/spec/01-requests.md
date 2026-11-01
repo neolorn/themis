@@ -538,3 +538,5 @@ them (`04` APR-OPS-005).
 8. With the period unset, nothing is deleted.
 9. A delegation ended one day less than the period ago stays; one ended a day more goes
    with its events, and an undelivered event of it holds it back.
+10. An erasure racing a create naming the person ends with one of them after the other,
+    never a deadlock.

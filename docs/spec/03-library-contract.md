@@ -204,8 +204,9 @@ own authorization and antiforgery:
 - `POST {prefix}/requests/{id}/decisions` with `outcome`, `reason` and `actingFor`: the
   person's decision (`01` APR-REQ-004);
 - `GET {prefix}/delegations`: the person's delegations (`ListAsync`);
-- `POST {prefix}/delegations`, a body of `DelegationDefinition`'s members but `From`,
-  which is the person: a delegation from the person (`CreateAsync`);
+- `POST {prefix}/delegations`, a body of `DelegationDefinition`'s members but `From` and
+  `CreatedBy`, both of which the endpoint sets to the person: a delegation from the
+  person (`CreateAsync`);
 - `POST {prefix}/delegations/{id}/end`: `EndAsync` with the person as its actor, the
   library's own rules deciding whether it ends (`01` APR-REQ-008).
 

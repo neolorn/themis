@@ -772,6 +772,14 @@ and counters; `implementation-plan.md` section 4.
 >     APR-REQ-007 and APR-REQ-014, `04` APR-OPS-003 and APR-OPS-007, and the plan's
 >     section 2 carry what this entry changes in them.
 
+> **Amended.** The lead, 2026-11-01, on the chapters' second carrying:
+> 1. **The person's lock and the request's row.** No transaction takes a person's lock
+>    while it holds the row of a request that is not `pending` (`04` APR-OPS-003), so an
+>    erasure racing a create naming the person ends with one of them after the other,
+>    never a deadlock: `01` APR-REQ-015 AC10.
+> 2. **A delegation over HTTP.** The body of `POST {prefix}/delegations` leaves out both
+>    `From` and `CreatedBy`, and the endpoint sets both to the current person.
+
 ---
 
 # Index

@@ -125,10 +125,13 @@ A transaction that writes a person reference into a new request, an assignment o
 delegation (a create, a step's start, an escalation, a fallback assigned, a delegation
 created) takes that person's lock shared (`pg_advisory_xact_lock_shared` on the same
 key) before it writes it, after the request's row where it holds one, so an erasure and
-a create naming the same person never interleave. An erasure checks its refusals under
-its person's lock and before it locks any request's row, and is refused while a
-`pending` request names the person, so it locks only rows of requests on which no move
-takes a person's lock, and the two never wait on each other in a circle.
+a create naming the same person never interleave. No transaction takes a person's lock
+while it holds the row of a request that is not `pending`. An erasure checks its
+refusals under its person's lock and before it locks any request's row, and is refused
+while a `pending` request names the person, so it locks only rows of requests that are
+not `pending`, on which, by that rule, no transaction takes a person's lock, and the two
+never wait on each other in a circle: an erasure racing a create naming the person ends
+with one of them after the other, never a deadlock (`01` APR-REQ-015).
 
 A create takes no request lock, since its row is new; the unique index of `01`
 APR-REQ-002 makes a second create of one type and target wait for the first and then be
