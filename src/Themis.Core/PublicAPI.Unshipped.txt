@@ -33,3 +33,6 @@ Themis.Core.StepDefinition.Required.get -> int?
 Themis.Core.StepDefinition.Required.init -> void
 Themis.Core.StepRecord.Required.get -> int?
 Themis.Core.StepRecord.Required.init -> void
+Themis.Core.Deadline.RemindBefore.get -> System.Collections.Generic.IReadOnlyList<System.TimeSpan>!
+Themis.Core.Deadline.RemindBefore.init -> void
+Themis.Core.EventKind.Reminded = 9 -> Themis.Core.EventKind

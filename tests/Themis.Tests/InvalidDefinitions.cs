@@ -96,6 +96,17 @@ internal static class InvalidDefinitions
         ["required above the distinct persons named"] = (Definitions.Valid.WithStep(0, 1, step => step with { Approvers = [new ApproverReference.Person(Definitions.Approver), new ApproverReference.Person(Definitions.StepFallback), new ApproverReference.Person(Definitions.Approver)], Mode = ApprovalMode.AtLeast, Required = 3 }), "policies[0].steps[1].required"),
     };
 
+    /// <summary>A definition outside a rule of a deadline's <c>RemindBefore</c>, <c>02</c> APR-TYPE-004, by the rule.</summary>
+    internal static IReadOnlyDictionary<string, (ApprovalTypeDefinition Definition, string Member)> ReminderRules { get; } = new Dictionary<string, (ApprovalTypeDefinition, string)>(StringComparer.Ordinal)
+    {
+        ["reminder under an hour"] = (Reminding(TimeSpan.FromHours(1) - TimeSpan.FromSeconds(1)), "policies[0].steps[1].deadline.remindBefore[0]"),
+        ["reminder as long as the deadline"] = (Reminding(TimeSpan.FromHours(2), TimeSpan.FromDays(2)), "policies[0].steps[1].deadline.remindBefore[1]"),
+        ["reminder of no whole seconds"] = (Reminding(TimeSpan.FromMilliseconds(3_600_500)), "policies[0].steps[1].deadline.remindBefore[0]"),
+        ["a fourth reminder"] = (Reminding(TimeSpan.FromHours(1), TimeSpan.FromHours(2), TimeSpan.FromHours(3), TimeSpan.FromHours(4)), "policies[0].steps[1].deadline.remindBefore"),
+        ["two reminders alike"] = (Reminding(TimeSpan.FromHours(3), TimeSpan.FromHours(3)), "policies[0].steps[1].deadline.remindBefore[1]"),
+        ["reminders none"] = (Definitions.Valid.WithStep(0, 1, step => step with { Deadline = step.Deadline! with { RemindBefore = null! } }), "policies[0].steps[1].deadline.remindBefore"),
+    };
+
     /// <summary>A definition outside a rule of a condition, <c>02</c> APR-TYPE-005, by the rule.</summary>
     internal static IReadOnlyDictionary<string, (ApprovalTypeDefinition Definition, string Member)> ConditionRules { get; } = new Dictionary<string, (ApprovalTypeDefinition, string)>(StringComparer.Ordinal)
     {
@@ -152,7 +163,15 @@ internal static class InvalidDefinitions
         ["required of 16 of a permission"] = Definitions.Valid.WithStep(1, 0, step => step with { Mode = ApprovalMode.AtLeast, Required = 16 }),
         ["required of the distinct persons named"] = Definitions.Valid.WithStep(0, 1, step => step with { Approvers = [new ApproverReference.Person(Definitions.Approver), new ApproverReference.Person(Definitions.StepFallback), new ApproverReference.Person(Definitions.Approver)], Mode = ApprovalMode.AtLeast, Required = 2 }),
         ["required above the persons named beside a permission"] = Definitions.Valid.WithStep(0, 0, step => step with { Mode = ApprovalMode.AtLeast, Required = 16 }),
+        ["three reminders, the shortest an hour"] = Reminding(TimeSpan.FromHours(1), TimeSpan.FromDays(1), TimeSpan.FromHours(2)),
+        ["reminder a second shorter than the deadline"] = Reminding(TimeSpan.FromDays(2) - TimeSpan.FromSeconds(1)),
     };
+
+    /// <summary><see cref="Definitions.Valid"/> with the reminders <paramref name="before"/> on its step <c>finance</c>, whose deadline is two days.</summary>
+    private static ApprovalTypeDefinition Reminding(params TimeSpan[] before)
+    {
+        return Definitions.Valid.WithStep(0, 1, step => step with { Deadline = step.Deadline! with { RemindBefore = before } });
+    }
 
     /// <summary>A chain of negations <paramref name="levels"/> levels deep, its last level a role condition.</summary>
     private static Condition Nested(int levels)

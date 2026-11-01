@@ -161,6 +161,7 @@ internal sealed class ApprovalsContext(DbContextOptions<ApprovalsContext> option
             step.HasKey(row => new { row.Request, row.Number }).HasName("pk_steps");
             step.HasOne<RequestRow>().WithMany().HasForeignKey(row => row.Request).HasConstraintName("fk_steps_requests").OnDelete(DeleteBehavior.Restrict);
             step.HasIndex(row => row.DueAt).HasDatabaseName("ix_steps_due").HasFilter("status = 'current' AND deadline_ran_at IS NULL");
+            step.HasIndex(row => row.RemindAt).HasDatabaseName("ix_steps_remind").HasFilter("status = 'current' AND deadline_ran_at IS NULL AND remind_at IS NOT NULL");
             step.Property(row => row.Request).HasColumnName("request");
             step.Property(row => row.Number).HasColumnName("number").ValueGeneratedNever();
             step.Property(row => row.Name).HasColumnName("name");
@@ -170,6 +171,8 @@ internal sealed class ApprovalsContext(DbContextOptions<ApprovalsContext> option
             step.Property(row => row.StartedAt).HasColumnName("started_at");
             step.Property(row => row.DueAt).HasColumnName("due_at");
             step.Property(row => row.DeadlineRanAt).HasColumnName("deadline_ran_at");
+            step.Property(row => row.RemindersSent).HasColumnName("reminders_sent");
+            step.Property(row => row.RemindAt).HasColumnName("remind_at");
         });
 
         modelBuilder.Entity<AssignmentRow>(assignment =>

@@ -29,6 +29,8 @@ internal static class DefinitionRules
 
     private const int MostRequired = 16;
 
+    private const int MostReminders = 3;
+
     private const int MostWatchers = 16;
 
     private const int MostConditions = 16;
@@ -45,6 +47,8 @@ internal static class DefinitionRules
     private static readonly TimeSpan ShortestDeadline = TimeSpan.FromMinutes(1);
 
     private static readonly TimeSpan LongestDeadline = TimeSpan.FromDays(365);
+
+    private static readonly TimeSpan ShortestReminder = TimeSpan.FromHours(1);
 
     /// <summary>The path of the first member of <paramref name="definition"/> outside its rule, or the empty path where its canonical form is over 64 KiB, or none where it is within every rule.</summary>
     internal static string? Invalid(ApprovalTypeDefinition definition)
@@ -275,7 +279,32 @@ internal static class DefinitionRules
             return path + ".escalateTo";
         }
 
-        return deadline.EscalateTo is null ? null : InvalidApprover(deadline.EscalateTo, path + ".escalateTo");
+        if (deadline.EscalateTo is not null && InvalidApprover(deadline.EscalateTo, path + ".escalateTo") is { } escalateTo)
+        {
+            return escalateTo;
+        }
+
+        return InvalidReminders(deadline, path + ".remindBefore");
+    }
+
+    /// <summary>The path of the first reminder outside its rule: up to three, each at least an hour in whole seconds, shorter than the deadline and unlike those before it.</summary>
+    private static string? InvalidReminders(Deadline deadline, string path)
+    {
+        if (!Holds(deadline.RemindBefore, 0, MostReminders))
+        {
+            return path;
+        }
+
+        for (int index = 0; index < deadline.RemindBefore.Count; index++)
+        {
+            TimeSpan before = deadline.RemindBefore[index];
+            if (before.Ticks % TimeSpan.TicksPerSecond != 0 || before < ShortestReminder || before >= deadline.After || deadline.RemindBefore.Take(index).Contains(before))
+            {
+                return Item(path, index);
+            }
+        }
+
+        return null;
     }
 
     private static string? InvalidApprover(ApproverReference approver, string path)

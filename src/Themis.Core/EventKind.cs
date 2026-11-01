@@ -40,4 +40,8 @@ public enum EventKind
     /// <summary>A delegation is created.</summary>
     [JsonStringEnumMemberName("delegationcreated")]
     DelegationCreated,
+
+    /// <summary>A reminder before a step's deadline falls due.</summary>
+    [JsonStringEnumMemberName("reminded")]
+    Reminded,
 }

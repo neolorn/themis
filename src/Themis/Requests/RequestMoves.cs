@@ -82,6 +82,8 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
             row.Status = StepStatus.Current;
             row.StartedAt = now;
             row.DueAt = step.Deadline is null ? null : now + step.Deadline.After;
+            row.RemindersSent = 0;
+            row.RemindAt = ReminderTimes(step, row.DueAt).Select(at => (DateTimeOffset?)at).FirstOrDefault();
             request.Step = number;
             await PersonLock.ShareAsync(context, assignments.Select(assignment => assignment.Person), cancellationToken).ConfigureAwait(false);
             context.Assignments.AddRange(assignments);
@@ -193,6 +195,64 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
         await PersonLock.ShareAsync(context, added.Select(assignment => assignment.Person), cancellationToken).ConfigureAwait(false);
         context.Assignments.AddRange(added);
         await WriteAsync(request, definition, snapshot, EventKind.Escalated, number, actor: null, actingFor: null, reasonCode: null, [.. added.Select(assignment => assignment.Person)], cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends the reminders of the request's step <paramref name="row"/> that are due (<c>01</c> APR-REQ-009, T-025):
+    /// while the deadline is ahead, one <c>reminded</c> event for the latest due, naming the step's open assignees,
+    /// each with the delegates who hold their assignment through a live delegation covering the type, and counted
+    /// once; the earlier ones due are passed. Where the deadline has passed, every reminder left is passed and
+    /// none is sent. Answers whether one was sent.
+    /// </summary>
+    internal async Task<bool> RemindAsync(RequestRow request, ApprovalTypeDefinition definition, StepDefinition step, StepRow row, CancellationToken cancellationToken)
+    {
+        DateTimeOffset[] times = [.. ReminderTimes(step, row.DueAt)];
+        if (row.DueAt is not DateTimeOffset due || due <= now)
+        {
+            row.RemindersSent = times.Length;
+            row.RemindAt = null;
+            return false;
+        }
+
+        int sent = row.RemindersSent;
+        while (sent < times.Length && times[sent] <= now)
+        {
+            sent++;
+        }
+
+        bool remind = sent > row.RemindersSent;
+        row.RemindersSent = sent;
+        row.RemindAt = sent < times.Length ? times[sent] : null;
+        if (!remind)
+        {
+            return false;
+        }
+
+        List<string> open = await context.Assignments
+            .Where(assignment => assignment.Request == request.Id && assignment.Step == row.Number && assignment.Decision == null)
+            .OrderBy(assignment => assignment.Origin)
+            .ThenBy(assignment => assignment.Person)
+            .Select(assignment => assignment.Person)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        string type = request.Type;
+        var lent = await context.Delegations
+            .Where(delegation => open.Contains(delegation.From) && delegation.EndedAt == null && delegation.Starts <= now && delegation.Ends > now && (delegation.Types.Count == 0 || delegation.Types.Contains(type)))
+            .OrderBy(delegation => delegation.To)
+            .Select(delegation => new { delegation.From, delegation.To })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        List<string> notify = [.. open.SelectMany(person => lent.Where(delegation => delegation.From == person).Select(delegation => delegation.To).Prepend(person))];
+        IReadOnlyDictionary<string, FieldValue> snapshot = CanonicalForm.ReadSnapshot(request.Snapshot);
+        await WriteAsync(request, definition, snapshot, EventKind.Reminded, row.Number, actor: null, actingFor: null, reasonCode: null, notify, cancellationToken).ConfigureAwait(false);
+        counts.Add(() => metrics.Reminders.Add(1, new KeyValuePair<string, object?>("type", type)));
+        return true;
+    }
+
+    /// <summary>The instants of <paramref name="step"/>'s reminders before its deadline <paramref name="due"/>, earliest first; none without a deadline.</summary>
+    internal static IEnumerable<DateTimeOffset> ReminderTimes(StepDefinition step, DateTimeOffset? due)
+    {
+        return due is DateTimeOffset at && step.Deadline is { } deadline ? deadline.RemindBefore.OrderByDescending(before => before).Select(before => at - before) : [];
     }
 
     /// <summary>Counts a decision of <paramref name="type"/> with <paramref name="outcome"/>.</summary>
@@ -346,12 +406,12 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
 
     /// <summary>
     /// Writes the request's next event of <paramref name="kind"/>, naming <paramref name="notify"/>
-    /// and, for every kind but <c>stepstarted</c>, the type's watchers resolved now
+    /// and, for every kind but <c>stepstarted</c>, <c>escalated</c> and <c>reminded</c>, the type's watchers resolved now
     /// (<c>01</c> APR-REQ-014; <c>02</c> APR-TYPE-006).
     /// </summary>
     private async Task WriteAsync(RequestRow request, ApprovalTypeDefinition definition, IReadOnlyDictionary<string, FieldValue> snapshot, EventKind kind, int? step, string? actor, string? actingFor, ReasonCode? reasonCode, List<string> notify, CancellationToken cancellationToken)
     {
-        if (kind is not (EventKind.StepStarted or EventKind.Escalated))
+        if (kind is not (EventKind.StepStarted or EventKind.Escalated or EventKind.Reminded))
         {
             ApproverQuery query = Query(request, snapshot, step: null);
             foreach (ApproverReference watcher in definition.Watchers)

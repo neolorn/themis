@@ -84,6 +84,12 @@ internal sealed class StepRow
     public DateTimeOffset? DueAt { get; set; }
 
     public DateTimeOffset? DeadlineRanAt { get; set; }
+
+    /// <summary>How many of the deadline's reminders, earliest first, have been sent or passed (<c>01</c> APR-REQ-009).</summary>
+    public int RemindersSent { get; set; }
+
+    /// <summary>When the next reminder falls due, or none where no reminder is left.</summary>
+    public DateTimeOffset? RemindAt { get; set; }
 }
 
 /// <summary>A row of the assignment table: a person fixed to a step when it started (<c>01</c> APR-REQ-003).</summary>

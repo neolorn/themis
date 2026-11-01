@@ -167,6 +167,7 @@ public sealed class CanonicalFormTests
         Condition.Compare urgent = Assert.IsType<Condition.Compare>(condition.Conditions[1]);
         Assert.Equal(new FieldValue.Flag(false), urgent.Value);
         Assert.Equal(TimeSpan.FromHours(4), read.Policies[0].Steps[0].Deadline!.After);
+        Assert.Empty(read.Policies[0].Steps[0].Deadline!.RemindBefore);
     }
 
     [Fact]

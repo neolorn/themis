@@ -110,6 +110,12 @@ public sealed class PublishTests(PostgresFixture postgres) : IClassFixture<Postg
     }
 
     [Fact]
+    public async Task APR_REQ_009_AC5_PublishRefusesAReminderUnderAnHourOneNotShorterThanTheDeadlineAFourthAndTwoAlike()
+    {
+        await AssertRefusedAsync(InvalidDefinitions.ReminderRules);
+    }
+
+    [Fact]
     public async Task APR_TYPE_005_AC2_EachConditionOutsideItsRuleRefusesThePublishNamingIt()
     {
         await AssertRefusedAsync(InvalidDefinitions.ConditionRules);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -32,8 +33,22 @@ internal static class CanonicalForm
         ApprovalTypeDefinition read = JsonSerializer.Deserialize(form, Definition) ?? throw new JsonException("A canonical form holds no definition.");
 
         // An empty list is left out of the form, and the serializer leaves an init-only list it
-        // does not read null; only these two lists of a definition within its rule may be empty.
-        return read with { ProtectedFields = read.ProtectedFields ?? [], Watchers = read.Watchers ?? [] };
+        // does not read null; only these three lists of a definition within its rule may be empty:
+        // its protected fields, its watchers and each deadline's reminders.
+        return read with
+        {
+            ProtectedFields = read.ProtectedFields ?? [],
+            Watchers = read.Watchers ?? [],
+            Policies = read.Policies is null ? read.Policies! : [.. read.Policies.Select(WithReminders)],
+        };
+    }
+
+    /// <summary><paramref name="policy"/> with each deadline's reminders a list, empty where the form leaves them out.</summary>
+    private static PolicyDefinition WithReminders(PolicyDefinition policy)
+    {
+        return policy?.Steps is null
+            ? policy!
+            : policy with { Steps = [.. policy.Steps.Select(step => step?.Deadline is { RemindBefore: null } deadline ? step with { Deadline = deadline with { RemindBefore = [] } } : step!)] };
     }
 
     /// <summary>The SHA-256 of <paramref name="form"/>, the version's hash.</summary>
@@ -120,7 +135,7 @@ internal static class CanonicalForm
         {
             foreach (JsonPropertyInfo property in info.Properties)
             {
-                property.ShouldSerialize = static (_, value) => value is not (null or false or IReadOnlyCollection<object> { Count: 0 });
+                property.ShouldSerialize = static (_, value) => value is not (null or false or IReadOnlyCollection<object> { Count: 0 } or IReadOnlyCollection<TimeSpan> { Count: 0 });
             }
         }
     }
