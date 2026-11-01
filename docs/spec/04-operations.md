@@ -37,24 +37,42 @@ library's name (`00`); the migration history table is `approvals.__migrations_hi
 so the library's history never meets a host's. The migrations are applied by
 `themis migrate`, the command of the `Themis.Cli` tool of the same release, which reads
 one JSON document on its standard input and nothing else:
-`{ "connection": "<connection string>", "applicationRoles": [ "<role>", ... ] }`, the
-roles optional. Once connected, and before it applies any migration, it reads which of
-the roles the database has, comparing each name as text with `pg_roles`, so a name
+`{ "connection": "<connection string>", "applicationRoles": [ "<role>", ... ], "retentionRoles": [ "<login>", ... ] }`,
+the roles optional. Once connected, and before it applies any migration, it reads which
+of the roles the database has, comparing each name as text with `pg_roles`, so a name
 longer than PostgreSQL's 63-byte limit on identifiers matches none; a role it lacks
-answers `approvals.migrate.inputinvalid`, `details.member` `applicationRoles`, and
-nothing is applied. It applies the pending migrations one at a time through EF Core's
-migrator, each in its own transaction, then, in one transaction, grants each role
-`USAGE` on the schema, `SELECT`, `INSERT` and `UPDATE` on each of its tables but the
-migration history, `SELECT` alone on the migration history, and `USAGE` on each of its
-sequences, and grants no role `DELETE` or `TRUNCATE` on any of them, so the record
-stays append-only for the application (`01` APR-REQ-015), revoking nothing a role
-already holds. In the same transaction it checks that each role holds each privilege
-granted (`has_schema_privilege`, `has_table_privilege`, `has_sequence_privilege`); a
-grant that fails, or that the check does not find, answers
-`approvals.migrate.grantfailed`, `details.role` the role, and no grant of the run stays.
-It exits 0 on success; on a failure it exits 1 and writes one JSON line on standard
-error, `{ "code": "<code>", "details": { ... } }`, with a code of `06` section 1, the
+answers `approvals.migrate.inputinvalid`, `details.member` `applicationRoles` or
+`retentionRoles` (the list that names it), and nothing is applied. It applies the
+pending migrations one at a time through EF Core's migrator, each in its own
+transaction, then, in one transaction, grants each application role `USAGE` on the
+schema, `SELECT`, `INSERT` and `UPDATE` on each of its tables but the migration history,
+`SELECT` alone on the migration history, and `USAGE` on each of its sequences, and
+grants no application role `DELETE` or `TRUNCATE` on any of them, so the record stays
+append-only for the application (`01` APR-REQ-015), revoking nothing a role already
+holds. In the same transaction it checks that each role holds each privilege granted
+(`has_schema_privilege`, `has_table_privilege`, `has_sequence_privilege`); a grant that
+fails, or that the check does not find, answers `approvals.migrate.grantfailed`,
+`details.role` the role, and no grant of the run stays. It exits 0 on success; on a
+failure it exits 1 and writes one JSON line on standard error,
+`{ "code": "<code>", "details": { ... } }`, with a code of `06` section 1, the
 migrations before the failing one staying applied.
+
+**The retention grant (T-025).** Only where `retentionRoles` names at least one login,
+`themis migrate`, in the transaction of the grants, creates the role
+`approvals_retention` (`NOLOGIN`) where the database lacks it, a name that does not
+change with the library's (`06` section 7), grants it `DELETE` on the six tables of
+requests and delegations (the requests, steps, assignments, decisions, events and
+delegations) and `UPDATE` on their columns that hold a person reference or a reason,
+and grants it to each login `retentionRoles` names, the logins that delete and erase
+(`01` APR-REQ-015). A creation or a grant that fails answers
+`approvals.migrate.grantfailed`, `details.role` `approvals_retention` or the login.
+Without `retentionRoles` it does exactly what the first release does, so a migrating
+login without `CREATEROLE` goes on working. The application roles keep the grants above.
+The library judges the privileges its session holds, however its role got them (a
+grant, a membership of `approvals_retention`, or owning the schema, so a host whose
+application login owns the schema is not refused): the `retention` job needs `DELETE`
+on all six tables, and `EraseAsync` that and `UPDATE` on the columns it rewrites; a
+session without them meets `approvals.retention.notgranted` (`01` APR-REQ-015).
 
 The migrations EF Core's tool generates are made `internal sealed` in the commit that
 adds them, so they stay off the public surface (`03` APR-LIB-002), and that commit runs
@@ -66,7 +84,7 @@ stops the start with `approvals.startup.schemamismatch`, `details.migration` the
 missing, where it does not; later migrations, of a newer release, are accepted. A
 migration that drops or rewrites data is named in the release notes.
 
-*Source: T-013, T-017*
+*Source: T-013, T-017, T-025*
 
 **Acceptance criteria**
 1. Starting against a database missing the release's last migration stops the start.
@@ -84,20 +102,36 @@ migration that drops or rewrites data is named in the release notes.
 **APR-OPS-003** — The library SHALL use the host's PostgreSQL database through its own
 connection, take its locks in one order, and judge time by its own clock.
 
-**Values (T-016, T-017).** The connection string is the secret `connection`
+**Values (T-016, T-017, T-025).** The connection string is the secret `connection`
 (APR-OPS-008); the library's own work (an operation made without the host's
 transaction, the jobs) runs on it. A host that passes its own transaction (`03`
 APR-LIB-008) gives the library the database that transaction runs on. Every move of a
-request, and every publish of a type, runs in one transaction that takes its locks in
-this order, so no two of the library's own transactions deadlock:
+request, every publish of a type and every erasure runs in one transaction that takes
+its locks in this order, so no two of the library's own transactions deadlock:
 1. a type's lock, for a publish or a retirement alone: the transaction-scoped advisory
    lock `pg_advisory_xact_lock` on the first 8 bytes, read as a signed big-endian
    integer, of the SHA-256 of the text `approvals-type`, a zero byte and the key;
-2. the request's row, `SELECT ... FOR UPDATE`, before any other row of the request is
+2. a person's lock, exclusive, for an erasure alone, taken before anything else: the
+   transaction-scoped advisory lock `pg_advisory_xact_lock` on the first 8 bytes, read
+   as a signed big-endian integer, of the SHA-256 of the text `approvals-person`, a zero
+   byte and the person reference (`01` APR-REQ-015);
+3. the request's row, `SELECT ... FOR UPDATE`, before any other row of the request is
    read for change; where a move touches several requests (a recorded change voiding
-   several), their rows in the order of their identifiers;
-3. then the request's steps, assignments, decisions and events, which only a holder of
+   several, an erasure), their rows in the order of their identifiers;
+4. then the request's steps, assignments, decisions and events, which only a holder of
    the request's lock writes.
+
+A transaction that writes a person reference into a new request, an assignment or a
+delegation (a create, a step's start, an escalation, a fallback assigned, a delegation
+created) takes that person's lock shared (`pg_advisory_xact_lock_shared` on the same
+key) before it writes it, after the request's row where it holds one, so an erasure and
+a create naming the same person never interleave. No transaction takes a person's lock
+while it holds the row of a request that is not `pending`. An erasure checks its
+refusals under its person's lock and before it locks any request's row, and is refused
+while a `pending` request names the person, so it locks only rows of requests that are
+not `pending`, on which, by that rule, no transaction takes a person's lock, and the two
+never wait on each other in a circle: an erasure racing a create naming the person ends
+with one of them after the other, never a deadlock (`01` APR-REQ-015).
 
 A create takes no request lock, since its row is new; the unique index of `01`
 APR-REQ-002 makes a second create of one type and target wait for the first and then be
@@ -120,7 +154,7 @@ the library's. Identifiers are UUID version 7. The processes' clocks SHALL agree
 one second, which a host synchronised by NTP keeps, so a deadline one process records is
 not judged passed by another before its time by more than that.
 
-*Source: T-016, T-017*
+*Source: T-016, T-017, T-025*
 
 **Acceptance criteria**
 1. A request created in a host transaction on a data source the host built, with no
@@ -137,13 +171,14 @@ not judged passed by another before its time by more than that.
 host's process, turned on or off per application by configuration, and SHALL do nothing
 twice when several processes run it.
 
-**Values (T-012, T-014, T-019).**
+**Values (T-012, T-014, T-019, T-025).**
 
 | Job | Does | Every |
 |---|---|---|
-| `deadlines` | Runs the action of each current step whose deadline has passed (`01` APR-REQ-009) | `Themis:Jobs:Interval` |
+| `deadlines` | Runs the action of each current step whose deadline has passed, and sends the reminders due before it (`01` APR-REQ-009) | `Themis:Jobs:Interval` |
 | `observer` | Delivers the events not yet taken, in order for each request (`01` APR-REQ-014); where `Themis:Observer:Enabled` is off it completes at once, delivering nothing | `Themis:Jobs:Interval` |
 | `watch` | Judges the alert conditions (APR-OPS-006) | `Themis:Jobs:Interval` |
+| `retention` | Deletes the closed requests and the ended delegations past `Themis:Retention:ClosedRequests`, at most 1,000 requests a run, a chain never split across runs (`01` APR-REQ-015); where the key is unset it completes at once, deleting nothing and checking no privilege | `Themis:Jobs:Interval` |
 
 The jobs run where `Themis:Jobs:Enabled` is on (the default); where `Themis:Jobs:Hosted`
 is on too (the default), hosted services run them on their timers, and where it is off
@@ -162,10 +197,17 @@ transaction holds is left for a later run rather than waited for. The `observer`
 takes, for each request in turn, its lowest undelivered event, delivering it only where
 every event of that request with a lower sequence number has been taken, and moves on to
 the next request where a call fails, so one failing request never holds back another.
-A job that fails is logged and runs again at its next time. A job no application runs is
-never judged stalled.
+The `retention` job selects the requests it deletes `FOR UPDATE SKIP LOCKED`, so a
+request a host's open transaction holds is left for a later run, with the whole of its
+chain. Its row of the job table, and its name in the table's closed set
+(`ck_jobs_name`, `06` section 2), come with the migration that adds the job. A
+`retention` run, the period set, whose session lacks `DELETE` on the six tables of
+requests and delegations (APR-OPS-002) throws `InvalidOperationException` naming
+`approvals.retention.notgranted` (`01` APR-REQ-015; `05` APR-ENG-003), so the run fails
+and `job-stalled` is raised for it (`06` section 5). A job that fails is logged and runs
+again at its next time. A job no application runs is never judged stalled.
 
-*Source: T-012, T-014, T-019*
+*Source: T-012, T-014, T-019, T-025*
 
 **Acceptance criteria**
 1. With `Themis:Jobs:Hosted` off, no step's deadline runs until `RunAsync` is called for
@@ -182,16 +224,22 @@ never judged stalled.
 reference, target, role, snapshot value or reason, and SHALL publish metrics and a
 health check a host can collect.
 
-**Values (T-019).** Log entries go through source-generated `LoggerMessage` methods and
-name requests, decisions, delegations and events by identifier, type key, version,
-status, step number and reason code, never by a person reference, a target, a role, a
-field value or a reason's text. Metrics are published on the .NET meter of `06` section
-7, with its instruments. The health check of `06` section 7, registered by `AddThemis`
-in an application where the jobs run, reports unhealthy while a job is stalled
-(APR-OPS-006) or, in an application whose `Themis:Observer:Enabled` is on, while the
-oldest undelivered event is older than `Themis:Observer:LagThreshold` (T-022).
+**Values (T-019, T-025).** Log entries go through source-generated `LoggerMessage`
+methods and name requests, decisions, delegations and events by identifier, type key,
+version, status, step number and reason code, never by a person reference, a target, a
+role, a field value or a reason's text. Metrics are published on the .NET meter of `06`
+section 7, with its instruments. Of these, `approvals.retention.deleted` counts each
+record a `retention` run deletes, tagged `kind` `request` or `delegation`, in the unit
+`{record}`, so a chain of three requests counts 3; `approvals.erasures` counts each
+`EraseAsync` that changed at least one row, untagged, in the unit `{erasure}`, a refusal
+or an answer of 0 counting nothing; and `approvals.reminders` counts each reminder sent,
+tagged `type` (the approval type's key), in the unit `{reminder}` (`01` APR-REQ-009,
+APR-REQ-015). The health check of `06` section 7, registered by `AddThemis` in an
+application where the jobs run, reports unhealthy while a job is stalled (APR-OPS-006)
+or, in an application whose `Themis:Observer:Enabled` is on, while the oldest
+undelivered event is older than `Themis:Observer:LagThreshold` (T-022).
 
-*Source: T-019, T-022*
+*Source: T-019, T-022, T-025*
 
 **Acceptance criteria**
 1. A test capturing every log entry of a request's life, from create to completion, its
@@ -231,9 +279,15 @@ job raises, raises again and clears.
 **APR-OPS-007** — The deployment SHALL meet what the library cannot do alone, and the
 release notes SHALL state it.
 
-**Values (T-006, T-017).**
+**Values (T-006, T-017, T-025).**
 - **Migrations.** `themis migrate` of the new release runs before its processes start,
   with the application roles named (APR-OPS-002).
+- **Retention and erasure.** Where `Themis:Retention:ClosedRequests` is set or
+  `EraseAsync` is called, `themis migrate` runs with `retentionRoles` naming the logins
+  of the applications that do so, by a login that may create roles (`CREATEROLE`), or
+  those logins hold the privileges otherwise; else the `retention` job fails and an
+  erasure is refused with `approvals.retention.notgranted` (APR-OPS-002, `01`
+  APR-REQ-015).
 - **Jobs.** At least one application runs the jobs (`Themis:Jobs:Enabled`), or no
   deadline runs and no event is delivered.
 - **Observer.** Every application that runs the jobs registers the host's observer, or
@@ -254,7 +308,7 @@ release notes SHALL state it.
 - **Stopping.** The host's shutdown timeout and the orchestrator's grace period are
   above `Themis:Timeout`, so a job item under way ends before the process does.
 
-*Source: T-006, T-017*
+*Source: T-006, T-017, T-025*
 
 **Acceptance criteria**
 1. The release notes of each release (`RELEASE-NOTES.md`, `05` APR-ENG-001) state every

@@ -11,7 +11,7 @@ racing or by changing the rules, or keep it while changing what was approved.
 | Asset | Where it is | Protected by |
 |---|---|---|
 | The rule of who must agree | The approval types' versions | Immutable versions, kept by hash; a request keeps its version (`02` APR-TYPE-001) |
-| The record of who decided what | Requests, steps, assignments, decisions, delegations | Every move under the request's lock; decisions never changed; no `DELETE` granted to the application (`01` APR-REQ-004, APR-REQ-015; `04` APR-OPS-002, APR-OPS-003) |
+| The record of who decided what | Requests, steps, assignments, decisions, delegations | Every move under the request's lock; decisions never changed; no `DELETE` granted to the application, `DELETE` held by `approvals_retention` alone, used only past the retention period on what has delivered its events; an erasure rewrites references and reasons without an event (`01` APR-REQ-004, APR-REQ-015; `04` APR-OPS-002, APR-OPS-003) |
 | What was approved | The snapshot, and the host's own fields it covers | Protected fields locked while pending, voiding the approval when changed before completion (`01` APR-REQ-011) |
 | The host's knowledge that an approval happened | The events | Written in the move's transaction, delivered at least once, in order, with a unique identifier (`01` APR-REQ-014) |
 | Person references, roles, snapshot values, reasons | The library's tables | Never logged (`04` APR-OPS-005); the database's own access control and the deployment's encryption at rest (`04` APR-OPS-008) |
@@ -36,14 +36,14 @@ control SHALL have the test its requirement gives.
 | What was approved is changed after the approval and before the host acts (the approved price raised, the approved role swapped) | The protected fields are reported locked while pending, and a change after approval voids it until the host completes it (`01` APR-REQ-011, APR-REQ-012) |
 | A request passes with no one deciding: a deadline lapsing, every step skipped, no rule matching | No deadline action approves; a policy whose every step is skipped does not hold; with no policy holding, the type's fallback person decides unless the type explicitly allows approval at once (`02` APR-TYPE-003, APR-TYPE-004; APR-THR-002) |
 | A request is left with no one able to decide it, blocking the host's work | The step's fallback, then the type's; where both are excluded the request is cancelled with `noapprover` and an alert raised (`01` APR-REQ-007; `04` APR-OPS-006) |
-| The record is erased or rewritten to hide a decision | No `DELETE` or `TRUNCATE` granted to the application's roles; only the values that record a later move change, each with its event (`01` APR-REQ-015; `04` APR-OPS-002). Someone holding the database's owner role can still write; the events delivered to the host's observer keep a copy outside the library's tables |
+| The record is erased or rewritten to hide a decision | No `DELETE` or `TRUNCATE` granted to the application's roles; `DELETE` held by `approvals_retention` alone, used only past the retention period on what has delivered its events; only the values that record a later move change, each with its event, and an erasure rewrites references and reasons without an event (`01` APR-REQ-015; `04` APR-OPS-002). Someone holding the database's owner role can still write; the events delivered to the host's observer keep a copy outside the library's tables |
 | The host never learns that a request was approved or rejected, or learns it twice and acts twice | The event is written in the move's transaction and delivered until taken, the `observer-failing` alert raised while it lags; each event carries a unique identifier by which the host ignores one it has had (`01` APR-REQ-014) |
 | A definition or a condition is made to exhaust the engine | A definition bounded in size, policies, steps and approvers; a condition bounded in depth and nodes; a step's approvers bounded to 200 persons (`02` APR-TYPE-002, APR-TYPE-005; `01` APR-REQ-003) |
 | A host's slow directory holds a request's lock and stalls every decision on it | Each directory call bounded by `Themis:Timeout`; every transaction of the library's own bounded by the session timeout (`03` APR-LIB-005; `04` APR-OPS-003) |
 | A name or reference carries SQL or control characters into the database or the logs | Names and references within `00` section 1.5's rule; every statement's values passed as parameters (`05` APR-ENG-005); logs carry identifiers only (`04` APR-OPS-005) |
 | A log leaks who asked, who decided, or what for | Logs carry identifiers, keys, statuses and reason codes only, checked in the gate (`04` APR-OPS-005; `05` APR-ENG-012) |
 
-*Source: T-007, T-008, T-009, T-010, T-011, T-013, T-014, T-016*
+*Source: T-007, T-008, T-009, T-010, T-011, T-013, T-014, T-016, T-025*
 
 **Acceptance criteria**
 1. Every control above that the library itself carries has a test carrying the

@@ -24,8 +24,9 @@ before the first phase, then `01-requests` and `02-approval-types` before phase 
 - Each phase implements, in code, the rows of `06` that its items use: the codes, keys,
   enumerations, statuses, alert conditions, event kinds and names.
 - Items designed for and not built (the rows of `00` APR-OVR-003, `03` APR-LIB-004, and
-  every paragraph marked "designed for, not built") are placed in no phase; what the
-  first release must do for them is stated in the items that are.
+  every paragraph marked "designed for, not built") are placed in no phase of release 1;
+  what the first release must do for them is stated in the items that are, and release
+  2 builds them (section 4).
 - A question about the specification parks its item and what depends on it; the rest of
   the phase goes on.
 
@@ -50,17 +51,18 @@ before the first phase, then `01-requests` and `02-approval-types` before phase 
 ## 4. Release 2
 
 The lead names every row of `00` APR-OVR-003 (2026-11-01): what release 1 was designed for and
-did not build. Each phase builds one row from the design its requirement holds, keeps
-APR-LIB-006 (nothing breaks on the public surface), and gives every criterion it builds a test
-carrying its identifier. Where a design leaves a choice or names no criterion for what the
-phase builds, the phase asks the lead before it builds that part.
+did not build. Each phase builds one row from its requirements as T-025 carried them into the
+chapters, keeps APR-LIB-006 (nothing breaks on the public surface), implements the rows of `06`
+its items use, and gives every criterion it builds a test carrying its identifier. Where a
+requirement leaves a choice or names no criterion for what the phase builds, the phase asks the
+lead before it builds that part.
 
 | # | Phase | Items | Proves |
 |---|---|---|---|
-| 6 | Retention and erasure | `01` APR-REQ-015: deleting closed requests after a retention period, and erasing a person | A closed request past its period goes with its record, and nothing else does; an erased person's references leave every request, decision, delegation and event that held them, the record staying append-only otherwise; both run as jobs and are idempotent |
-| 7 | Some approvers out of a list | `02` APR-TYPE-004: a step approved by a number out of a list (two of five) | A version publishes such a step and refuses an impossible one; the step completes at the number, rejects as its design says, and assignments, delegation and deadlines work for it as for any step |
-| 8 | Reminders | `01` APR-REQ-009: reminders before a deadline | A reminder fires once at its time before the deadline, to whom its design names, never after the step closes, and survives a restart |
-| 9 | HTTP endpoints | `03` APR-LIB-004: an approver's queue, decisions and delegations over HTTP | The endpoints answer only for the signed-in person through the host's seams, refuse what the library refuses with its errors, and the sample host serves them in the gate |
+| 6 | Retention and erasure | `01` APR-REQ-015 (retention and erasure; criteria 3 to 10); `03` APR-LIB-002 (`IRecordRetention`, `ErasureReceipt`, `TypeVersionReference`), APR-LIB-003 (`IRecordRetention`'s registration); `04` APR-OPS-002 (`retentionRoles` and `approvals_retention`), APR-OPS-003 (the person's lock, exclusive for an erasure, shared for a create, an assignment and a delegation), APR-OPS-004 (the `retention` job), APR-OPS-005 (`approvals.retention.deleted`, `approvals.erasures`), APR-OPS-007 (the retention duty); `05` APR-ENG-003 (a job's deployment fault); `07` APR-THR-001 (its retention controls) | A closed request past its period goes with every row of it, a chain in one transaction and never split across runs, and nothing else does; an undelivered event or a later request not yet due holds it back; an ended delegation goes with its events past the period; an erasure replaces every reference to the person with one pseudonym and clears their reasons, at once, under the person's lock, a second answering 0; each refusal fires on its condition, in its order, and `approvals.retention.notgranted` without the privileges; with the period unset nothing is deleted and nothing is checked |
+| 7 | Some approvers out of a list | `02` APR-TYPE-004 (`AtLeast` and `Required`; criteria 2 to 6); `01` APR-REQ-004, APR-REQ-006, APR-REQ-007 (what `AtLeast` changes in them); `03` APR-LIB-002 (`Required` of `StepDefinition` and `StepRecord`) | A version publishes such a step and refuses an impossible one; the step completes at `Required` approvals by distinct persons, a `Skip`-satisfied assignment counting as one, any rejection rejects it, too few assignments go to the fallback, and every published version keeps its hash |
+| 8 | Reminders | `01` APR-REQ-009 (reminders; criteria 5 to 8), APR-REQ-014 (`reminded`); `02` APR-TYPE-004 (`RemindBefore`); `03` APR-LIB-002 (`RemindBefore` of `Deadline`); `04` APR-OPS-004 (the `deadlines` job's reminders), APR-OPS-005 (`approvals.reminders`); `05` APR-ENG-006 (`RemindBefore` in the canonical form) | Publish refuses a reminder outside its rule; each fires once at its time, naming the step's open assignments, none after the step closes, none twice and none missed across a restart |
+| 9 | HTTP endpoints | `03` APR-LIB-004 (criteria 1 to 5), APR-LIB-001 (`Themis.Endpoints`), APR-LIB-002 (`ICurrentPerson`, `MapThemisApprovals`), APR-LIB-005 (`ICurrentPerson`); `00` section 2.2; `05` APR-ENG-001 (the project, and the sample host's endpoints), APR-ENG-007 (`MapThemisApprovals`), APR-ENG-009 (`Microsoft.AspNetCore.Mvc.Testing` for test projects), APR-ENG-011 (the `endpoints` scope). The report lists every code with the status it answers | The endpoints answer 401 with no person, act for the person only, answer 404 for a request of which the person is no party, map each class of failure to its status, and the sample host serves them in the gate |
 | 10 | Release 1.0.0-rc.2 | As phase 5's release step | The release commit's checks, the compatibility gate and the release, on the lead's message |
 
 ## 5. Phase report

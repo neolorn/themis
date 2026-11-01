@@ -45,19 +45,26 @@ failure by an operation.
 | `approvals.delegation.ended` | | Ending a delegation that has ended (`01` APR-REQ-008) |
 | `approvals.directory.unavailable` | | The directory throws or does not answer within `Themis:Timeout` (`03` APR-LIB-005) |
 | `approvals.directory.toomany` | | A step's approvers resolve to more than 200 persons (`01` APR-REQ-003) |
+| `approvals.erasure.pending` | | An erasure of a person who is the requester, the subject or an assignee of a `pending` request, or a delegate of one of its open assignments (`01` APR-REQ-015) |
+| `approvals.erasure.typeversion` | `type` | An erasure of a person whom the newest version of an approval type names (`01` APR-REQ-015) |
+| `approvals.retention.notgranted` | | An erasure whose session lacks the privileges it needs (`01` APR-REQ-015; `04` APR-OPS-002); a `retention` run that lacks them throws, naming it (`04` APR-OPS-004) |
 
 ---
 
 ## 2. Enumerations
 
 Members in this order; the spelling is the one written wherever the library writes the
-member as text (`03` APR-LIB-002).
+member as text (`03` APR-LIB-002). A column holding a member is `text` with a `CHECK`
+constraint listing these spellings (`04` APR-OPS-003), so a member added comes with the
+migration that adds its spelling there: `ck_steps_mode` for an `ApprovalMode`,
+`ck_events_kind` for an `EventKind`, and `ck_jobs_name` for an `ApprovalJob`, whose list
+is the job names of section 7.
 
 | Enumeration | Members (spelling) |
 |---|---|
 | `FieldKind` | `Text` (`text`), `WholeNumber` (`wholenumber`), `DecimalNumber` (`decimalnumber`), `Flag` (`flag`) |
 | `CompareOperator` | `Equal` (`equal`), `NotEqual` (`notequal`), `Greater` (`greater`), `GreaterOrEqual` (`greaterorequal`), `Less` (`less`), `LessOrEqual` (`lessorequal`) |
-| `ApprovalMode` | `AnyOne` (`anyone`), `All` (`all`) |
+| `ApprovalMode` | `AnyOne` (`anyone`), `All` (`all`), `AtLeast` (`atleast`) |
 | `DeadlineAction` | `Escalate` (`escalate`), `Reject` (`reject`), `Cancel` (`cancel`) |
 | `DuplicateRule` | `Skip` (`skip`), `RequireOther` (`requireother`) |
 | `DecisionOutcome` | `Approve` (`approve`), `Reject` (`reject`) |
@@ -65,7 +72,7 @@ member as text (`03` APR-LIB-002).
 | `ReasonCode` | `NoApprover` (`noapprover`, `01` APR-REQ-007), `Deadline` (`deadline`, `01` APR-REQ-009), `FieldChanged` (`fieldchanged`, `01` APR-REQ-011) |
 | `FieldProtection` | `Free` (`free`), `Locked` (`locked`), `Approved` (`approved`) |
 | `EventKind` | As section 6, in its order |
-| `ApprovalJob` | `Deadlines` (`deadlines`), `Observer` (`observer`), `Watch` (`watch`) |
+| `ApprovalJob` | `Deadlines` (`deadlines`), `Observer` (`observer`), `Watch` (`watch`), `Retention` (`retention`) |
 
 ---
 
@@ -124,6 +131,7 @@ Under the section `Themis`. A duration is written in .NET's `TimeSpan` form
 | `Themis:Observer:Enabled` | `true` | A boolean | `01` APR-REQ-014; `03` APR-LIB-005 |
 | `Themis:Observer:LagThreshold` | `00:05:00` | 1 minute to 1 day | `observer-failing` (section 5); the health check (`04` APR-OPS-005) |
 | `Themis:Alerts:Repeat` | `01:00:00` | 1 minute to 1 day | `04` APR-OPS-006 |
+| `Themis:Retention:ClosedRequests` | None | 30 to 10,950 days (30 years of 365 days), in whole days: a value holding a part of a day is refused; unset, nothing is deleted | `01` APR-REQ-015; `04` APR-OPS-004 |
 
 ---
 
@@ -155,6 +163,7 @@ APR-REQ-014).
 | `Voided` (`voided`) | The request is voided | The requester and the watchers |
 | `Completed` (`completed`) | The request is completed | The requester and the watchers |
 | `DelegationCreated` (`delegationcreated`) | A delegation is created | The delegate |
+| `Reminded` (`reminded`) | A reminder before a step's deadline falls due (`01` APR-REQ-009) | The step's open assignees, each with the delegates who hold their assignment |
 
 ---
 
@@ -165,7 +174,9 @@ APR-REQ-014).
 | Schema | `approvals` | No |
 | Migration history | `approvals.__migrations_history` | No |
 | Type lock text | `approvals-type` (`04` APR-OPS-003) | No |
-| Job names | `deadlines`, `observer`, `watch` | No |
+| Person lock text | `approvals-person` (`04` APR-OPS-003) | No |
+| Job names | `deadlines`, `observer`, `watch`, `retention` (the list of `ck_jobs_name`, section 2) | No |
+| Retention role | `approvals_retention` (`04` APR-OPS-002) | No |
 | Command of `Themis.Cli` | `themis` | Yes |
 | Meter | `Themis` | Yes |
 | Health check | `themis` | Yes |
@@ -179,6 +190,9 @@ The meter's instruments:
 | `approvals.decisions` | Counter | `type`, `outcome` |
 | `approvals.events.delivered` | Counter | `kind` |
 | `approvals.events.pending` | Observable gauge | None |
+| `approvals.retention.deleted` | Counter | `kind` (`request` or `delegation`) |
+| `approvals.erasures` | Counter | None |
+| `approvals.reminders` | Counter | `type` |
 
 ---
 

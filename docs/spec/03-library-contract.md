@@ -8,7 +8,7 @@ not to break. Every value named `Themis:...` is configuration (`06` section 4).
 **APR-LIB-001** — The library SHALL ship as the packages of `00` section 2.2, and each
 project SHALL reference only what this item allows it.
 
-**Values (T-001, T-017, T-024).**
+**Values (T-001, T-017, T-024, T-025).**
 
 | Project | May reference |
 |---|---|
@@ -16,6 +16,7 @@ project SHALL reference only what this item allows it.
 | `Themis` | `Themis.Core`; EF Core, its relational layer and the Npgsql provider; the Microsoft.Extensions abstractions of `05` APR-ENG-009 |
 | `Themis.Testing` | `Themis.Core`, `Themis` |
 | `Themis.Cli` (a .NET tool, command `themis`) | `Themis` |
+| `Themis.Endpoints` | `Themis`; ASP.NET Core's shared framework |
 | `tests/Themis.Repository.Tests` | Every shipped project, whose built assemblies its contract tests read (`05` APR-ENG-004), and the test packages of `05` APR-ENG-009 |
 | Any other test project | Its source project, `Themis.Testing`, and the test packages of `05` APR-ENG-009 |
 | The sample host and its test project | The packed packages above, ASP.NET Core's shared framework, and for its tests the sample host itself and the test packages of `05` APR-ENG-009 (T-024) |
@@ -23,14 +24,14 @@ project SHALL reference only what this item allows it.
 Every shipped project references `Microsoft.CodeAnalysis.PublicApiAnalyzers` and every
 packed project `MinVer`, both as build-only references; `Themis` references
 `Microsoft.EntityFrameworkCore.Design` as a build-only reference for making migrations.
-No shipped project references ASP.NET Core: the first release has no endpoints
-(APR-LIB-004). No package names any other library of a host (T-001). The library's
+No shipped project but `Themis.Endpoints` references ASP.NET Core, and it alone serves
+HTTP (APR-LIB-004). No package names any other library of a host (T-001). The library's
 packages depend on one another at exactly the version packed (`[v]`, written as `05`
 APR-ENG-011 gives), since they are released together and grant one another their
 internals (`05` APR-ENG-001), so NuGet reports a host's mix of versions at its restore
 rather than letting it fail at run time.
 
-*Source: T-001, T-017, T-024*
+*Source: T-001, T-017, T-024, T-025*
 
 **Acceptance criteria**
 1. A test reads each project's references and fails on one this table does not allow.
@@ -43,9 +44,9 @@ rather than letting it fail at run time.
 files list, each public type SHALL have the shape below, and a change to it SHALL be
 visible in review.
 
-**Values (T-002, T-003, T-007, T-017).** Data types are records with `init` members, so
-that a later release adds members without a break, a non-nullable member being
-`required`, a list member never null; every asynchronous member takes a
+**Values (T-002, T-003, T-007, T-017, T-025).** Data types are records with `init`
+members, so that a later release adds members without a break, a non-nullable member
+being `required`, a list member never null; every asynchronous member takes a
 `CancellationToken` as its last parameter and answers a `ValueTask`. A type described as
 having cases is an abstract record whose cases are nested sealed records of those names,
 made with `new` (`new ApproverReference.Permission("orders.approve")`), read by pattern
@@ -77,8 +78,8 @@ the canonical form (`05` APR-ENG-006):
 | `ApprovalTypeDefinition` | `string Key`, `IReadOnlyList<ProtectedField> ProtectedFields`, `IReadOnlyList<PolicyDefinition> Policies`, `DuplicateRule Duplicates`, `IReadOnlyList<ApproverReference> Watchers`, `string Fallback`, `bool AllowAutoApprove` |
 | `ProtectedField` | `string Name`, `FieldKind Kind` |
 | `PolicyDefinition` | `string Name`, `Condition? StartCondition`, `IReadOnlyList<StepDefinition> Steps` |
-| `StepDefinition` | `string Name`, `IReadOnlyList<ApproverReference> Approvers`, `ApprovalMode Mode`, `Condition? Condition`, `string Fallback`, `Deadline? Deadline` |
-| `Deadline` | `TimeSpan After`, `DeadlineAction Action`, `ApproverReference? EscalateTo` |
+| `StepDefinition` | `string Name`, `IReadOnlyList<ApproverReference> Approvers`, `ApprovalMode Mode`, `Condition? Condition`, `string Fallback`, `Deadline? Deadline`, `int? Required` (for `AtLeast` alone, `02` APR-TYPE-004) |
+| `Deadline` | `TimeSpan After`, `DeadlineAction Action`, `ApproverReference? EscalateTo`, `IReadOnlyList<TimeSpan> RemindBefore` (`02` APR-TYPE-004; empty where none is given, and not `required`, so a definition written for the first release is still one) |
 | `ApproverReference` | Cases `Permission(string Name)` and `Person(string Reference)` |
 | `Condition` | Cases `AllOf(IReadOnlyList<Condition> Conditions)`, `AnyOf(IReadOnlyList<Condition> Conditions)`, `Negate(Condition Operand)`, `Compare(string Field, CompareOperator Operator, FieldValue Value)`, `OneOf(string Field, IReadOnlyList<FieldValue> Values)`, `RequesterHas(string Role)`, `SubjectHas(string Role)` (`02` APR-TYPE-005; the names keep clear of the keywords CA1716 checks) |
 | `PublishedVersion` | `string Key`, `int Version`, `bool Created` (whether this call made it) |
@@ -94,12 +95,13 @@ the canonical form (`05` APR-ENG-006):
 | `DecisionReceipt` | `DecisionId Decision`, `RequestStatus Status` (the request's status once the decision is recorded) |
 | `CancelRequest` | `RequestId Request`, `string Actor`, `string? OnBehalfOf`, `string? Reason` (`01` APR-REQ-010) |
 | `RequestRecord` | `RequestId Request`, `string Type`, `int Version`, `string? Policy`, `Target Target`, `IReadOnlyDictionary<string, FieldValue> Snapshot`, `string Requester`, `string? Subject`, `IReadOnlyList<string> RequesterRoles`, `IReadOnlyList<string> SubjectRoles`, `RequestId? Previous`, `RequestStatus Status`, `DateTimeOffset CreatedAt`, `DateTimeOffset? ApprovedAt`, `DateTimeOffset? ClosedAt`, `string? ClosedBy`, `string? ClosedFor`, `string? Reason`, `ReasonCode? ReasonCode`, `string? ChangedField` (the field whose change voided it), `IReadOnlyList<StepRecord> Steps`, `IReadOnlyList<DecisionRecord> Decisions` (`01` APR-REQ-013) |
-| `StepRecord` | `int Number` (from 1, in the policy's order), `string Name`, `ApprovalMode Mode`, `StepStatus Status`, `DateTimeOffset? StartedAt`, `DateTimeOffset? DueAt`, `DateTimeOffset? DeadlineRanAt`, `IReadOnlyList<AssignmentRecord> Assignments` |
+| `StepRecord` | `int Number` (from 1, in the policy's order), `string Name`, `ApprovalMode Mode`, `int? Required` (for `AtLeast` alone), `StepStatus Status`, `DateTimeOffset? StartedAt`, `DateTimeOffset? DueAt`, `DateTimeOffset? DeadlineRanAt`, `IReadOnlyList<AssignmentRecord> Assignments` |
 | `AssignmentRecord` | `string Person`, `AssignmentOrigin Origin`, `DecisionId? Decision` (the decision that satisfied it: its own, or under `Skip` an earlier step's) |
 | `DecisionRecord` | `DecisionId Decision`, `int Step`, `string Decider`, `string? ActingFor`, `DecisionOutcome Outcome`, `string? Reason`, `DateTimeOffset At` |
 | `PendingPage`, `PendingItem` | `IReadOnlyList<PendingItem> Items`, `string? Next` (the next page's cursor, none on the last); `RequestId Request`, `string Type`, `Target Target`, `int Step`, `string StepName`, `DateTimeOffset CreatedAt`, `string? ActingFor` (`01` APR-REQ-013) |
 | `RequestSummary` | `RequestId Request`, `string Type`, `int Version`, `RequestStatus Status`, `DateTimeOffset CreatedAt`, `DateTimeOffset? ClosedAt` |
 | `PersonExport` | `IReadOnlyList<RequestRecord> Requests` (those the person made or is the subject of), `IReadOnlyList<AssignmentExport> Assignments` (each `RequestId Request`, `int Step`, `AssignmentOrigin Origin`, `DecisionId? Decision`), `IReadOnlyList<DecisionExport> Decisions` (each `RequestId Request` and the members of `DecisionRecord`: those the person made or that were made for them), `IReadOnlyList<DelegationRecord> Delegations` (`01` APR-REQ-015) |
+| `ErasureReceipt`, `TypeVersionReference` | `int Changed` (the rows the erasure changed), `IReadOnlyList<TypeVersionReference> KeptVersions` (the versions older than their type's newest that name the person, kept as published); `string Type`, `int Version` (`01` APR-REQ-015) |
 
 **Delegations and events** (`Themis.Core`; `01`):
 
@@ -117,8 +119,10 @@ the canonical form (`05` APR-ENG-006):
 | `IApprovals` | `CreateAsync(ApprovalRequest, ...)` and `CreateAsync(ApprovalRequest, DbTransaction, ...)` answer `Result<CreatedRequest>`; `DecideAsync(DecisionRequest, ...)` answers `Result<DecisionReceipt>`; `CancelAsync(CancelRequest, ...)` and `CancelAsync(CancelRequest, DbTransaction, ...)` answer `Result`; `CompleteAsync(RequestId, string actor, ...)` and `CompleteAsync(RequestId, string actor, DbTransaction, ...)` answer `Result`; `ProtectionAsync(Target, string field, ...)` answers a `FieldProtection`; `RecordChangeAsync(Target, string field, string actor, ...)` and `RecordChangeAsync(Target, string field, string actor, DbTransaction, ...)` answer `Result<IReadOnlyList<RequestId>>`; `ReadAsync(RequestId, ...)` answers `Result<RequestRecord>`; `PendingAsync(string person, string? cursor, int? size, ...)` answers `Result<PendingPage>`; `ByTargetAsync(Target, ...)` answers `IReadOnlyList<RequestSummary>`; `ExportAsync(string person, ...)` answers a `PersonExport` (`01`) |
 | `IDelegations` | `CreateAsync(DelegationDefinition, ...)` answers `Result<DelegationId>`; `EndAsync(DelegationId, string actor, ...)` answers `Result`; `ListAsync(string person, ...)` answers `IReadOnlyList<DelegationRecord>` (`01` APR-REQ-008) |
 | `IApprovalJobs` | `RunAsync(ApprovalJob job, ...)` runs one run of the job and answers the number of items it handled (`04` APR-OPS-004) |
+| `IRecordRetention` | `EraseAsync(string person, ...)` answers `Result<ErasureReceipt>` (`01` APR-REQ-015) |
 
-**Seams a host supplies** (APR-LIB-005; `Themis.Core`):
+**Seams a host supplies** (APR-LIB-005; `Themis.Core`, but `ICurrentPerson` in
+`Themis.Endpoints`):
 
 | Seam | Members |
 |---|---|
@@ -126,17 +130,19 @@ the canonical form (`05` APR-ENG-006):
 | `IApprovalObserver` | `ObserveAsync(ApprovalEvent, ...)` answers `ValueTask`; an event is taken when it returns, and not taken when it throws or runs past `Themis:Timeout` (`01` APR-REQ-014) |
 | `ISecretSource` | `ReadAsync(string name, ...)` answers `SecretVersions?`: `IReadOnlyList<SecretVersion> Versions`, each `int Version` (from 1) and `ReadOnlyMemory<byte> Value` (`04` APR-OPS-008) |
 | `IAlertSink` | `RaiseAsync(string condition, string? scope, IReadOnlyDictionary<string, string> details, ...)` and `ClearAsync(string condition, string? scope, ...)` answer `ValueTask`, as `06` section 5 gives them (`04` APR-OPS-006) |
+| `ICurrentPerson` | `ReadAsync(HttpContext context, ...)` answers `string?`: the person the HTTP request acts for, none where there is no one (APR-LIB-004) |
 
-**Registration and testing:**
+**Registration, endpoints and testing:**
 
 | Package | Type | Members |
 |---|---|---|
 | `Themis` | `ApprovalsServiceCollectionExtensions` | `AddThemis(IServiceCollection, IConfiguration)` answers the `IServiceCollection` (APR-LIB-003) |
+| `Themis.Endpoints` | `ApprovalsEndpointRouteBuilderExtensions` | `MapThemisApprovals(IEndpointRouteBuilder routes, string prefix)` answers the group's `RouteGroupBuilder` (APR-LIB-004) |
 | `Themis.Testing` | `InMemoryApproverDirectory`, `RecordingObserver`, `FixedSecretSource`, `TestJobs`, `ApprovalsTestDatabase`, `ApprovalsTestingServiceCollectionExtensions` | The members of APR-LIB-007 |
 
 Everything else is internal: the engine, its jobs, its options and the tables.
 
-*Source: T-002, T-003, T-005, T-006, T-007, T-010, T-014, T-017*
+*Source: T-002, T-003, T-005, T-006, T-007, T-010, T-014, T-017, T-025*
 
 **Acceptance criteria**
 1. The build fails when a public member is added or removed without its public API file
@@ -152,10 +158,11 @@ Everything else is internal: the engine, its jobs, its options and the tables.
 **APR-LIB-003** — A host SHALL register the library with one call, and the
 configuration, the seams and the schema SHALL be checked when the application starts.
 
-**Values (T-006, T-017).** `services.AddThemis(configuration)` binds the configuration
-section `Themis` (through the configuration binder's source generator), registers the
-engine, `IApprovalTypes`, `IApprovals` and `IDelegations` as scoped services,
-`IApprovalJobs` as a singleton and the hosted jobs (`04` APR-OPS-004), and runs every
+**Values (T-006, T-017, T-025).** `services.AddThemis(configuration)` binds the
+configuration section `Themis` (through the configuration binder's source generator),
+registers the engine, `IApprovalTypes`, `IApprovals`, `IDelegations` and
+`IRecordRetention` as scoped services, `IApprovalJobs` as a singleton and the hosted
+jobs (`04` APR-OPS-004), and runs every
 startup check (the configuration's, `04` APR-OPS-001; the seams', APR-LIB-005; the
 secrets', `04` APR-OPS-008; the schema's, `04` APR-OPS-002) in the `StartingAsync` of an
 `IHostedLifecycleService`, which the host calls on every such service before any hosted
@@ -167,7 +174,7 @@ fault of the calling code. The library registers no approval type: a host publis
 own through `IApprovalTypes` (`02`), at its start or later. A host replaces a seam by
 registering its own before or after the call.
 
-*Source: T-002, T-006, T-017*
+*Source: T-002, T-006, T-017, T-025*
 
 **Acceptance criteria**
 1. A host with valid configuration and its seams starts with the one call.
@@ -178,41 +185,72 @@ registering its own before or after the call.
 
 ---
 
-**APR-LIB-004** — The first release SHALL have no HTTP endpoints, and SHALL be designed
-so that a later release adds them as a package of their own without changing the
-engine's surface.
+**APR-LIB-004** — HTTP endpoints for an approver's queue, decisions and delegations SHALL
+come as a package of their own, `Themis.Endpoints`, which the host maps, acting only for
+the person the host's seam names and calling the operations of APR-LIB-002 alone, so no
+engine member changes.
 
-**Values (T-015).** A host's own API calls the library, since an approver's screen shows
-the host's data (the order, the person), which the library does not hold.
+**Values (T-015, T-025).** A host's own API still serves what shows the host's data (the
+order, the person), which the library does not hold; these endpoints serve the
+library's own records. `MapThemisApprovals(routes, prefix)` maps them under the prefix
+the host chooses and answers the group's `RouteGroupBuilder`, to which the host adds its
+own authorization and antiforgery:
+- `GET {prefix}/pending?cursor=&size=`: the person's pending list, delegations included
+  (`01` APR-REQ-013);
+- `GET {prefix}/requests/{id}`: the request's record (`01` APR-REQ-013) where the person
+  is a party to it, else 404: its requester or subject; an assignee of it, open or
+  decided; a delegate holding a live delegation from one of its assignees; or a watcher,
+  a person one of its events names in `Notify`;
+- `POST {prefix}/requests/{id}/decisions` with `outcome`, `reason` and `actingFor`: the
+  person's decision (`01` APR-REQ-004);
+- `GET {prefix}/delegations`: the person's delegations (`ListAsync`);
+- `POST {prefix}/delegations`, a body of `DelegationDefinition`'s members but `From` and
+  `CreatedBy`, both of which the endpoint sets to the person: a delegation from the
+  person (`CreateAsync`);
+- `POST {prefix}/delegations/{id}/end`: `EndAsync` with the person as its actor, the
+  library's own rules deciding whether it ends (`01` APR-REQ-008).
 
-*Designed for, not built:* a package `Themis.Endpoints` with mapping methods
-`MapThemis...` for an approver's pending list, their decisions and their delegations,
-each taking the prefix the host chooses and answering the group's `RouteGroupBuilder`,
-reading JSON bodies only as `application/json`, acting only for the signed-in person
-through a new seam that reads them from the host's request, and calling the operations
-of APR-LIB-002 alone, so no engine member changes.
+Each call reads its person through `ICurrentPerson` (APR-LIB-005), bounded by the HTTP
+request's own cancellation alone; where it answers none, the call answers 401, and where
+it throws, a fault of the host's code, 500 with no details. A failure answers RFC 9457
+problem details carrying the library's `code` and `details` (`06` section 1): a code
+naming something not found 404, one refusing the person 403, one refusing the input 400,
+and one refusing the state (closed, decided, changed, concurrent) 409; anything else
+answers 500 with no details. JSON is the library's types as they are, in camel case,
+identifiers as strings and enumerations by their spellings (`06` section 2); a body that
+is not `application/json` answers 415.
 
-*Source: T-015*
+*Source: T-015, T-025*
+
+**Acceptance criteria**
+1. A call with no person answers 401 on every route.
+2. Each route does what its library call does, for the person only.
+3. A request of which the person is no party answers 404.
+4. Each class of failure answers its status above.
+5. The sample host serves the endpoints in the gate (`05` APR-ENG-001).
 
 ---
 
 **APR-LIB-005** — A host SHALL supply what only it knows through the seams of
 APR-LIB-002, the library SHALL refuse to start without a required one, and every call
-into a seam SHALL be bounded in time.
+into a seam SHALL be bounded in time, but `ICurrentPerson`'s, bounded by its HTTP
+request.
 
-**Values (T-006, T-018).**
+**Values (T-006, T-018, T-025).**
 
 | Seam | Required | `details.key` |
 |---|---|---|
 | `ISecretSource` | Always | `secretSource` |
 | `IApproverDirectory` | Always | `approverDirectory` |
 | `IApprovalObserver` | Where `Themis:Observer:Enabled` is on (the default) and the application runs the jobs (`Themis:Jobs:Enabled`) | `approvalObserver` |
+| `ICurrentPerson` | Where the endpoints are mapped (APR-LIB-004) | `currentPerson` |
 | `IAlertSink` | No: the library's own logs each condition at the error level | |
 | `TimeProvider` | No: the system clock | |
 
 A required seam missing stops the start with `approvals.startup.seammissing`, its
-`details.key` as above. The directory is called inside the transaction of the move that
-needs it (a create, a decision, a step's start, an escalation, an event naming
+`details.key` as above. `ICurrentPerson` is bounded by the HTTP request's own
+cancellation alone (APR-LIB-004). The directory is called inside the transaction of the
+move that needs it (a create, a decision, a step's start, an escalation, an event naming
 watchers), so what it answers and what is written agree; each call is bounded by
 `Themis:Timeout`, and one that throws or does not answer within it ends the operation
 with `approvals.directory.unavailable`, nothing written, the job that made it (`04`
@@ -221,7 +259,7 @@ person reference outside `00` section 1.5) is a fault of the host's code: the op
 throws `InvalidOperationException` naming the seam and writes nothing. The observer is
 called by the `observer` job alone, outside any transaction (`01` APR-REQ-014).
 
-*Source: T-006, T-018*
+*Source: T-006, T-018, T-025*
 
 **Acceptance criteria**
 1. Each required seam, missing where it is required, stops the start naming it.
