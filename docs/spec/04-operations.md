@@ -199,11 +199,11 @@ every event of that request with a lower sequence number has been taken, and mov
 the next request where a call fails, so one failing request never holds back another.
 The `retention` job selects the requests it deletes `FOR UPDATE SKIP LOCKED`, so a
 request a host's open transaction holds is left for a later run, with the whole of its
-chain. A run that deletes undelivered events older than the period, which no longer
-hold their request or delegation back, logs one entry at the Warning level with their
-count, and nothing of their content (`01` APR-REQ-015, APR-OPS-005). The job's row of
-the job table, and its name in the table's closed set (`ck_jobs_name`, `06` section 2),
-come with the migration that adds the job. A `retention` run, the period set, whose
+chain. A run that deletes undelivered events older than twice the period, which no
+longer hold their request or delegation back, logs one entry at the Warning level with
+their count, and nothing of their content (`01` APR-REQ-015, APR-OPS-005). The job's
+row of the job table, and its name in the table's closed set (`ck_jobs_name`, `06`
+section 2), come with the migration that adds the job. A `retention` run, the period set, whose
 session lacks `DELETE` on the six tables of requests and delegations (APR-OPS-002)
 throws `InvalidOperationException` naming `approvals.retention.notgranted` (`01`
 APR-REQ-015; `05` APR-ENG-003), so the run fails and `job-stalled` is raised for it

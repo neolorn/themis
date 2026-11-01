@@ -792,6 +792,19 @@ and counters; `implementation-plan.md` section 4.
 >    alert (T-022). `01` APR-REQ-015 AC4 and AC9 say so, the event older than the period
 >    that no longer holds included.
 
+> **Amended.** The lead, 2026-11-01, correcting the two points above:
+> 1. **The hold is twice the period.** An undelivered event holds its request, or its
+>    delegation, back while it is younger than twice the retention period. Every event is
+>    written at or before its row's closing, so a one-period rule could never hold: a row
+>    past the period with an untaken event waits one more period, then goes, with the
+>    Warning. `01` APR-REQ-015 AC4 and AC9: an untaken event older than one period but
+>    younger than two holds, and one older than two goes, with one Warning.
+> 2. **The snapshot of a closed request alone.** An erasure clears the snapshot only of
+>    the closed requests (`completed`, `rejected`, `cancelled`, `void`) whose subject is
+>    the person. An `approved` request's snapshot keeps the fields it covers, so
+>    `approvals.erasure.pending` also fires while the person is the subject of an
+>    `approved` request (`01` APR-REQ-015 AC6), until the host completes or voids it.
+
 ---
 
 # Index
