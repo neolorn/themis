@@ -439,6 +439,7 @@ internal sealed partial class ApprovalService(
                 Number = step.Number,
                 Name = step.Name,
                 Mode = step.Mode,
+                Required = step.Required,
                 Status = step.Status,
                 StartedAt = step.StartedAt,
                 DueAt = step.DueAt,
@@ -657,7 +658,7 @@ internal sealed partial class ApprovalService(
         };
         await PersonLock.ShareAsync(context, [request.Requester, request.Subject], cancellationToken).ConfigureAwait(false);
         context.Requests.Add(row);
-        context.Steps.AddRange(steps.Select((step, index) => new StepRow { Request = row.Id, Number = index + 1, Name = step.Name, Mode = step.Mode, Status = StepStatus.Waiting }));
+        context.Steps.AddRange(steps.Select((step, index) => new StepRow { Request = row.Id, Number = index + 1, Name = step.Name, Mode = step.Mode, Required = step.Required, Status = StepStatus.Waiting }));
         try
         {
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -742,7 +743,8 @@ internal sealed partial class ApprovalService(
         {
             StepRow step = await context.Steps.SingleAsync(found => found.Request == request.Id && found.Number == current, cancellationToken).ConfigureAwait(false);
             List<AssignmentRow> assignments = await context.Assignments.Where(found => found.Request == request.Id && found.Step == current).ToListAsync(cancellationToken).ConfigureAwait(false);
-            if (RequestMoves.Satisfied(step.Mode, step.DeadlineRanAt is not null, assignments))
+            Dictionary<Guid, string> deciders = await context.Decisions.Where(found => found.Request == request.Id && found.Step == current).ToDictionaryAsync(found => found.Id, found => found.Decider, cancellationToken).ConfigureAwait(false);
+            if (RequestMoves.Satisfied(step.Mode, step.Required, step.DeadlineRanAt is not null, assignments, deciders))
             {
                 step.Status = StepStatus.Done;
                 await moves.StartAsync(request, definition, StepsOf(definition, request), current + 1, created: false, cancellationToken).ConfigureAwait(false);

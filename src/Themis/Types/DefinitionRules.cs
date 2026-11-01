@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 
 using Themis.Core;
 
@@ -23,6 +24,10 @@ internal static class DefinitionRules
     private const int MostSteps = 10;
 
     private const int MostApprovers = 16;
+
+    private const int FewestRequired = 2;
+
+    private const int MostRequired = 16;
 
     private const int MostWatchers = 16;
 
@@ -203,7 +208,7 @@ internal static class DefinitionRules
                 }
             }
 
-            if (step.Mode is not (ApprovalMode.AnyOne or ApprovalMode.All))
+            if (step.Mode is not (ApprovalMode.AnyOne or ApprovalMode.All or ApprovalMode.AtLeast))
             {
                 return at + ".mode";
             }
@@ -222,9 +227,35 @@ internal static class DefinitionRules
             {
                 return deadline;
             }
+
+            if (!RequiredHolds(step))
+            {
+                return at + ".required";
+            }
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether the step's <c>Required</c> is within its rule: given for <c>AtLeast</c> alone, 2 to 16,
+    /// and where every approver is a person, at most the distinct persons they name; where any is a
+    /// permission, the number is checked when the step starts.
+    /// </summary>
+    private static bool RequiredHolds(StepDefinition step)
+    {
+        if (step.Mode != ApprovalMode.AtLeast)
+        {
+            return step.Required is null;
+        }
+
+        if (step.Required is not int required || required < FewestRequired || required > MostRequired)
+        {
+            return false;
+        }
+
+        return step.Approvers.Any(approver => approver is ApproverReference.Permission)
+            || required <= step.Approvers.Select(approver => ((ApproverReference.Person)approver).Reference).Distinct(StringComparer.Ordinal).Count();
     }
 
     private static string? InvalidDeadline(Deadline deadline, string path)

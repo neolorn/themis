@@ -156,6 +156,7 @@ internal sealed class ApprovalsContext(DbContextOptions<ApprovalsContext> option
                 table.HasCheckConstraint("ck_steps_number", "number >= 1");
                 table.HasCheckConstraint("ck_steps_mode", $"mode IN ({InList(Spelling<ApprovalMode>.All)})");
                 table.HasCheckConstraint("ck_steps_status", $"status IN ({InList(Spelling<StepStatus>.All)})");
+                table.HasCheckConstraint("ck_steps_required", "(mode = 'atleast' AND required BETWEEN 2 AND 16) OR (mode <> 'atleast' AND required IS NULL)");
             });
             step.HasKey(row => new { row.Request, row.Number }).HasName("pk_steps");
             step.HasOne<RequestRow>().WithMany().HasForeignKey(row => row.Request).HasConstraintName("fk_steps_requests").OnDelete(DeleteBehavior.Restrict);
@@ -164,6 +165,7 @@ internal sealed class ApprovalsContext(DbContextOptions<ApprovalsContext> option
             step.Property(row => row.Number).HasColumnName("number").ValueGeneratedNever();
             step.Property(row => row.Name).HasColumnName("name");
             step.Property(row => row.Mode).HasColumnName("mode").HasConversion(Spelt<ApprovalMode>());
+            step.Property(row => row.Required).HasColumnName("required");
             step.Property(row => row.Status).HasColumnName("status").HasConversion(Spelt<StepStatus>());
             step.Property(row => row.StartedAt).HasColumnName("started_at");
             step.Property(row => row.DueAt).HasColumnName("due_at");

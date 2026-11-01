@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The role `approvals_retention`, which `themis migrate` creates and grants to the logins of `retentionRoles`
 - The counters `approvals.retention.deleted` and `approvals.erasures`
 - A person's lock, which an erasure takes exclusive and a create, an assignment or a delegation shared
+- The approval mode `AtLeast`, whose step completes at `Required` approvals counted per distinct person
 
 ## [1.0.0-rc.1] - 2026-10-31
 

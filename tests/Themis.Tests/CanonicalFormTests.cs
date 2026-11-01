@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -22,6 +23,9 @@ public sealed class CanonicalFormTests
         + ""","fallback":"person-4","deadline":{"after":172800,"action":"reject"}}]}"""
         + """,{"name":"small","steps":[{"name":"lead","approvers":[{"case":"permission","name":"orders.lead"}],"mode":"anyone","condition":{"case":"compare","field":"count","operator":"less","value":{"case":"wholeNumber","value":10}},"fallback":"person-1"}]}]"""
         + ""","duplicates":"requireother","watchers":[{"case":"person","reference":"person-5"}],"fallback":"person-6"}""";
+
+    /// <summary>The SHA-256 of <see cref="FixedForm"/>, the hash its version was published with by the first release.</summary>
+    private const string FixedHash = "27eb1ae9a570f7aac7a522020a086822f6816d92d41b7dc290c58ff6e5ec79ae";
 
     private static readonly ApprovalTypeDefinition Fixed = new()
     {
@@ -104,6 +108,18 @@ public sealed class CanonicalFormTests
     public void APR_ENG_006_AC2_FixedDefinitionIsWrittenAsItsLiteral()
     {
         Assert.Equal(FixedForm, Encoding.UTF8.GetString(CanonicalForm.Write(Fixed)));
+    }
+
+    [Fact]
+    public void APR_TYPE_004_AC6_VersionPublishedBeforeAtLeastExistedKeepsItsHash()
+    {
+        byte[] published = Encoding.UTF8.GetBytes(FixedForm);
+
+        byte[] rewritten = CanonicalForm.Write(CanonicalForm.Read(published));
+
+        Assert.Equal(FixedForm, Encoding.UTF8.GetString(rewritten));
+        Assert.Equal(FixedHash, Convert.ToHexStringLower(CanonicalForm.Hash(rewritten)));
+        Assert.All(CanonicalForm.Read(published).Policies.SelectMany(policy => policy.Steps), step => Assert.Null(step.Required));
     }
 
     [Theory]

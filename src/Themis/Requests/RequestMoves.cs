@@ -25,6 +25,9 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
     /// <summary>The most persons a step's approvers may resolve to (<c>01</c> APR-REQ-003).</summary>
     internal const int MostPersons = 200;
 
+    /// <summary>No decision of a step that is starting.</summary>
+    private static readonly Dictionary<Guid, string> NoDecisions = new();
+
     private readonly List<Action> counts = [];
 
     internal DateTimeOffset Now => now;
@@ -92,7 +95,7 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
                 requested = true;
             }
 
-            if (!Satisfied(step.Mode, deadlineRan: false, assignments))
+            if (!Satisfied(step.Mode, step.Required, deadlineRan: false, assignments, thisStep: NoDecisions))
             {
                 return;
             }
@@ -207,14 +210,32 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
 
     /// <summary>
     /// Whether a step of <paramref name="mode"/> is complete with <paramref name="assignments"/>: any satisfied for <c>AnyOne</c>,
-    /// every one for <c>All</c>, or an escalation assignment satisfied, or, where the step's deadline has run (<paramref name="deadlineRan"/>)
+    /// every one for <c>All</c>, <paramref name="required"/> approvals counted per distinct person for <c>AtLeast</c>, each assignment
+    /// satisfied by a decision of this step, <paramref name="thisStep"/>, counted as its decider and one an earlier decision satisfied
+    /// under <c>Skip</c> as its own person, or a fallback assignment satisfied for <c>AtLeast</c>, the step having started with fewer
+    /// assignments than it requires (<c>02</c> APR-TYPE-004, T-025); or an escalation assignment satisfied, or, where the step's deadline has run (<paramref name="deadlineRan"/>)
     /// and it holds no escalation assignment, a fallback assignment satisfied, which the escalation assigned in its place (<c>01</c> APR-REQ-009, T-023).
     /// </summary>
-    internal static bool Satisfied(ApprovalMode mode, bool deadlineRan, IReadOnlyCollection<AssignmentRow> assignments)
+    internal static bool Satisfied(ApprovalMode mode, int? required, bool deadlineRan, IReadOnlyCollection<AssignmentRow> assignments, IReadOnlyDictionary<Guid, string> thisStep)
     {
         bool standsIn = deadlineRan && !assignments.Any(assignment => assignment.Origin == AssignmentOrigin.Escalation);
-        return assignments.Any(assignment => assignment.Decision is not null && (assignment.Origin == AssignmentOrigin.Escalation || (standsIn && assignment.Origin == AssignmentOrigin.Fallback)))
-            || (mode == ApprovalMode.AnyOne ? assignments.Any(assignment => assignment.Decision is not null) : assignments.All(assignment => assignment.Decision is not null));
+        if (assignments.Any(assignment => assignment.Decision is not null && (assignment.Origin == AssignmentOrigin.Escalation || (standsIn && assignment.Origin == AssignmentOrigin.Fallback))))
+        {
+            return true;
+        }
+
+        return mode switch
+        {
+            ApprovalMode.AnyOne => assignments.Any(assignment => assignment.Decision is not null),
+            ApprovalMode.All => assignments.All(assignment => assignment.Decision is not null),
+            ApprovalMode.AtLeast => assignments.Any(assignment => assignment.Decision is not null && assignment.Origin == AssignmentOrigin.Fallback)
+                || assignments
+                    .Where(assignment => assignment.Decision is not null)
+                    .Select(assignment => thisStep.TryGetValue(assignment.Decision!.Value, out string? decider) ? decider : assignment.Person)
+                    .Distinct(StringComparer.Ordinal)
+                    .Count() >= (required ?? throw new InvalidOperationException("An AtLeast step holds no Required.")),
+            _ => throw new InvalidOperationException("A step is of no mode of ApprovalMode."),
+        };
     }
 
     /// <summary>The query the directory is asked with for the request's step <paramref name="step"/>, or none when watchers are resolved.</summary>
@@ -269,8 +290,9 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
         bool Excluded(string person) => person == request.Requester || person == request.Subject || (requireOther && approvedEarlier.ContainsKey(person));
 
         List<AssignmentRow> assignments = [.. named.Where(entry => !Excluded(entry.Person)).Select(entry => Assignment(request.Id, number, entry.Person, AssignmentOrigin.Approver, entry.Via))];
-        if (assignments.Count == 0)
+        if (assignments.Count == 0 || (step.Mode == ApprovalMode.AtLeast && assignments.Count < step.Required))
         {
+            assignments.Clear();
             string? fallback = new[] { step.Fallback, definition.Fallback }.FirstOrDefault(person => !Excluded(person));
             if (fallback is null)
             {

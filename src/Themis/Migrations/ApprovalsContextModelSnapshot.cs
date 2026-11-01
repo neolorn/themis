@@ -521,6 +521,10 @@ namespace Themis.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<int?>("Required")
+                        .HasColumnType("integer")
+                        .HasColumnName("required");
+
                     b.Property<DateTimeOffset?>("StartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
@@ -539,9 +543,11 @@ namespace Themis.Migrations
 
                     b.ToTable("steps", "approvals", t =>
                         {
-                            t.HasCheckConstraint("ck_steps_mode", "mode IN ('anyone', 'all')");
+                            t.HasCheckConstraint("ck_steps_mode", "mode IN ('anyone', 'all', 'atleast')");
 
                             t.HasCheckConstraint("ck_steps_number", "number >= 1");
+
+                            t.HasCheckConstraint("ck_steps_required", "(mode = 'atleast' AND required BETWEEN 2 AND 16) OR (mode <> 'atleast' AND required IS NULL)");
 
                             t.HasCheckConstraint("ck_steps_status", "status IN ('waiting', 'current', 'done', 'skipped', 'closed')");
                         });

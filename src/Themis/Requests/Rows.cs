@@ -74,6 +74,9 @@ internal sealed class StepRow
 
     public required ApprovalMode Mode { get; set; }
 
+    /// <summary>How many approvals complete the step where its mode is <c>AtLeast</c>, or none.</summary>
+    public int? Required { get; set; }
+
     public required StepStatus Status { get; set; }
 
     public DateTimeOffset? StartedAt { get; set; }

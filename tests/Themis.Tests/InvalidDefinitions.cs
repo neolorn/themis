@@ -69,7 +69,7 @@ internal static class InvalidDefinitions
         ["approver none"] = (Definitions.Valid.WithStep(0, 0, step => step with { Approvers = [step.Approvers[0], null!] }), "policies[0].steps[0].approvers[1]"),
         ["approver not a permission"] = (Definitions.Valid.WithStep(0, 0, step => step with { Approvers = [new ApproverReference.Permission("orders approve")] }), "policies[0].steps[0].approvers[0].name"),
         ["approver not a person reference"] = (Definitions.Valid.WithStep(0, 0, step => step with { Approvers = [new ApproverReference.Person(new string('p', 129))] }), "policies[0].steps[0].approvers[0].reference"),
-        ["mode of no rule"] = (Definitions.Valid.WithStep(1, 0, step => step with { Mode = (ApprovalMode)2 }), "policies[1].steps[0].mode"),
+        ["mode of no rule"] = (Definitions.Valid.WithStep(1, 0, step => step with { Mode = (ApprovalMode)3 }), "policies[1].steps[0].mode"),
         ["fallback not a person reference"] = (Definitions.Valid.WithStep(1, 0, step => step with { Fallback = string.Empty }), "policies[1].steps[0].fallback"),
         ["fallback none"] = (Definitions.Valid.WithStep(1, 0, step => step with { Fallback = null! }), "policies[1].steps[0].fallback"),
         ["fallback holding a lone surrogate"] = (Definitions.Valid.WithStep(1, 0, step => step with { Fallback = LoneSurrogate }), "policies[1].steps[0].fallback"),
@@ -82,6 +82,18 @@ internal static class InvalidDefinitions
         ["cancel with a target"] = (Definitions.Valid.WithStep(0, 1, step => step with { Deadline = new Deadline { After = TimeSpan.FromHours(1), Action = DeadlineAction.Cancel, EscalateTo = new ApproverReference.Person(Definitions.Approver) } }), "policies[0].steps[1].deadline.escalateTo"),
         ["target not a permission"] = (Definitions.Valid.WithStep(0, 0, step => step with { Deadline = step.Deadline! with { EscalateTo = new ApproverReference.Permission("-orders") } }), "policies[0].steps[0].deadline.escalateTo.name"),
         ["target not a person reference"] = (Definitions.Valid.WithStep(0, 0, step => step with { Deadline = step.Deadline! with { EscalateTo = new ApproverReference.Person(ControlCharacter) } }), "policies[0].steps[0].deadline.escalateTo.reference"),
+    };
+
+    /// <summary>A definition outside a rule of a step's <c>Required</c>, <c>02</c> APR-TYPE-004, by the rule.</summary>
+    internal static IReadOnlyDictionary<string, (ApprovalTypeDefinition Definition, string Member)> RequiredRules { get; } = new Dictionary<string, (ApprovalTypeDefinition, string)>(StringComparer.Ordinal)
+    {
+        ["at least without required"] = (Definitions.Valid.WithStep(1, 0, step => step with { Mode = ApprovalMode.AtLeast }), "policies[1].steps[0].required"),
+        ["required with any one"] = (Definitions.Valid.WithStep(1, 0, step => step with { Required = 2 }), "policies[1].steps[0].required"),
+        ["required with all"] = (Definitions.Valid.WithStep(0, 1, step => step with { Required = 2 }), "policies[0].steps[1].required"),
+        ["required of one"] = (Definitions.Valid.WithStep(1, 0, step => step with { Mode = ApprovalMode.AtLeast, Required = 1 }), "policies[1].steps[0].required"),
+        ["required of none"] = (Definitions.Valid.WithStep(1, 0, step => step with { Mode = ApprovalMode.AtLeast, Required = 0 }), "policies[1].steps[0].required"),
+        ["required of 17"] = (Definitions.Valid.WithStep(1, 0, step => step with { Mode = ApprovalMode.AtLeast, Required = 17 }), "policies[1].steps[0].required"),
+        ["required above the distinct persons named"] = (Definitions.Valid.WithStep(0, 1, step => step with { Approvers = [new ApproverReference.Person(Definitions.Approver), new ApproverReference.Person(Definitions.StepFallback), new ApproverReference.Person(Definitions.Approver)], Mode = ApprovalMode.AtLeast, Required = 3 }), "policies[0].steps[1].required"),
     };
 
     /// <summary>A definition outside a rule of a condition, <c>02</c> APR-TYPE-005, by the rule.</summary>
@@ -136,6 +148,10 @@ internal static class InvalidDefinitions
         ["64 nodes"] = Definitions.Valid.WithStartCondition(new Condition.AnyOf([.. Enumerable.Range(0, 3).Select(_ => new Condition.AllOf([.. Enumerable.Repeat<Condition>(new Condition.SubjectHas("auditor"), 16)])), new Condition.AllOf([.. Enumerable.Repeat<Condition>(new Condition.SubjectHas("auditor"), 11)])])),
         ["one of 32 values"] = Definitions.Valid.WithStartCondition(new Condition.OneOf("count", [.. Enumerable.Range(0, 32).Select(index => new FieldValue.WholeNumber(index))])),
         ["canonical form of 64 KiB"] = Definitions.OfSize(65_536),
+        ["required of 2"] = Definitions.Valid.WithStep(1, 0, step => step with { Mode = ApprovalMode.AtLeast, Required = 2 }),
+        ["required of 16 of a permission"] = Definitions.Valid.WithStep(1, 0, step => step with { Mode = ApprovalMode.AtLeast, Required = 16 }),
+        ["required of the distinct persons named"] = Definitions.Valid.WithStep(0, 1, step => step with { Approvers = [new ApproverReference.Person(Definitions.Approver), new ApproverReference.Person(Definitions.StepFallback), new ApproverReference.Person(Definitions.Approver)], Mode = ApprovalMode.AtLeast, Required = 2 }),
+        ["required above the persons named beside a permission"] = Definitions.Valid.WithStep(0, 0, step => step with { Mode = ApprovalMode.AtLeast, Required = 16 }),
     };
 
     /// <summary>A chain of negations <paramref name="levels"/> levels deep, its last level a role condition.</summary>
