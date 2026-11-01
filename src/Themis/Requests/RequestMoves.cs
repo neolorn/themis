@@ -80,6 +80,7 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
             row.StartedAt = now;
             row.DueAt = step.Deadline is null ? null : now + step.Deadline.After;
             request.Step = number;
+            await PersonLock.ShareAsync(context, assignments.Select(assignment => assignment.Person), cancellationToken).ConfigureAwait(false);
             context.Assignments.AddRange(assignments);
             if (requested)
             {
@@ -186,6 +187,7 @@ internal sealed class RequestMoves(ApprovalsContext context, DirectoryCalls dire
             added.Add(Assignment(request.Id, number, fallback, AssignmentOrigin.Fallback, new ApproverReference.Person(fallback)));
         }
 
+        await PersonLock.ShareAsync(context, added.Select(assignment => assignment.Person), cancellationToken).ConfigureAwait(false);
         context.Assignments.AddRange(added);
         await WriteAsync(request, definition, snapshot, EventKind.Escalated, number, actor: null, actingFor: null, reasonCode: null, [.. added.Select(assignment => assignment.Person)], cancellationToken).ConfigureAwait(false);
     }

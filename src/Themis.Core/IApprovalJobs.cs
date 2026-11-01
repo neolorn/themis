@@ -11,6 +11,6 @@ public interface IApprovalJobs
     /// <param name="job">The job.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The number of items the run handled; 0 where another process holds the job's claim.</returns>
-    /// <exception cref="InvalidOperationException">The startup checks have not run, or <c>Themis:Jobs:Enabled</c> is off.</exception>
+    /// <exception cref="InvalidOperationException">The startup checks have not run, <c>Themis:Jobs:Enabled</c> is off, or, for <see cref="ApprovalJob.Retention"/> with a retention period set, the application lacks the retention grant, the message naming <c>approvals.retention.notgranted</c>.</exception>
     ValueTask<int> RunAsync(ApprovalJob job, CancellationToken cancellationToken);
 }

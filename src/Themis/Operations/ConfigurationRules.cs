@@ -29,6 +29,11 @@ internal static class ConfigurationRules
         foreach (ConfigurationKey key in Keys)
         {
             string? text = raw(key.Path);
+            if (text is null && key.Default is null)
+            {
+                continue;
+            }
+
             object? value = text is null ? key.Default : key.Read(text);
             if (value is null || !key.Within(value))
             {
@@ -59,6 +64,7 @@ internal static class ConfigurationRules
             Flag("Observer:Enabled", defaults.Observer.Enabled),
             Duration("Observer:LagThreshold", TimeSpan.FromMinutes(1), TimeSpan.FromDays(1), defaults.Observer.LagThreshold),
             Duration("Alerts:Repeat", TimeSpan.FromMinutes(1), TimeSpan.FromDays(1), defaults.Alerts.Repeat),
+            Days("Retention:ClosedRequests", 30, 10_950),
         ];
     }
 
@@ -83,5 +89,15 @@ internal static class ConfigurationRules
             text => TimeSpan.TryParse(text, CultureInfo.InvariantCulture, out TimeSpan read) ? read : null,
             read => (TimeSpan)read >= least && (TimeSpan)read <= most,
             value);
+    }
+
+    /// <summary>An optional duration in whole days, from <paramref name="least"/> to <paramref name="most"/> days, unset where absent.</summary>
+    private static ConfigurationKey Days(string path, int least, int most)
+    {
+        return new(
+            path,
+            text => TimeSpan.TryParse(text, CultureInfo.InvariantCulture, out TimeSpan read) ? read : null,
+            read => (TimeSpan)read is TimeSpan days && days.Ticks % TimeSpan.TicksPerDay == 0 && days >= TimeSpan.FromDays(least) && days <= TimeSpan.FromDays(most),
+            Default: null);
     }
 }

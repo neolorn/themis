@@ -21,7 +21,7 @@ namespace Themis.Operations;
 /// </summary>
 internal sealed partial class HostedJob(JobRunner runner, ApprovalsReady ready, IOptions<ApprovalsOptions> options, IServiceProvider services, TimeProvider clock, ILogger<HostedJob> logger) : BackgroundService
 {
-    private static readonly ApprovalJob[] Jobs = [ApprovalJob.Deadlines, ApprovalJob.Observer, ApprovalJob.Watch];
+    private static readonly ApprovalJob[] Jobs = [ApprovalJob.Deadlines, ApprovalJob.Observer, ApprovalJob.Watch, ApprovalJob.Retention];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

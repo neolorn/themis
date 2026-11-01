@@ -45,6 +45,7 @@ public static class ApprovalsServiceCollectionExtensions
         services.AddScoped<IApprovalTypes, ApprovalTypeService>();
         services.AddScoped<IApprovals, ApprovalService>();
         services.AddScoped<IDelegations, DelegationService>();
+        services.AddScoped<IRecordRetention, RecordRetention>();
         services.AddSingleton<JobRunner>();
         services.AddSingleton<IApprovalJobs>(provider => provider.GetRequiredService<JobRunner>());
         services.AddSingleton<IHostedService, HostedJob>();

@@ -64,4 +64,10 @@ internal static class Codes
     internal const string DelegationUnknown = "approvals.delegation.unknown";
 
     internal const string DelegationEnded = "approvals.delegation.ended";
+
+    internal const string ErasurePending = "approvals.erasure.pending";
+
+    internal const string ErasureTypeVersion = "approvals.erasure.typeversion";
+
+    internal const string RetentionNotGranted = "approvals.retention.notgranted";
 }

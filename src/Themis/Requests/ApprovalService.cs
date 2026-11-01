@@ -272,6 +272,13 @@ internal sealed partial class ApprovalService(
         ArgumentNullException.ThrowIfNull(person);
         CheckReference(person, nameof(person));
         ready.ThrowIfNotReady();
+
+        // A pseudonym an erasure drew names no one, so it answers nothing, as the reference it replaced does.
+        if (person.StartsWith(RecordRetention.Prefix, StringComparison.Ordinal))
+        {
+            return new PersonExport { Requests = [], Assignments = [], Decisions = [], Delegations = [] };
+        }
+
         ApprovalsContext context = database.Context();
         await using (context.ConfigureAwait(false))
         {
@@ -648,6 +655,7 @@ internal sealed partial class ApprovalService(
             Status = RequestStatus.Pending,
             CreatedAt = moves.Now,
         };
+        await PersonLock.ShareAsync(context, [request.Requester, request.Subject], cancellationToken).ConfigureAwait(false);
         context.Requests.Add(row);
         context.Steps.AddRange(steps.Select((step, index) => new StepRow { Request = row.Id, Number = index + 1, Name = step.Name, Mode = step.Mode, Status = StepStatus.Waiting }));
         try

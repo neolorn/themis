@@ -344,7 +344,7 @@ namespace Themis.Migrations
 
                     b.ToTable("jobs", "approvals", t =>
                         {
-                            t.HasCheckConstraint("ck_jobs_name", "name IN ('deadlines', 'observer', 'watch')");
+                            t.HasCheckConstraint("ck_jobs_name", "name IN ('deadlines', 'observer', 'watch', 'retention')");
                         });
 
                     b.HasData(
@@ -359,6 +359,10 @@ namespace Themis.Migrations
                         new
                         {
                             Name = "watch"
+                        },
+                        new
+                        {
+                            Name = "retention"
                         });
                 });
 

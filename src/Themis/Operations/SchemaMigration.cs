@@ -79,12 +79,57 @@ internal static class SchemaMigration
         """;
 
     /// <summary>
-    /// Checks that the database has each of <paramref name="roles"/>, applies the pending
-    /// migrations one at a time, each in its own transaction, then grants each role the use of
-    /// the schema in one transaction, granting no role <c>DELETE</c> or <c>TRUNCATE</c>; answers none on success, or the failure, the migrations
-    /// before a failing one staying applied and no grant of a failed run staying.
+    /// Creates the role <c>approvals_retention</c> where it is absent, unable to log in, and grants
+    /// it the use of the schema, the reading of and <c>DELETE</c> on the request and delegation
+    /// tables, and <c>UPDATE</c> on their person and reason columns (<c>01</c> APR-REQ-015).
     /// </summary>
-    internal static async Task<MigrationFailure?> ApplyAsync(string connection, IReadOnlyList<string> roles, CancellationToken cancellationToken)
+    private const string RetentionGrantSql = """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'approvals_retention') THEN
+                CREATE ROLE approvals_retention NOLOGIN;
+            END IF;
+            GRANT USAGE ON SCHEMA approvals TO approvals_retention;
+            GRANT SELECT, DELETE ON approvals.requests, approvals.steps, approvals.assignments, approvals.decisions, approvals.events, approvals.delegations TO approvals_retention;
+            GRANT UPDATE (requester, subject, closed_by, closed_for, reason) ON approvals.requests TO approvals_retention;
+            GRANT UPDATE (person, via) ON approvals.assignments TO approvals_retention;
+            GRANT UPDATE (decider, acting_for, reason) ON approvals.decisions TO approvals_retention;
+            GRANT UPDATE (from_person, to_person, created_by, ended_by) ON approvals.delegations TO approvals_retention;
+            GRANT UPDATE (actor, acting_for, notify) ON approvals.events TO approvals_retention;
+        END
+        $$
+        """;
+
+    /// <summary>Whether <c>approvals_retention</c> holds each privilege <see cref="RetentionGrantSql"/> gives, the tables and columns as <see cref="RetentionGrant"/> names them.</summary>
+    private const string RetentionHolds = """
+        SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'approvals_retention')
+            AND (SELECT bool_and(has_table_privilege('approvals_retention', format('approvals.%I', name), 'SELECT')
+                AND has_table_privilege('approvals_retention', format('approvals.%I', name), 'DELETE')) FROM unnest(@tables) AS name)
+            AND (SELECT bool_and(has_column_privilege('approvals_retention', format('approvals.%I', split_part(name, '.', 1)), split_part(name, '.', 2), 'UPDATE')) FROM unnest(@columns) AS name)
+        """;
+
+    /// <summary>Whether the login holds the privileges of <c>approvals_retention</c>.</summary>
+    private const string RetentionGranted = "SELECT pg_has_role(@login, 'approvals_retention', 'USAGE')";
+
+    /// <summary>Grants the role <c>approvals_retention</c> to the login the transaction names, the server quoting its name.</summary>
+    private const string GrantRetention = """
+        DO $$
+        BEGIN
+            EXECUTE format('GRANT approvals_retention TO %I', current_setting('approvals.grant_role'));
+        END
+        $$
+        """;
+
+    /// <summary>
+    /// Checks that the database has each of <paramref name="roles"/> and
+    /// <paramref name="retentionLogins"/>, applies the pending migrations one at a time, each in
+    /// its own transaction, then, in one transaction, grants each role the use of the schema,
+    /// granting none <c>DELETE</c> or <c>TRUNCATE</c>, and, where a retention login is named,
+    /// creates and grants the role <c>approvals_retention</c> and grants it to each such login;
+    /// answers none on success, or the failure, the migrations before a failing one staying
+    /// applied and no grant of a failed run staying.
+    /// </summary>
+    internal static async Task<MigrationFailure?> ApplyAsync(string connection, IReadOnlyList<string> roles, IReadOnlyList<string> retentionLogins, CancellationToken cancellationToken)
     {
         try
         {
@@ -116,6 +161,11 @@ internal static class SchemaMigration
                     return Failure(Codes.MigrateInputInvalid, "member", "applicationRoles");
                 }
 
+                if (retentionLogins.Count > 0 && await MissingRoleAsync(database, retentionLogins, cancellationToken).ConfigureAwait(false) is not null)
+                {
+                    return Failure(Codes.MigrateInputInvalid, "member", "retentionRoles");
+                }
+
                 pending = [.. await context.Database.GetPendingMigrationsAsync(cancellationToken).ConfigureAwait(false)];
             }
             catch (DbException)
@@ -137,7 +187,7 @@ internal static class SchemaMigration
                 }
             }
 
-            return roles.Count > 0 ? await GrantAsync(database, roles, cancellationToken).ConfigureAwait(false) : null;
+            return roles.Count > 0 || retentionLogins.Count > 0 ? await GrantAsync(database, roles, retentionLogins, cancellationToken).ConfigureAwait(false) : null;
         }
     }
 
@@ -152,28 +202,38 @@ internal static class SchemaMigration
     }
 
     /// <summary>
-    /// Grants each role in one transaction and checks it holds each privilege; answers none, or
-    /// the role whose grant failed or is not found, the transaction then rolling back. A failure
-    /// opening or committing the transaction names the first role, as no role's grants stay.
+    /// Grants each role, then, where a retention login is named, the role
+    /// <c>approvals_retention</c>'s privileges and that role to each login, in one transaction,
+    /// checking each holds what it was granted; answers none, or the role or login whose grant
+    /// failed or is not found, named <c>approvals_retention</c> for that role's own, the transaction
+    /// then rolling back. A failure opening or committing the transaction names the first, as no
+    /// grant stays.
     /// </summary>
-    private static async Task<MigrationFailure?> GrantAsync(NpgsqlConnection connection, IReadOnlyList<string> roles, CancellationToken cancellationToken)
+    private static async Task<MigrationFailure?> GrantAsync(NpgsqlConnection connection, IReadOnlyList<string> roles, IReadOnlyList<string> retentionLogins, CancellationToken cancellationToken)
     {
-        string current = roles[0];
+        List<(string Role, Func<NpgsqlTransaction, Task<bool>> Grant)> grants = [.. roles.Select(role => (role, (Func<NpgsqlTransaction, Task<bool>>)(transaction => GrantRoleAsync(connection, transaction, role, cancellationToken))))];
+        if (retentionLogins.Count > 0)
+        {
+            grants.Add((RetentionGrant.Role, transaction => GrantRetentionRoleAsync(connection, transaction, cancellationToken)));
+            grants.AddRange(retentionLogins.Select(login => (login, (Func<NpgsqlTransaction, Task<bool>>)(transaction => GrantRetentionLoginAsync(connection, transaction, login, cancellationToken)))));
+        }
+
+        string current = grants[0].Role;
         try
         {
             NpgsqlTransaction transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
             await using (transaction.ConfigureAwait(false))
             {
-                foreach (string role in roles)
+                foreach ((string role, Func<NpgsqlTransaction, Task<bool>> grant) in grants)
                 {
                     current = role;
-                    if (!await GrantRoleAsync(connection, transaction, role, cancellationToken).ConfigureAwait(false))
+                    if (!await grant(transaction).ConfigureAwait(false))
                     {
                         return Failure(Codes.MigrateGrantFailed, "role", role);
                     }
                 }
 
-                current = roles[0];
+                current = grants[0].Role;
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             }
         }
@@ -204,6 +264,46 @@ internal static class SchemaMigration
         await using (holds.ConfigureAwait(false))
         {
             holds.Parameters.AddWithValue("role", role);
+            return await holds.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is true;
+        }
+    }
+
+    private static async Task<bool> GrantRetentionRoleAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken cancellationToken)
+    {
+        NpgsqlCommand grant = new(RetentionGrantSql, connection, transaction);
+        await using (grant.ConfigureAwait(false))
+        {
+            await grant.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        NpgsqlCommand holds = new(RetentionHolds, connection, transaction);
+        await using (holds.ConfigureAwait(false))
+        {
+            holds.Parameters.AddWithValue("tables", RetentionGrant.Tables);
+            holds.Parameters.AddWithValue("columns", RetentionGrant.Columns);
+            return await holds.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is true;
+        }
+    }
+
+    private static async Task<bool> GrantRetentionLoginAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, string login, CancellationToken cancellationToken)
+    {
+        NpgsqlCommand name = new("SELECT set_config('approvals.grant_role', @role, true)", connection, transaction);
+        await using (name.ConfigureAwait(false))
+        {
+            name.Parameters.AddWithValue("role", login);
+            await name.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        NpgsqlCommand grant = new(GrantRetention, connection, transaction);
+        await using (grant.ConfigureAwait(false))
+        {
+            await grant.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        NpgsqlCommand holds = new(RetentionGranted, connection, transaction);
+        await using (holds.ConfigureAwait(false))
+        {
+            holds.Parameters.AddWithValue("login", login);
             return await holds.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is true;
         }
     }

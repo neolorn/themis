@@ -20,7 +20,7 @@ public static class ApprovalsTestDatabase
     public static async ValueTask MigrateAsync(string connection, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
-        MigrationFailure? failure = await SchemaMigration.ApplyAsync(connection, [], cancellationToken).ConfigureAwait(false);
+        MigrationFailure? failure = await SchemaMigration.ApplyAsync(connection, [], [], cancellationToken).ConfigureAwait(false);
         if (failure is not null)
         {
             string details = string.Join(", ", failure.Details.Select(detail => string.Create(CultureInfo.InvariantCulture, $"{detail.Key} {detail.Value}")));

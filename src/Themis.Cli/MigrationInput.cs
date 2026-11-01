@@ -7,14 +7,15 @@ using Themis.Operations;
 namespace Themis.Cli;
 
 /// <summary>
-/// The document <c>themis migrate</c> reads, <c>{ "connection", "applicationRoles" }</c>, the roles
-/// optional (<c>04</c> APR-OPS-002): members case-sensitive, an unknown one ignored, a
+/// The document <c>themis migrate</c> reads, <c>{ "connection", "applicationRoles", "retentionRoles" }</c>, the
+/// roles optional (<c>04</c> APR-OPS-002): members case-sensitive, an unknown one ignored, a
 /// document that does not read answering no member and <c>details.member</c> naming the member
 /// at fault otherwise.
 /// </summary>
 /// <param name="Connection">The connection string.</param>
 /// <param name="ApplicationRoles">The roles granted the use of the schema.</param>
-internal sealed record MigrationInput(string Connection, IReadOnlyList<string> ApplicationRoles)
+/// <param name="RetentionRoles">The logins granted the role <c>approvals_retention</c>.</param>
+internal sealed record MigrationInput(string Connection, IReadOnlyList<string> ApplicationRoles, IReadOnlyList<string> RetentionRoles)
 {
     private static readonly JsonDocumentOptions Options = new() { AllowDuplicateProperties = false };
 
@@ -45,28 +46,48 @@ internal sealed record MigrationInput(string Connection, IReadOnlyList<string> A
                 return Invalid("connection");
             }
 
-            List<string> roles = [];
-            if (root.TryGetProperty("applicationRoles", out JsonElement applicationRoles))
+            List<string>? roles = Roles(root, "applicationRoles");
+            if (roles is null)
             {
-                if (applicationRoles.ValueKind != JsonValueKind.Array)
-                {
-                    return Invalid("applicationRoles");
-                }
-
-                foreach (JsonElement role in applicationRoles.EnumerateArray())
-                {
-                    if (role.ValueKind != JsonValueKind.String || role.GetString() is not { Length: > 0 } name)
-                    {
-                        return Invalid("applicationRoles");
-                    }
-
-                    roles.Add(name);
-                }
+                return Invalid("applicationRoles");
             }
 
-            input = new MigrationInput(read, roles);
+            List<string>? logins = Roles(root, "retentionRoles");
+            if (logins is null)
+            {
+                return Invalid("retentionRoles");
+            }
+
+            input = new MigrationInput(read, roles, logins);
             return null;
         }
+    }
+
+    /// <summary>The names of the member <paramref name="member"/>, none where it is absent; or null where it is not an array of names that are not empty.</summary>
+    private static List<string>? Roles(JsonElement root, string member)
+    {
+        List<string> roles = [];
+        if (!root.TryGetProperty(member, out JsonElement named))
+        {
+            return roles;
+        }
+
+        if (named.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        foreach (JsonElement role in named.EnumerateArray())
+        {
+            if (role.ValueKind != JsonValueKind.String || role.GetString() is not { Length: > 0 } name)
+            {
+                return null;
+            }
+
+            roles.Add(name);
+        }
+
+        return roles;
     }
 
     private static MigrationFailure Invalid(string? member)

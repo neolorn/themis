@@ -60,6 +60,7 @@ internal sealed class DelegationService(
             options.Value,
             async (context, cancel) =>
             {
+                await PersonLock.ShareAsync(context, [delegation.From, delegation.To, delegation.CreatedBy], cancel).ConfigureAwait(false);
                 context.Delegations.Add(new DelegationRow
                 {
                     Id = id,
