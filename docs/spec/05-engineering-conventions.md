@@ -389,14 +389,18 @@ and MinVer SHALL derive the version from the tag.
   "What it holds" cell in `00` section 2.2, without markup or references), as its
   authors the name the lead's first message of phase 0 gives, and the repository's
   address, and `Themis.Cli` also `PackAsTool` and `ToolCommandName` (`themis`); every
-  other package property is left unset. A package's dependency on another of the
-  library's packages is the exact version packed (`[v]`, `03` APR-LIB-001): `dotnet
-  pack` writes a project reference as that version or later, and the .NET 10 SDK has no
-  setting for an exact one, so `Directory.Build.props` holds one target, run after
-  NuGet's `_GetProjectReferenceVersions`, that sets the `ProjectVersion` of each of
-  NuGet's `_ProjectReferencesWithVersions` items to `[v]`; both are names inside NuGet's
-  pack targets, not a documented setting, so `03` APR-LIB-001's criterion 2 is what
-  catches an SDK that changes them.
+  other package property is left unset. Two elements the SDK writes into a package's
+  metadata of its own accord are accepted, each on one package alone: `packageTypes`,
+  its package type as a .NET tool, on `Themis.Cli`, and `frameworkReferences`, its
+  reference to ASP.NET Core's shared framework (`03` APR-LIB-001, T-025), on
+  `Themis.Endpoints`. A package's dependency on another of the library's packages is the
+  exact version packed (`[v]`, `03` APR-LIB-001): `dotnet pack` writes a project
+  reference as that version or later, and the .NET 10 SDK has no setting for an exact
+  one, so `Directory.Build.props` holds one target, run after NuGet's
+  `_GetProjectReferenceVersions`, that sets the `ProjectVersion` of each of NuGet's
+  `_ProjectReferencesWithVersions` items to `[v]`; both are names inside NuGet's pack
+  targets, not a documented setting, so `03` APR-LIB-001's criterion 2 is what catches
+  an SDK that changes them.
 
 *Source: T-017, T-020, T-025*
 
