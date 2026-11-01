@@ -46,7 +46,7 @@ failure by an operation.
 | `approvals.directory.unavailable` | | The directory throws or does not answer within `Themis:Timeout` (`03` APR-LIB-005) |
 | `approvals.directory.toomany` | | A step's approvers resolve to more than 200 persons (`01` APR-REQ-003) |
 | `approvals.erasure.pending` | | An erasure of a person who is the requester, the subject or an assignee of a `pending` request, or a delegate of one of its open assignments (`01` APR-REQ-015) |
-| `approvals.erasure.typeversion` | | An erasure of a person whom the newest version of an approval type names (`01` APR-REQ-015) |
+| `approvals.erasure.typeversion` | `type` | An erasure of a person whom the newest version of an approval type names (`01` APR-REQ-015) |
 | `approvals.retention.notgranted` | | An erasure whose session lacks the privileges it needs (`01` APR-REQ-015; `04` APR-OPS-002); a `retention` run that lacks them throws, naming it (`04` APR-OPS-004) |
 
 ---
@@ -174,9 +174,10 @@ APR-REQ-014).
 | Schema | `approvals` | No |
 | Migration history | `approvals.__migrations_history` | No |
 | Type lock text | `approvals-type` (`04` APR-OPS-003) | No |
+| Person lock text | `approvals-person` (`04` APR-OPS-003) | No |
 | Job names | `deadlines`, `observer`, `watch`, `retention` (the list of `ck_jobs_name`, section 2) | No |
+| Retention role | `approvals_retention` (`04` APR-OPS-002) | No |
 | Command of `Themis.Cli` | `themis` | Yes |
-| Retention role | `themis_retention` (`04` APR-OPS-002) | Yes |
 | Meter | `Themis` | Yes |
 | Health check | `themis` | Yes |
 
@@ -191,7 +192,7 @@ The meter's instruments:
 | `approvals.events.pending` | Observable gauge | None |
 | `approvals.retention.deleted` | Counter | `kind` (`request` or `delegation`) |
 | `approvals.erasures` | Counter | None |
-| `approvals.reminders` | Counter | None |
+| `approvals.reminders` | Counter | `type` |
 
 ---
 

@@ -140,15 +140,16 @@ this order, answering the first failure and changing nothing:
 It then writes the decision (its identifier, the step, the assignment, the decider,
 `ActingFor`, the outcome, the reason and the instant), marks the assignment decided, and
 moves the request: an approval completes the step where its mode is met (`AnyOne`: this
-approval; `All`: every assignment approved) or where an escalation assignee, or the
-fallback an escalation assigned, approved (APR-REQ-009, T-023), and the next step starts
+approval; `All`: every assignment approved; `AtLeast`: `Required` approvals counted per
+distinct person, `02` APR-TYPE-004) or where an escalation assignee, or the fallback an
+escalation assigned, approved (APR-REQ-009, T-023), and the next step starts
 or the request is `approved`; a rejection rejects the request (APR-REQ-005). The
 directory's calls are made inside the transaction, each bounded by `Themis:Timeout`; one
 that throws or does not answer within it answers `approvals.directory.unavailable` and
 changes nothing. Of two decisions on one request at once, the second is checked after
 the first's transaction ends, against what it left.
 
-*Source: T-007, T-008, T-016, T-023*
+*Source: T-007, T-008, T-016, T-023, T-025*
 
 **Acceptance criteria**
 1. A decision by a person with no assignment of the current step is refused with
@@ -193,12 +194,13 @@ they are assigned to or is replaced by someone else.
 own name or for another (APR-REQ-004 check 5). Where a later step starts:
 - `Skip`: an assignee who approved an earlier step of the request, or for whom someone
   approved it, has that assignment marked satisfied by the earlier decision, with no new
-  decision; an `AnyOne` step with such an assignee completes at once, and an `All` step
-  waits for its other assignees alone;
+  decision; an `AnyOne` step with such an assignee completes at once, an `All` step
+  waits for its other assignees alone, and an `AtLeast` step counts that assignment as
+  one approval of its person, as `All` does (T-025);
 - `RequireOther`: such persons are not assigned (APR-REQ-003), and a step left with no
   one goes to its fallback (APR-REQ-007).
 
-*Source: T-008*
+*Source: T-008, T-025*
 
 **Acceptance criteria**
 1. Under `Skip`, a person who approved step 1 and is assigned to an `AnyOne` step 2
@@ -219,9 +221,11 @@ one, unless the same rules exclude them (the requester, the subject, or, under
 the request moves to `cancelled` with no actor and the reason code `noapprover`, its
 `cancelled` event is written, and the `request-unassignable` alert is raised for the
 type (`04` APR-OPS-006), so the host can mend the type's rules. A fallback assignment is
-marked so on the record.
+marked so on the record. An `AtLeast` step that starts with fewer assignments than its
+`Required`, once its exclusions are applied, is treated as one left with none, and its
+fallback's first approval completes it (`02` APR-TYPE-004, T-025).
 
-*Source: T-009*
+*Source: T-009, T-025*
 
 **Acceptance criteria**
 1. A step whose permission resolves to the requester alone is assigned to the step's
@@ -307,8 +311,8 @@ missed across a restart, and none fires after the step closes. The counter
 3. A step escalated once is not escalated again.
 4. An escalated `All` step whose escalation leaves no one completes at the first
    approval of the step's fallback assigned in its place.
-5. Publish refuses a reminder without a deadline, one under an hour, one not shorter
-   than `After`, a fourth, and two alike.
+5. Publish refuses a reminder under an hour, one not shorter than `After`, a fourth, and
+   two alike.
 6. Each reminder fires once at its time, naming the step's open assignments.
 7. No reminder fires after the step closes.
 8. A restart sends no reminder twice and misses none.
@@ -423,7 +427,9 @@ to tell:
 - `stepstarted` and `escalated`: the step's new assignees;
 - `approved`, `rejected`, `cancelled`, `voided` and `completed`: the requester and the
   watchers;
-- `delegationcreated`: the delegate.
+- `delegationcreated`: the delegate;
+- `reminded`: the step's open assignees, each with the delegate who holds their
+  assignment, and neither the requester nor the watchers (APR-REQ-009, T-025).
 
 Watchers are resolved when the event is written (`02` APR-TYPE-006). An event carries no
 snapshot value and no reason text, which the host reads from the record. The `observer`
@@ -434,7 +440,7 @@ call returns without throwing; a delivered event is marked with the instant it w
 taken and kept. The `observer-failing` alert is raised while the oldest undelivered
 event is older than `Themis:Observer:LagThreshold`.
 
-*Source: T-014*
+*Source: T-014, T-025*
 
 **Acceptance criteria**
 1. An event written in a host transaction that rolls back is never delivered.
@@ -455,28 +461,32 @@ its event: a request's status, current step, closing instant, actor, person acte
 and reason; a step's status, start, deadline action and reminders sent (APR-REQ-009);
 an assignment's decision; an event's delivery instant; a delegation's ending. The
 application roles are granted no `DELETE` on the library's tables; the role
-`themis_retention` alone is, for the logins a deployment names to it (`04` APR-OPS-002).
-`IApprovals.ExportAsync(person)` answers what names a person: the requests they made or
-are the subject of, their assignments, the decisions they made or that were made for
-them with the reasons, and the delegations from and to them; for an erased reference it
-answers an empty export.
+`approvals_retention` alone is, for the logins a deployment names to it (`04`
+APR-OPS-002). `IApprovals.ExportAsync(person)` answers what names a person: the requests
+they made or are the subject of, their assignments, the decisions they made or that were
+made for them with the reasons, and the delegations from and to them; for an erased
+reference, and for any `erased:` pseudonym, it answers an empty export.
 
 **Retention (T-025).** `Themis:Retention:ClosedRequests` is the retention period, counted
 from a request's `ClosedAt`; unset, the default, nothing is deleted, as in the first
-release. A request is closed once `rejected`, `cancelled`, `void` or `completed`; an
+release, and a `retention` run completes at once, deleting nothing and checking no
+privilege. A request is closed once `rejected`, `cancelled`, `void` or `completed`; an
 `approved` request is not. The `retention` job (`04` APR-OPS-004) deletes each closed
 request whose `ClosedAt` plus the period has passed with its steps, assignments,
-decisions, events and snapshot, in one transaction for each request, at most 1,000
-requests a run. A request is held back while any of its events is undelivered, and
-while a request that names it as `Previous` is not itself due, so a chain goes
-together. An ended delegation goes, with its events, once its end (the instant
-`EndAsync` ended it, or else its `Ends`, APR-REQ-008) plus the same period has passed;
-an undelivered event of it holds it back. A version of an approval type always stays.
-The job is idempotent: a run deletes only what is due, and a second run finds nothing of
-it left. A run whose session lacks `DELETE` on the six tables of requests and
-delegations (`04` APR-OPS-002) throws `InvalidOperationException` naming
-`approvals.retention.notgranted`, so the run fails and `job-stalled` is raised (`06`
-section 5).
+decisions, events and snapshot. A request is held back while any of its events is
+undelivered, and while a request that names it as `Previous` is not itself due, so a
+chain of requests linked by `Previous` goes together, in one transaction (a request no
+other names, and that names none, being a chain of one). A run deletes at most 1,000
+requests, each request of a chain counted, and never splits a chain across runs: a
+chain that does not fit what is left of the run's 1,000 waits for the next run, unless
+it alone holds more than 1,000, and then it goes alone in a run. An ended delegation
+goes, with its events, once its end (the instant `EndAsync` ended it, or else its
+`Ends`, APR-REQ-008) plus the same period has passed; an undelivered event of it holds
+it back. A version of an approval type always stays. The job is idempotent: a run
+deletes only what is due, and a second run finds nothing of it left. A run, the period
+set, whose session lacks `DELETE` on the six tables of requests and delegations (`04`
+APR-OPS-002) throws `InvalidOperationException` naming `approvals.retention.notgranted`
+(`05` APR-ENG-003), so the run fails and `job-stalled` is raised (`06` section 5).
 
 **Erasure (T-025).** `IRecordRetention.EraseAsync(person)` erases a person at once, in one
 transaction, and answers a `Result<ErasureReceipt>` (`03` APR-LIB-002): `Changed`, the
@@ -491,20 +501,24 @@ linked to each other and to no one. The reasons the person wrote are cleared: th
 the decisions the person made (`Decider`), the closing reason of the requests the person
 closed (`ClosedBy`), and any other free text the record holds that the person wrote. A
 second erasure of the same reference changes nothing and answers `Changed` 0. The
-erasure is refused, changing nothing:
-- `approvals.erasure.pending` while the person is the requester, the subject or an
-  assignee of a `pending` request, or its delegate: one who holds a delegation, not
-  ended and of any type, from a person who holds an open assignment of such a request
-  (it is decided or cancelled first);
-- `approvals.erasure.typeversion` while the newest version of any approval type names
-  the person (the host publishes one without them first);
-- `approvals.retention.notgranted` where the session lacks `DELETE` on the six tables of
-  requests and delegations or `UPDATE` on the columns the erasure rewrites (`04`
-  APR-OPS-002).
+erasure first takes the person's lock, exclusive (`04` APR-OPS-003), so no create,
+assignment or delegation naming the person interleaves with it, then checks, in this
+order, answering the first failure and changing nothing:
+1. the session holds `DELETE` on the six tables of requests and delegations and `UPDATE`
+   on the columns the erasure rewrites, whatever the period (`04` APR-OPS-002):
+   `approvals.retention.notgranted`;
+2. the person is neither the requester, the subject nor an assignee of a `pending`
+   request, nor its delegate: one who holds a delegation, not ended and of any type,
+   from a person who holds an open assignment of such a request (it is decided or
+   cancelled first): `approvals.erasure.pending`;
+3. the newest version of no approval type names the person (the host publishes one
+   without them first): `approvals.erasure.typeversion`, `details.type` the key of a
+   type whose newest version does.
 
-Neither a deletion nor an erasure writes an event, since an event would carry the
-person; `approvals.retention.deleted` and `approvals.erasures` count them (`04`
-APR-OPS-005).
+It then locks each request it changes, `FOR UPDATE`, in the order of their identifiers,
+and changes them. Neither a deletion nor an erasure writes an event, since an event
+would carry the person; `approvals.retention.deleted` and `approvals.erasures` count
+them (`04` APR-OPS-005).
 
 *Source: T-013, T-025*
 
@@ -520,5 +534,7 @@ APR-OPS-005).
    person's reasons, and a second call answers 0.
 6. Each refusal of an erasure fires on its condition, and `approvals.retention.notgranted`
    without the privileges, for an erasure and for a `retention` run.
-7. An export of an erased reference is empty.
+7. An export of an erased reference, or of an `erased:` pseudonym, is empty.
 8. With the period unset, nothing is deleted.
+9. A delegation ended one day less than the period ago stays; one ended a day more goes
+   with its events, and an undelivered event of it holds it back.

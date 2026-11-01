@@ -158,10 +158,11 @@ Everything else is internal: the engine, its jobs, its options and the tables.
 **APR-LIB-003** — A host SHALL register the library with one call, and the
 configuration, the seams and the schema SHALL be checked when the application starts.
 
-**Values (T-006, T-017).** `services.AddThemis(configuration)` binds the configuration
-section `Themis` (through the configuration binder's source generator), registers the
-engine, `IApprovalTypes`, `IApprovals` and `IDelegations` as scoped services,
-`IApprovalJobs` as a singleton and the hosted jobs (`04` APR-OPS-004), and runs every
+**Values (T-006, T-017, T-025).** `services.AddThemis(configuration)` binds the
+configuration section `Themis` (through the configuration binder's source generator),
+registers the engine, `IApprovalTypes`, `IApprovals`, `IDelegations` and
+`IRecordRetention` as scoped services, `IApprovalJobs` as a singleton and the hosted
+jobs (`04` APR-OPS-004), and runs every
 startup check (the configuration's, `04` APR-OPS-001; the seams', APR-LIB-005; the
 secrets', `04` APR-OPS-008; the schema's, `04` APR-OPS-002) in the `StartingAsync` of an
 `IHostedLifecycleService`, which the host calls on every such service before any hosted
@@ -173,7 +174,7 @@ fault of the calling code. The library registers no approval type: a host publis
 own through `IApprovalTypes` (`02`), at its start or later. A host replaces a seam by
 registering its own before or after the call.
 
-*Source: T-002, T-006, T-017*
+*Source: T-002, T-006, T-017, T-025*
 
 **Acceptance criteria**
 1. A host with valid configuration and its seams starts with the one call.
@@ -197,21 +198,26 @@ own authorization and antiforgery:
 - `GET {prefix}/pending?cursor=&size=`: the person's pending list, delegations included
   (`01` APR-REQ-013);
 - `GET {prefix}/requests/{id}`: the request's record (`01` APR-REQ-013) where the person
-  is its requester, subject, an assignee, a delegate or a watcher, else 404;
+  is a party to it, else 404: its requester or subject; an assignee of it, open or
+  decided; a delegate holding a live delegation from one of its assignees; or a watcher,
+  a person one of its events names in `Notify`;
 - `POST {prefix}/requests/{id}/decisions` with `outcome`, `reason` and `actingFor`: the
   person's decision (`01` APR-REQ-004);
-- `GET {prefix}/delegations`, `POST {prefix}/delegations` and
-  `POST {prefix}/delegations/{id}/end`: the person's delegations, a new one, and its
-  ending (`01` APR-REQ-008).
+- `GET {prefix}/delegations`: the person's delegations (`ListAsync`);
+- `POST {prefix}/delegations`, a body of `DelegationDefinition`'s members but `From`,
+  which is the person: a delegation from the person (`CreateAsync`);
+- `POST {prefix}/delegations/{id}/end`: `EndAsync` with the person as its actor, the
+  library's own rules deciding whether it ends (`01` APR-REQ-008).
 
-Each call reads its person through `ICurrentPerson` (APR-LIB-005); where it answers
-none, the call answers 401. A failure answers RFC 9457 problem details carrying the
-library's `code` and `details` (`06` section 1): a code naming something not found 404,
-one refusing the person 403, one refusing the input 400, and one refusing the state
-(closed, decided, changed, concurrent) 409; anything else answers 500 with no details.
-JSON is the library's types as they are, in camel case, identifiers as strings and
-enumerations by their spellings (`06` section 2); a body that is not `application/json`
-answers 415.
+Each call reads its person through `ICurrentPerson` (APR-LIB-005), bounded by the HTTP
+request's own cancellation alone; where it answers none, the call answers 401, and where
+it throws, a fault of the host's code, 500 with no details. A failure answers RFC 9457
+problem details carrying the library's `code` and `details` (`06` section 1): a code
+naming something not found 404, one refusing the person 403, one refusing the input 400,
+and one refusing the state (closed, decided, changed, concurrent) 409; anything else
+answers 500 with no details. JSON is the library's types as they are, in camel case,
+identifiers as strings and enumerations by their spellings (`06` section 2); a body that
+is not `application/json` answers 415.
 
 *Source: T-015, T-025*
 
@@ -226,7 +232,8 @@ answers 415.
 
 **APR-LIB-005** — A host SHALL supply what only it knows through the seams of
 APR-LIB-002, the library SHALL refuse to start without a required one, and every call
-into a seam SHALL be bounded in time.
+into a seam SHALL be bounded in time, but `ICurrentPerson`'s, bounded by its HTTP
+request.
 
 **Values (T-006, T-018, T-025).**
 
@@ -240,8 +247,9 @@ into a seam SHALL be bounded in time.
 | `TimeProvider` | No: the system clock | |
 
 A required seam missing stops the start with `approvals.startup.seammissing`, its
-`details.key` as above. The directory is called inside the transaction of the move that
-needs it (a create, a decision, a step's start, an escalation, an event naming
+`details.key` as above. `ICurrentPerson` is bounded by the HTTP request's own
+cancellation alone (APR-LIB-004). The directory is called inside the transaction of the
+move that needs it (a create, a decision, a step's start, an escalation, an event naming
 watchers), so what it answers and what is written agree; each call is bounded by
 `Themis:Timeout`, and one that throws or does not answer within it ends the operation
 with `approvals.directory.unavailable`, nothing written, the job that made it (`04`

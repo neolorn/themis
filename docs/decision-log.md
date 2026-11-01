@@ -712,14 +712,15 @@ and counters; `implementation-plan.md` section 4.
 >    `kind` (`request` or `delegation`), in the unit `{record}`: a chain of three requests
 >    counts 3. `approvals.erasures` counts each `EraseAsync` that changed at least one row,
 >    untagged, in the unit `{erasure}`: a refusal, or an answer of 0, counts nothing.
-> 9. **The grant.** `themis migrate` creates `themis_retention` (`NOLOGIN`, where absent),
->    grants it `DELETE` on the six tables of requests and delegations (requests, steps,
->    assignments, decisions, events, delegations) and `UPDATE` on their person and reason
->    columns, and grants it to each login, only where `retentionRoles` names at least one;
->    without it, the tool does exactly what release 1 does, so a migrating login without
->    `CREATEROLE` goes on working. A login of `retentionRoles` that does not exist answers
->    `approvals.migrate.inputinvalid`, `member` `retentionRoles`; a creation or a grant that
->    fails answers `approvals.migrate.grantfailed`, naming `themis_retention` or the login.
+> 9. **The grant.** `themis migrate` creates `approvals_retention` (`NOLOGIN`, where
+>    absent), grants it `DELETE` on the six tables of requests and delegations (requests,
+>    steps, assignments, decisions, events, delegations) and `UPDATE` on their person and
+>    reason columns, and grants it to each login, only where `retentionRoles` names at
+>    least one; without it, the tool does exactly what release 1 does, so a migrating
+>    login without `CREATEROLE` goes on working. A login of `retentionRoles` that does not
+>    exist answers `approvals.migrate.inputinvalid`, `member` `retentionRoles`; a creation
+>    or a grant that fails answers `approvals.migrate.grantfailed`, naming
+>    `approvals_retention` or the login.
 >    The grant counts as held however the session's role got it: the `retention` job needs
 >    `DELETE` on all six tables, `EraseAsync` that and `UPDATE` on the columns it rewrites,
 >    and a host whose application login owns the schema is not refused.
@@ -727,6 +728,49 @@ and counters; `implementation-plan.md` section 4.
 > The chapters carry the criteria above as `01` APR-REQ-015 AC3 to AC8 (section 25.1),
 > `02` APR-TYPE-004 AC2 to AC6 (25.2), `01` APR-REQ-009 AC5 to AC8 (25.3) and `03`
 > APR-LIB-004 AC1 to AC5 (25.4).
+
+> **Amended.** The lead, 2026-11-01, answering the questions the chapters' first carrying
+> raised:
+> 1. **The period unset.** A `retention` run completes at once, deleting nothing and
+>    checking no privilege. `EraseAsync` always checks it.
+> 2. **A chain** goes in one transaction. A run's 1,000 counts requests, and a chain never
+>    splits across runs: one that does not fit what is left of a run's 1,000 waits for the
+>    next run, unless it alone holds more than 1,000, and then it goes alone.
+> 3. **Locks.** An erasure takes `FOR UPDATE` on each request it changes, in the order of
+>    their identifiers; the `retention` job selects `FOR UPDATE SKIP LOCKED`. An erasure
+>    first takes a transaction-scoped advisory lock on the person's reference, exclusive,
+>    keyed on its hash as the type's lock is, on the text `approvals-person`; creating a
+>    request, assigning and delegating take the same lock, shared, for each person they
+>    write, so an erasure and a create naming that person never interleave.
+> 4. **The refusals' order** is `approvals.retention.notgranted`, then
+>    `approvals.erasure.pending`, then `approvals.erasure.typeversion`.
+> 5. **Export** answers empty for an erased reference and for any `erased:` pseudonym.
+> 6. **A delegation's deletion** has its criterion, `01` APR-REQ-015 AC9.
+> 7. **`approvals.reminders`** is tagged `type`, the approval type's key, in the unit
+>    `{reminder}`.
+> 8. **`approvals.erasure.typeversion`** carries `details.type`.
+> 9. **`AtLeast` under `Skip`.** A `Skip`-satisfied assignment counts as one approval of
+>    its person, as `All` counts it.
+> 10. **`IRecordRetention`** is registered by `AddThemis` as a scoped service.
+> 11. **The endpoints.** `ICurrentPerson` is bounded by the HTTP request's own cancellation
+>     alone, and an exception from it is a fault: 500, no details. A party to a request,
+>     for the 404 rule, is its requester or subject; any assignee, open or decided; a
+>     delegate holding a live delegation from an assignee; or a watcher, a person its
+>     events' `Notify` names. `POST {prefix}/delegations` takes the library's delegation
+>     input as it is but the delegating person, who is the current person; `/end` passes
+>     the current person to `EndAsync`, whose own rules decide.
+>     `Microsoft.AspNetCore.Mvc.Testing` joins the package table for test projects only,
+>     at the shared framework's version, and commits gain the scope `endpoints`.
+> 12. **Corrections.** Section 25.3's criterion 1 drops "a reminder without a deadline",
+>     since a reminder belongs to a deadline. The role is `approvals_retention`, neutral
+>     and never changing with the library's name, in place of `themis_retention`. A
+>     deployment fault a job's run meets, such as a missing grant, throws
+>     `InvalidOperationException` naming its code (`05` APR-ENG-003). `MapThemisApprovals`
+>     is listed with the registration methods (`05` APR-ENG-007). `RemindBefore` is in
+>     whole seconds, as `After` is (`05` APR-ENG-006). `07`'s asset row and APR-THR-001
+>     name the retention role and the erasure. `01` APR-REQ-004, APR-REQ-006,
+>     APR-REQ-007 and APR-REQ-014, `04` APR-OPS-003 and APR-OPS-007, and the plan's
+>     section 2 carry what this entry changes in them.
 
 ---
 

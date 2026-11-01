@@ -149,15 +149,20 @@ the calling code can make is a fault: a null or empty argument, a person referen
 name or target outside `00` section 1.5's rule, subject roles without a subject, a
 host's transaction that is not open (`03` APR-LIB-008), a directory answer outside its
 rule (`03` APR-LIB-005); it throws `ArgumentException` or `InvalidOperationException`,
-and a broken invariant throws. A `catch` never turns a fault into a success, and an
-exception is never swallowed: it is handled, rethrown, or logged and the operation
-answers a failure.
+and a broken invariant throws. A deployment fault a job's run meets, such as a missing
+grant, throws `InvalidOperationException` naming its code (a `retention` run without
+its privileges, `04` APR-OPS-004), while an operation that meets the same fault answers
+it as a failure (`EraseAsync`, `01` APR-REQ-015). A `catch` never turns a fault into a
+success, and an exception is never swallowed: it is handled, rethrown, or logged and
+the operation answers a failure.
 
-*Source: T-017*
+*Source: T-017, T-025*
 
 **Acceptance criteria**
-1. No public operation throws for a code of `06` section 1; a "(startup)" code is thrown
-   only as an `ApprovalsStartupException` while the host starts (`03` APR-LIB-003).
+1. No public operation throws for a code of `06` section 1, save a job's run that meets
+   a deployment fault, such as a missing grant, which throws `InvalidOperationException`
+   naming the code; a "(startup)" code is thrown only as an `ApprovalsStartupException`
+   while the host starts (`03` APR-LIB-003).
 
 ---
 
@@ -212,7 +217,7 @@ made from the library's `TimeProvider` (`Guid.CreateVersion7`).
 each definition, so two equal definitions always hash alike and a later release that
 adds a member leaves every earlier definition's form unchanged.
 
-**Values (T-002).** The canonical form is UTF-8 JSON written by a source-generated
+**Values (T-002, T-025).** The canonical form is UTF-8 JSON written by a source-generated
 `System.Text.Json` context with the serializer's default encoder and no indentation or
 whitespace: each record's members in the order of `03` APR-LIB-002, under their names in
 camel case; a member that is none, an empty list or `false` left out, so a member a
@@ -221,11 +226,12 @@ object whose first member is `case`, the case's name in camel case
 (`{"case":"permission", "name":"orders.approve"}`), then its own members; an enumeration
 member by its wire spelling (`06` section 2); a whole number as a JSON integer; a
 decimal without trailing zeros or exponent (`1000.5`, `0`); a duration
-(`Deadline.After`) as its whole number of seconds; lists in the order given. The SHA-256
+(`Deadline.After`, each of `Deadline.RemindBefore`) as its whole number of seconds,
+each being in whole seconds (`02` APR-TYPE-004); lists in the order given. The SHA-256
 of these bytes is the version's hash (`02` APR-TYPE-001), and a definition read back is
 the one these bytes give.
 
-*Source: T-002*
+*Source: T-002, T-025*
 
 **Acceptance criteria**
 1. Two definitions equal but for the scale of a decimal value (`1000.50` and `1000.5`)
@@ -242,12 +248,13 @@ the one these bytes give.
 `06` section 4 under `Themis`; enumerations SHALL be spelled as `06` spells them; and no
 type SHALL be named after the library.
 
-**Values (T-001, T-017).** The library's name appears only in namespaces, project and
-package identifiers, the solution file (`Themis.sln`), the configuration section, the
-registration methods (`AddThemis`, `AddThemisTesting`), the command of `Themis.Cli`,
-and the names of `06` section 7 that `06` lists as changing with it.
+**Values (T-001, T-017, T-025).** The library's name appears only in namespaces,
+project and package identifiers, the solution file (`Themis.sln`), the configuration
+section, the registration and mapping methods (`AddThemis`, `AddThemisTesting`,
+`MapThemisApprovals`), the command of `Themis.Cli`, and the names of `06` section 7
+that `06` lists as changing with it.
 
-*Source: T-001, T-017*
+*Source: T-001, T-017, T-025*
 
 **Acceptance criteria**
 1. A test fails on a code the library answers that `06` section 1 does not list, a
@@ -301,13 +308,13 @@ the projects `03` APR-LIB-001 allows.
 | Hosting abstractions | `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Configuration.Abstractions`, `Microsoft.Extensions.Configuration.Binder`, `Microsoft.Extensions.Options`, `Microsoft.Extensions.Options.ConfigurationExtensions`, `Microsoft.Extensions.Logging.Abstractions`, `Microsoft.Extensions.Hosting.Abstractions`, `Microsoft.Extensions.Diagnostics.HealthChecks` | MIT |
 | Public surface | `Microsoft.CodeAnalysis.PublicApiAnalyzers` (build-only) | MIT |
 | Versioning | `MinVer` (build-only) | Apache 2.0 |
-| Tests | `xunit.v3`, `Testcontainers.PostgreSql`, `Microsoft.AspNetCore.Mvc.Testing` (the sample host's tests) | Apache 2.0, MIT, MIT |
+| Tests | `xunit.v3`, `Testcontainers.PostgreSql`, `Microsoft.AspNetCore.Mvc.Testing` (test projects only, the sample host's and `tests/Themis.Endpoints.Tests` among them, at the version of ASP.NET Core's shared framework) | Apache 2.0, MIT, MIT |
 
 Every package is taken at its latest stable release when added, the Microsoft packages
 at the release that matches the SDK's .NET 10 runtime, and its listing checked then
 (checked in review). Adding a package is a decision-log entry.
 
-*Source: T-017*
+*Source: T-017, T-025*
 
 **Acceptance criteria**
 1. The set of direct package references is within this table, and the tool manifest
@@ -337,16 +344,16 @@ pushes to the empty default branch before setting its protection), commit messag
 follow Conventional Commits 1.0.0, a `CHANGELOG.md` SHALL follow Keep a Changelog 1.1.0,
 and MinVer SHALL derive the version from the tag.
 
-**Values (T-017, T-020).**
+**Values (T-017, T-020, T-025).**
 - **Commit message:** a type of `feat`, `fix`, `refactor`, `perf`, `test`, `docs`,
   `build`, `ci`, `chore`; an optional scope naming the package's area (`core`, `engine`,
-  `testing`, `cli`, `sample`); a description in the imperative (checked in review),
-  beginning with a lower-case letter (a name it mentions keeps its own spelling), with
-  no full stop, the first line at most 72 characters; a body only where the diff cannot
-  explain itself (checked in review), as dash fragments of at most 72 characters, each a
-  reason or a non-obvious consequence; a footer carrying the items the commit implements
-  (`Implements: APR-REQ-004`) and nothing else; `!` or `BREAKING CHANGE:` for a break of
-  `03` APR-LIB-006.
+  `testing`, `cli`, `endpoints`, `sample`); a description in the imperative (checked in
+  review), beginning with a lower-case letter (a name it mentions keeps its own
+  spelling), with no full stop, the first line at most 72 characters; a body only where
+  the diff cannot explain itself (checked in review), as dash fragments of at most 72
+  characters, each a reason or a non-obvious consequence; a footer carrying the items the
+  commit implements (`Implements: APR-REQ-004`) and nothing else; `!` or
+  `BREAKING CHANGE:` for a break of `03` APR-LIB-006.
 - **Changelog:** every commit that changes behaviour, one of type `feat`, `fix` or
   `perf` or marked `!`, adds its line under `Unreleased` in the same commit (`Added`
   while nothing is released).
@@ -389,7 +396,7 @@ and MinVer SHALL derive the version from the tag.
   pack targets, not a documented setting, so `03` APR-LIB-001's criterion 2 is what
   catches an SDK that changes them.
 
-*Source: T-017, T-020*
+*Source: T-017, T-020, T-025*
 
 **Acceptance criteria**
 1. A commit message outside the rule, and a behaviour-changing commit without a

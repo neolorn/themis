@@ -116,20 +116,21 @@ fallback approver, and MAY name a condition and a deadline, with reminders befor
   seconds; `Action`, one of `Escalate` (with `EscalateTo`, one approver reference,
   required for it alone), `Reject` and `Cancel` (`01` APR-REQ-009); and `RemindBefore`,
   up to three durations before the deadline at which the step's open assignees are
-  reminded (`01` APR-REQ-009), each at least 1 hour, shorter than `After` and distinct,
-  only on a step with a deadline. No action approves.
+  reminded (`01` APR-REQ-009), each at least 1 hour in whole seconds, shorter than
+  `After` and distinct, only on a step with a deadline. No action approves.
 
 **A number out of a list (T-025).** An `AtLeast` step completes at `Required` approvals
 counted per distinct person: a person holding two assignments of it, their own and one
-through a delegation, counts once. Any rejection rejects the request, as in every mode
-(`01` APR-REQ-005). A step that starts with fewer assignments than its `Required`, once
-its exclusions are applied, is treated as one with none: its fallback is assigned, whose
-first approval completes it (`01` APR-REQ-007, T-023), else the request is cancelled
-with `noapprover` and `request-unassignable` is raised. An escalation or fallback
-assignee's first approval completes the step whatever its mode (`01` APR-REQ-009,
-T-023). The canonical form leaves `Required` out where it is absent, and `RemindBefore`
-where it is empty (`05` APR-ENG-006), so every version published before them keeps its
-hash.
+through a delegation, counts once, and an assignment `Skip` satisfied counts as one
+approval of its person (`01` APR-REQ-006). Any rejection rejects the request, as in
+every mode (`01` APR-REQ-005). A step that starts with fewer assignments than its
+`Required`, once its exclusions are applied, is treated as one with none: its fallback
+is assigned, whose first approval completes it (`01` APR-REQ-007, T-023), else the
+request is cancelled with `noapprover` and `request-unassignable` is raised. An
+escalation or fallback assignee's first approval completes the step whatever its mode
+(`01` APR-REQ-009, T-023). The canonical form leaves `Required` out where it is absent,
+and `RemindBefore` where it is empty (`05` APR-ENG-006), so every version published
+before them keeps its hash.
 
 *Source: T-005, T-012, T-025*
 
