@@ -41,10 +41,12 @@ Themis.Core.ApprovalEventId.Value.init -> void
 Themis.Core.ApprovalJob
 Themis.Core.ApprovalJob.Deadlines = 0 -> Themis.Core.ApprovalJob
 Themis.Core.ApprovalJob.Observer = 1 -> Themis.Core.ApprovalJob
+Themis.Core.ApprovalJob.Retention = 3 -> Themis.Core.ApprovalJob
 Themis.Core.ApprovalJob.Watch = 2 -> Themis.Core.ApprovalJob
 Themis.Core.ApprovalMode
 Themis.Core.ApprovalMode.All = 1 -> Themis.Core.ApprovalMode
 Themis.Core.ApprovalMode.AnyOne = 0 -> Themis.Core.ApprovalMode
+Themis.Core.ApprovalMode.AtLeast = 2 -> Themis.Core.ApprovalMode
 Themis.Core.ApprovalRequest
 Themis.Core.ApprovalRequest.<Clone>$() -> Themis.Core.ApprovalRequest!
 Themis.Core.ApprovalRequest.ApprovalRequest() -> void
@@ -260,6 +262,8 @@ Themis.Core.Deadline.Deadline() -> void
 Themis.Core.Deadline.Equals(Themis.Core.Deadline? other) -> bool
 Themis.Core.Deadline.EscalateTo.get -> Themis.Core.ApproverReference?
 Themis.Core.Deadline.EscalateTo.init -> void
+Themis.Core.Deadline.RemindBefore.get -> System.Collections.Generic.IReadOnlyList<System.TimeSpan>!
+Themis.Core.Deadline.RemindBefore.init -> void
 Themis.Core.DeadlineAction
 Themis.Core.DeadlineAction.Cancel = 2 -> Themis.Core.DeadlineAction
 Themis.Core.DeadlineAction.Escalate = 0 -> Themis.Core.DeadlineAction
@@ -384,6 +388,14 @@ Themis.Core.DelegationRecord.Types.init -> void
 Themis.Core.DuplicateRule
 Themis.Core.DuplicateRule.RequireOther = 1 -> Themis.Core.DuplicateRule
 Themis.Core.DuplicateRule.Skip = 0 -> Themis.Core.DuplicateRule
+Themis.Core.ErasureReceipt
+Themis.Core.ErasureReceipt.<Clone>$() -> Themis.Core.ErasureReceipt!
+Themis.Core.ErasureReceipt.Changed.get -> int
+Themis.Core.ErasureReceipt.Changed.init -> void
+Themis.Core.ErasureReceipt.Equals(Themis.Core.ErasureReceipt? other) -> bool
+Themis.Core.ErasureReceipt.ErasureReceipt() -> void
+Themis.Core.ErasureReceipt.KeptVersions.get -> System.Collections.Generic.IReadOnlyList<Themis.Core.TypeVersionReference!>!
+Themis.Core.ErasureReceipt.KeptVersions.init -> void
 Themis.Core.EventKind
 Themis.Core.EventKind.Approved = 3 -> Themis.Core.EventKind
 Themis.Core.EventKind.Cancelled = 5 -> Themis.Core.EventKind
@@ -391,6 +403,7 @@ Themis.Core.EventKind.Completed = 7 -> Themis.Core.EventKind
 Themis.Core.EventKind.DelegationCreated = 8 -> Themis.Core.EventKind
 Themis.Core.EventKind.Escalated = 2 -> Themis.Core.EventKind
 Themis.Core.EventKind.Rejected = 4 -> Themis.Core.EventKind
+Themis.Core.EventKind.Reminded = 9 -> Themis.Core.EventKind
 Themis.Core.EventKind.Requested = 0 -> Themis.Core.EventKind
 Themis.Core.EventKind.StepStarted = 1 -> Themis.Core.EventKind
 Themis.Core.EventKind.Voided = 6 -> Themis.Core.EventKind
@@ -470,6 +483,8 @@ Themis.Core.IDelegations
 Themis.Core.IDelegations.CreateAsync(Themis.Core.DelegationDefinition! delegation, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result<Themis.Core.DelegationId>!>
 Themis.Core.IDelegations.EndAsync(Themis.Core.DelegationId delegation, string! actor, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result!>
 Themis.Core.IDelegations.ListAsync(string! person, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Themis.Core.DelegationRecord!>!>
+Themis.Core.IRecordRetention
+Themis.Core.IRecordRetention.EraseAsync(string! person, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.Result<Themis.Core.ErasureReceipt!>!>
 Themis.Core.ISecretSource
 Themis.Core.ISecretSource.ReadAsync(string! name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Themis.Core.SecretVersions?>
 Themis.Core.PendingItem
@@ -660,6 +675,8 @@ Themis.Core.StepDefinition.Mode.get -> Themis.Core.ApprovalMode
 Themis.Core.StepDefinition.Mode.init -> void
 Themis.Core.StepDefinition.Name.get -> string!
 Themis.Core.StepDefinition.Name.init -> void
+Themis.Core.StepDefinition.Required.get -> int?
+Themis.Core.StepDefinition.Required.init -> void
 Themis.Core.StepDefinition.StepDefinition() -> void
 Themis.Core.StepRecord
 Themis.Core.StepRecord.<Clone>$() -> Themis.Core.StepRecord!
@@ -676,6 +693,8 @@ Themis.Core.StepRecord.Name.get -> string!
 Themis.Core.StepRecord.Name.init -> void
 Themis.Core.StepRecord.Number.get -> int
 Themis.Core.StepRecord.Number.init -> void
+Themis.Core.StepRecord.Required.get -> int?
+Themis.Core.StepRecord.Required.init -> void
 Themis.Core.StepRecord.StartedAt.get -> System.DateTimeOffset?
 Themis.Core.StepRecord.StartedAt.init -> void
 Themis.Core.StepRecord.Status.get -> Themis.Core.StepStatus
@@ -695,6 +714,14 @@ Themis.Core.Target.Id.init -> void
 Themis.Core.Target.Kind.get -> string!
 Themis.Core.Target.Kind.init -> void
 Themis.Core.Target.Target() -> void
+Themis.Core.TypeVersionReference
+Themis.Core.TypeVersionReference.<Clone>$() -> Themis.Core.TypeVersionReference!
+Themis.Core.TypeVersionReference.Equals(Themis.Core.TypeVersionReference? other) -> bool
+Themis.Core.TypeVersionReference.Type.get -> string!
+Themis.Core.TypeVersionReference.Type.init -> void
+Themis.Core.TypeVersionReference.TypeVersionReference() -> void
+Themis.Core.TypeVersionReference.Version.get -> int
+Themis.Core.TypeVersionReference.Version.init -> void
 abstract Themis.Core.ApproverReference.<Clone>$() -> Themis.Core.ApproverReference!
 abstract Themis.Core.Condition.<Clone>$() -> Themis.Core.Condition!
 abstract Themis.Core.FieldValue.<Clone>$() -> Themis.Core.FieldValue!
@@ -794,6 +821,9 @@ override Themis.Core.DelegationId.GetHashCode() -> int
 override Themis.Core.DelegationRecord.Equals(object? obj) -> bool
 override Themis.Core.DelegationRecord.GetHashCode() -> int
 override Themis.Core.DelegationRecord.ToString() -> string!
+override Themis.Core.ErasureReceipt.Equals(object? obj) -> bool
+override Themis.Core.ErasureReceipt.GetHashCode() -> int
+override Themis.Core.ErasureReceipt.ToString() -> string!
 override Themis.Core.Failure.Equals(object? obj) -> bool
 override Themis.Core.Failure.GetHashCode() -> int
 override Themis.Core.Failure.ToString() -> string!
@@ -862,6 +892,9 @@ override Themis.Core.StepRecord.ToString() -> string!
 override Themis.Core.Target.Equals(object? obj) -> bool
 override Themis.Core.Target.GetHashCode() -> int
 override Themis.Core.Target.ToString() -> string!
+override Themis.Core.TypeVersionReference.Equals(object? obj) -> bool
+override Themis.Core.TypeVersionReference.GetHashCode() -> int
+override Themis.Core.TypeVersionReference.ToString() -> string!
 override sealed Themis.Core.ApproverReference.Permission.Equals(Themis.Core.ApproverReference? other) -> bool
 override sealed Themis.Core.ApproverReference.Person.Equals(Themis.Core.ApproverReference? other) -> bool
 override sealed Themis.Core.Condition.AllOf.Equals(Themis.Core.Condition? other) -> bool
@@ -937,6 +970,8 @@ static Themis.Core.DelegationId.operator !=(Themis.Core.DelegationId left, Themi
 static Themis.Core.DelegationId.operator ==(Themis.Core.DelegationId left, Themis.Core.DelegationId right) -> bool
 static Themis.Core.DelegationRecord.operator !=(Themis.Core.DelegationRecord? left, Themis.Core.DelegationRecord? right) -> bool
 static Themis.Core.DelegationRecord.operator ==(Themis.Core.DelegationRecord? left, Themis.Core.DelegationRecord? right) -> bool
+static Themis.Core.ErasureReceipt.operator !=(Themis.Core.ErasureReceipt? left, Themis.Core.ErasureReceipt? right) -> bool
+static Themis.Core.ErasureReceipt.operator ==(Themis.Core.ErasureReceipt? left, Themis.Core.ErasureReceipt? right) -> bool
 static Themis.Core.Failure.operator !=(Themis.Core.Failure? left, Themis.Core.Failure? right) -> bool
 static Themis.Core.Failure.operator ==(Themis.Core.Failure? left, Themis.Core.Failure? right) -> bool
 static Themis.Core.FieldValue.DecimalNumber.operator !=(Themis.Core.FieldValue.DecimalNumber? left, Themis.Core.FieldValue.DecimalNumber? right) -> bool
@@ -985,6 +1020,8 @@ static Themis.Core.StepRecord.operator !=(Themis.Core.StepRecord? left, Themis.C
 static Themis.Core.StepRecord.operator ==(Themis.Core.StepRecord? left, Themis.Core.StepRecord? right) -> bool
 static Themis.Core.Target.operator !=(Themis.Core.Target? left, Themis.Core.Target? right) -> bool
 static Themis.Core.Target.operator ==(Themis.Core.Target? left, Themis.Core.Target? right) -> bool
+static Themis.Core.TypeVersionReference.operator !=(Themis.Core.TypeVersionReference? left, Themis.Core.TypeVersionReference? right) -> bool
+static Themis.Core.TypeVersionReference.operator ==(Themis.Core.TypeVersionReference? left, Themis.Core.TypeVersionReference? right) -> bool
 virtual Themis.Core.ApproverReference.EqualityContract.get -> System.Type!
 virtual Themis.Core.ApproverReference.Equals(Themis.Core.ApproverReference? other) -> bool
 virtual Themis.Core.ApproverReference.PrintMembers(System.Text.StringBuilder! builder) -> bool
