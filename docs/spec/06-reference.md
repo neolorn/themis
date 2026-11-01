@@ -10,44 +10,46 @@ one, this chapter's spelling and value govern.
 A failure carries one code and its details (`03` APR-LIB-002). A "(startup)" code is
 thrown in an `ApprovalsStartupException` while the host starts; a "(migrate)" code is
 written by `themis migrate` (`04` APR-OPS-002); every other code is answered as a
-failure by an operation.
+failure by an operation. "Over HTTP" is the status `Themis.Endpoints` answers the code
+with, in problem details carrying its code and details save where it says none (`03`
+APR-LIB-004).
 
-| Code | Details | Answered where |
-|---|---|---|
-| `approvals.startup.configurationinvalid` (startup) | `key` | A configuration value outside its rule (`04` APR-OPS-001) |
-| `approvals.startup.seammissing` (startup) | `key` | A required seam is not registered (`03` APR-LIB-005) |
-| `approvals.startup.secretunavailable` (startup) | `key` | The secret source does not answer a secret (`04` APR-OPS-008) |
-| `approvals.startup.secretinvalid` (startup) | `key` | A secret outside its form (`04` APR-OPS-008) |
-| `approvals.startup.schemamismatch` (startup) | `migration` | The database lacks a migration of the release (`04` APR-OPS-002) |
-| `approvals.migrate.inputinvalid` (migrate) | `member` | The tool's input does not read, or names a role the database lacks |
-| `approvals.migrate.connectionfailed` (migrate) | | The tool cannot connect |
-| `approvals.migrate.failed` (migrate) | `migration` | A migration fails |
-| `approvals.migrate.grantfailed` (migrate) | `role` | A grant fails or is not found (`04` APR-OPS-002) |
-| `approvals.type.invalid` | `member` | A definition outside its rule, `member` the empty path where its canonical form is too large (`02` APR-TYPE-002) |
-| `approvals.type.unknown` | | No such type, or no such version (`02` APR-TYPE-001) |
-| `approvals.type.retired` | | A request of a retired type (`02` APR-TYPE-001) |
-| `approvals.request.snapshotinvalid` | `field` | A snapshot that does not match its version's protected fields (`01` APR-REQ-001) |
-| `approvals.request.open` | | An open request of the type already covers the target (`01` APR-REQ-002) |
-| `approvals.request.previousinvalid` | | `Previous` names no closed request of the type and target (`01` APR-REQ-001) |
-| `approvals.request.unknown` | | No such request |
-| `approvals.request.closed` | | A move of a request that is closed, or a decision on one no longer pending (`01` APR-REQ-004, APR-REQ-010, APR-REQ-012) |
-| `approvals.request.notapproved` | | A completion of a pending request (`01` APR-REQ-012) |
-| `approvals.request.cursorinvalid` | | A pending list's cursor that does not read (`01` APR-REQ-013) |
-| `approvals.decision.notassigned` | | No undecided assignment of the current step for the decider or the person acted for (`01` APR-REQ-004) |
-| `approvals.decision.separation` | | The decider or the person acted for is the requester or the subject (`01` APR-REQ-004) |
-| `approvals.decision.duplicate` | | The decider already decided the step, or under `RequireOther` approved an earlier step (`01` APR-REQ-004, APR-REQ-006) |
-| `approvals.decision.notpermitted` | | The directory does not answer the decider, or the person acted for, as able to approve (`01` APR-REQ-004) |
-| `approvals.decision.reasonrequired` | | A rejection without a reason (`01` APR-REQ-005) |
-| `approvals.reason.invalid` | | A reason over 2,000 characters, or not text (`00` section 1.5; `01` APR-REQ-004, APR-REQ-010) |
-| `approvals.field.locked` | | A change recorded to a field a pending request covers (`01` APR-REQ-011) |
-| `approvals.delegation.invalid` | `member` | A delegation outside its rule (`01` APR-REQ-008) |
-| `approvals.delegation.unknown` | | No such delegation |
-| `approvals.delegation.ended` | | Ending a delegation that has ended (`01` APR-REQ-008) |
-| `approvals.directory.unavailable` | | The directory throws or does not answer within `Themis:Timeout` (`03` APR-LIB-005) |
-| `approvals.directory.toomany` | | A step's approvers resolve to more than 200 persons (`01` APR-REQ-003) |
-| `approvals.erasure.pending` | | An erasure of a person who is the requester, the subject or an assignee of a `pending` request, or a delegate of one of its open assignments, or the subject of an `approved` request (`01` APR-REQ-015) |
-| `approvals.erasure.typeversion` | `type` | An erasure of a person whom the newest version of an approval type names (`01` APR-REQ-015) |
-| `approvals.retention.notgranted` | | An erasure whose session lacks the privileges it needs (`01` APR-REQ-015; `04` APR-OPS-002); a `retention` run that lacks them throws, naming it (`04` APR-OPS-004) |
+| Code | Details | Answered where | Over HTTP |
+|---|---|---|---|
+| `approvals.startup.configurationinvalid` (startup) | `key` | A configuration value outside its rule (`04` APR-OPS-001) | None |
+| `approvals.startup.seammissing` (startup) | `key` | A required seam is not registered (`03` APR-LIB-005); thrown by `MapThemisApprovals` too, for `ICurrentPerson` (`03` APR-LIB-004) | None |
+| `approvals.startup.secretunavailable` (startup) | `key` | The secret source does not answer a secret (`04` APR-OPS-008) | None |
+| `approvals.startup.secretinvalid` (startup) | `key` | A secret outside its form (`04` APR-OPS-008) | None |
+| `approvals.startup.schemamismatch` (startup) | `migration` | The database lacks a migration of the release (`04` APR-OPS-002) | None |
+| `approvals.migrate.inputinvalid` (migrate) | `member` | The tool's input does not read, or names a role the database lacks | None |
+| `approvals.migrate.connectionfailed` (migrate) | | The tool cannot connect | None |
+| `approvals.migrate.failed` (migrate) | `migration` | A migration fails | None |
+| `approvals.migrate.grantfailed` (migrate) | `role` | A grant fails or is not found (`04` APR-OPS-002) | None |
+| `approvals.type.invalid` | `member` | A definition outside its rule, `member` the empty path where its canonical form is too large (`02` APR-TYPE-002) | 400 |
+| `approvals.type.unknown` | | No such type, or no such version (`02` APR-TYPE-001) | 404 |
+| `approvals.type.retired` | | A request of a retired type (`02` APR-TYPE-001) | 409 |
+| `approvals.request.snapshotinvalid` | `field` | A snapshot that does not match its version's protected fields (`01` APR-REQ-001) | 400 |
+| `approvals.request.open` | | An open request of the type already covers the target (`01` APR-REQ-002) | 409 |
+| `approvals.request.previousinvalid` | | `Previous` names no closed request of the type and target (`01` APR-REQ-001) | 400 |
+| `approvals.request.unknown` | | No such request | 404 |
+| `approvals.request.closed` | | A move of a request that is closed, or a decision on one no longer pending (`01` APR-REQ-004, APR-REQ-010, APR-REQ-012) | 409 |
+| `approvals.request.notapproved` | | A completion of a pending request (`01` APR-REQ-012) | 409 |
+| `approvals.request.cursorinvalid` | | A pending list's cursor that does not read (`01` APR-REQ-013) | 400 |
+| `approvals.decision.notassigned` | | No undecided assignment of the current step for the decider or the person acted for (`01` APR-REQ-004) | 403 |
+| `approvals.decision.separation` | | The decider or the person acted for is the requester or the subject (`01` APR-REQ-004) | 403 |
+| `approvals.decision.duplicate` | | The decider already decided the step, or under `RequireOther` approved an earlier step (`01` APR-REQ-004, APR-REQ-006) | 409 |
+| `approvals.decision.notpermitted` | | The directory does not answer the decider, or the person acted for, as able to approve (`01` APR-REQ-004) | 403 |
+| `approvals.decision.reasonrequired` | | A rejection without a reason (`01` APR-REQ-005) | 400 |
+| `approvals.reason.invalid` | | A reason over 2,000 characters, or not text (`00` section 1.5; `01` APR-REQ-004, APR-REQ-010) | 400 |
+| `approvals.field.locked` | | A change recorded to a field a pending request covers (`01` APR-REQ-011) | 409 |
+| `approvals.delegation.invalid` | `member` | A delegation outside its rule (`01` APR-REQ-008) | 400 |
+| `approvals.delegation.unknown` | | No such delegation | 404 |
+| `approvals.delegation.ended` | | Ending a delegation that has ended (`01` APR-REQ-008) | 409 |
+| `approvals.directory.unavailable` | | The directory throws or does not answer within `Themis:Timeout` (`03` APR-LIB-005) | 503, no details |
+| `approvals.directory.toomany` | | A step's approvers resolve to more than 200 persons (`01` APR-REQ-003) | 500, no details |
+| `approvals.erasure.pending` | | An erasure of a person who is the requester, the subject or an assignee of a `pending` request, or a delegate of one of its open assignments, or the subject of an `approved` request (`01` APR-REQ-015) | 500, no details |
+| `approvals.erasure.typeversion` | `type` | An erasure of a person whom the newest version of an approval type names (`01` APR-REQ-015) | 500, no details |
+| `approvals.retention.notgranted` | | An erasure whose session lacks the privileges it needs (`01` APR-REQ-015; `04` APR-OPS-002); a `retention` run that lacks them throws, naming it (`04` APR-OPS-004) | 500, no details |
 
 ---
 
