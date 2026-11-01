@@ -297,10 +297,14 @@ durations before it. The `deadlines` job sends each reminder on its clock, once 
 step's start plus `After`, less that duration, has passed: it writes a `reminded` event
 (`06` section 6) naming the step and its open assignments, those an escalation added
 included, each with the delegate who holds it through a live delegation covering the
-type, if any. Watchers and the requester are not reminded. The step records the
-reminders sent, in a column a migration adds, so each fires once, none is sent twice or
-missed across a restart, and none fires after the step closes. The counter
-`approvals.reminders` counts them (`04` APR-OPS-005).
+type, if any. Watchers and the requester are not reminded. A reminder is sent only while
+the step's deadline is still ahead: once it has passed, the reminders left are dropped
+and only the deadline's action runs. Where several of a step's reminders are due at
+once, after a gap in the job's runs, one `reminded` event is written, for the latest
+due, and counted once, the earlier ones being marked passed. The step records the
+reminders sent and passed, in a column a migration adds, so none is sent twice across
+a restart, and none fires after the step closes. The counter `approvals.reminders`
+counts them (`04` APR-OPS-005).
 
 *Source: T-005, T-012, T-023, T-025*
 
@@ -315,7 +319,8 @@ missed across a restart, and none fires after the step closes. The counter
    two alike.
 6. Each reminder fires once at its time, naming the step's open assignments.
 7. No reminder fires after the step closes.
-8. A restart sends no reminder twice and misses none.
+8. A restart sends no reminder twice, and after a gap the latest reminder due is sent
+   once, while the deadline is ahead.
 
 ---
 
@@ -512,10 +517,10 @@ The snapshot of every closed request (`rejected`, `cancelled`, `void` or `comple
 whose subject is the person is cleared, left with no values, since it holds the host's
 record about them; those rows count in `Changed`. An `approved` request's snapshot keeps
 the fields it covers (APR-REQ-011), so the erasure is refused while the person is the
-subject of one. A second erasure of the same reference changes nothing and answers `Changed` 0. The
-erasure first takes the person's lock, exclusive (`04` APR-OPS-003), so no create,
-assignment or delegation naming the person interleaves with it, then checks, in this
-order, answering the first failure and changing nothing:
+subject of one. A second erasure of the same reference changes nothing and answers
+`Changed` 0. The erasure first takes the person's lock, exclusive (`04` APR-OPS-003),
+so no create, assignment or delegation naming the person interleaves with it, then
+checks, in this order, answering the first failure and changing nothing:
 1. the session holds `DELETE` on the six tables of requests and delegations and `UPDATE`
    on the columns the erasure rewrites, whatever the period (`04` APR-OPS-002):
    `approvals.retention.notgranted`;

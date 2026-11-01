@@ -203,12 +203,12 @@ chain. A run that deletes undelivered events older than twice the period, which 
 longer hold their request or delegation back, logs one entry at the Warning level with
 their count, and nothing of their content (`01` APR-REQ-015, APR-OPS-005). The job's
 row of the job table, and its name in the table's closed set (`ck_jobs_name`, `06`
-section 2), come with the migration that adds the job. A `retention` run, the period set, whose
-session lacks `DELETE` on the six tables of requests and delegations (APR-OPS-002)
-throws `InvalidOperationException` naming `approvals.retention.notgranted` (`01`
-APR-REQ-015; `05` APR-ENG-003), so the run fails and `job-stalled` is raised for it
-(`06` section 5). A job that fails is logged and runs again at its next time. A job no
-application runs is never judged stalled.
+section 2), come with the migration that adds the job. A `retention` run, the period
+set, whose session lacks `DELETE` on the six tables of requests and delegations
+(APR-OPS-002) throws `InvalidOperationException` naming `approvals.retention.notgranted`
+(`01` APR-REQ-015; `05` APR-ENG-003), so the run fails and `job-stalled` is raised for
+it (`06` section 5). A job that fails is logged and runs again at its next time. A job
+no application runs is never judged stalled.
 
 *Source: T-012, T-014, T-019, T-025*
 

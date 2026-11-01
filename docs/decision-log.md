@@ -805,6 +805,17 @@ and counters; `implementation-plan.md` section 4.
 >    `approvals.erasure.pending` also fires while the person is the subject of an
 >    `approved` request (`01` APR-REQ-015 AC6), until the host completes or voids it.
 
+> **Amended.** The lead, 2026-11-01, on reminders after a gap:
+> 1. **Several due at once.** Where several of a step's reminders are due at once, after
+>    a gap, one `reminded` event is sent, for the latest due, counted once, and the
+>    earlier ones are marked passed.
+> 2. **Only before the deadline.** A reminder is sent only while its step's deadline is
+>    still ahead; once it has passed, the reminders left are dropped and only the
+>    deadline's action runs.
+> 3. **The restart criterion,** `01` APR-REQ-009 AC8: a restart sends no reminder twice,
+>    and after a gap the latest reminder due is sent once, while the deadline is ahead.
+>    It replaces section 25.3's criterion 4, "misses none".
+
 ---
 
 # Index
