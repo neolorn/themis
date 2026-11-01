@@ -62,9 +62,9 @@ migrations before the failing one staying applied.
 `approvals_retention` (`NOLOGIN`) where the database lacks it, a name that does not
 change with the library's (`06` section 7), grants it `DELETE` on the six tables of
 requests and delegations (the requests, steps, assignments, decisions, events and
-delegations) and `UPDATE` on their columns that hold a person reference or a reason,
-and grants it to each login `retentionRoles` names, the logins that delete and erase
-(`01` APR-REQ-015). A creation or a grant that fails answers
+delegations) and `UPDATE` on their columns that hold a person reference or a reason and
+on a request's snapshot, and grants it to each login `retentionRoles` names, the logins
+that delete and erase (`01` APR-REQ-015). A creation or a grant that fails answers
 `approvals.migrate.grantfailed`, `details.role` `approvals_retention` or the login.
 Without `retentionRoles` it does exactly what the first release does, so a migrating
 login without `CREATEROLE` goes on working. The application roles keep the grants above.
@@ -199,13 +199,16 @@ every event of that request with a lower sequence number has been taken, and mov
 the next request where a call fails, so one failing request never holds back another.
 The `retention` job selects the requests it deletes `FOR UPDATE SKIP LOCKED`, so a
 request a host's open transaction holds is left for a later run, with the whole of its
-chain. Its row of the job table, and its name in the table's closed set
-(`ck_jobs_name`, `06` section 2), come with the migration that adds the job. A
-`retention` run, the period set, whose session lacks `DELETE` on the six tables of
-requests and delegations (APR-OPS-002) throws `InvalidOperationException` naming
-`approvals.retention.notgranted` (`01` APR-REQ-015; `05` APR-ENG-003), so the run fails
-and `job-stalled` is raised for it (`06` section 5). A job that fails is logged and runs
-again at its next time. A job no application runs is never judged stalled.
+chain. A run that deletes undelivered events older than the period, which no longer
+hold their request or delegation back, logs one entry at the Warning level with their
+count, and nothing of their content (`01` APR-REQ-015, APR-OPS-005). The job's row of
+the job table, and its name in the table's closed set (`ck_jobs_name`, `06` section 2),
+come with the migration that adds the job. A `retention` run, the period set, whose
+session lacks `DELETE` on the six tables of requests and delegations (APR-OPS-002)
+throws `InvalidOperationException` naming `approvals.retention.notgranted` (`01`
+APR-REQ-015; `05` APR-ENG-003), so the run fails and `job-stalled` is raised for it
+(`06` section 5). A job that fails is logged and runs again at its next time. A job no
+application runs is never judged stalled.
 
 *Source: T-012, T-014, T-019, T-025*
 

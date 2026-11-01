@@ -780,6 +780,18 @@ and counters; `implementation-plan.md` section 4.
 > 2. **A delegation over HTTP.** The body of `POST {prefix}/delegations` leaves out both
 >    `From` and `CreatedBy`, and the endpoint sets both to the current person.
 
+> **Amended.** The lead, 2026-11-01, from the review of phase 6:
+> 1. **The snapshot.** An erasure clears the snapshot of every request whose subject is the
+>    person, since it holds the host's record about them, and counts those rows in
+>    `Changed`; `approvals_retention` holds `UPDATE` on the snapshot for it (`01`
+>    APR-REQ-015 AC5; `04` APR-OPS-002).
+> 2. **Event holds expire.** An undelivered event holds its request, or its delegation,
+>    back only while it is younger than the retention period. Past that, it goes with the
+>    row, and the run logs one Warning with the count of such events, nothing of their
+>    content: an event left untaken for the whole period has raised the observer's lag
+>    alert (T-022). `01` APR-REQ-015 AC4 and AC9 say so, the event older than the period
+>    that no longer holds included.
+
 ---
 
 # Index

@@ -454,7 +454,8 @@ event is older than `Themis:Observer:LagThreshold`.
 **APR-REQ-015** — The record SHALL be append-only: nothing the library writes about a
 request, a decision, a delegation, a version or an event SHALL be deleted but a closed
 request or an ended delegation past the retention period, and nothing SHALL be changed
-but the values that record a later move and what an erasure of a person replaces.
+but the values that record a later move and what an erasure of a person replaces or
+clears.
 
 **Values (T-013).** The values that change, each by a move of this chapter recorded by
 its event: a request's status, current step, closing instant, actor, person acted for
@@ -474,19 +475,24 @@ privilege. A request is closed once `rejected`, `cancelled`, `void` or `complete
 `approved` request is not. The `retention` job (`04` APR-OPS-004) deletes each closed
 request whose `ClosedAt` plus the period has passed with its steps, assignments,
 decisions, events and snapshot. A request is held back while any of its events is
-undelivered, and while a request that names it as `Previous` is not itself due, so a
-chain of requests linked by `Previous` goes together, in one transaction (a request no
-other names, and that names none, being a chain of one). A run deletes at most 1,000
-requests, each request of a chain counted, and never splits a chain across runs: a
-chain that does not fit what is left of the run's 1,000 waits for the next run, unless
-it alone holds more than 1,000, and then it goes alone in a run. An ended delegation
-goes, with its events, once its end (the instant `EndAsync` ended it, or else its
-`Ends`, APR-REQ-008) plus the same period has passed; an undelivered event of it holds
-it back. A version of an approval type always stays. The job is idempotent: a run
-deletes only what is due, and a second run finds nothing of it left. A run, the period
-set, whose session lacks `DELETE` on the six tables of requests and delegations (`04`
-APR-OPS-002) throws `InvalidOperationException` naming `approvals.retention.notgranted`
-(`05` APR-ENG-003), so the run fails and `job-stalled` is raised (`06` section 5).
+undelivered and younger than the period, and while a request that names it as
+`Previous` is not itself due, so a chain of requests linked by `Previous` goes together,
+in one transaction (a request no other names, and that names none, being a chain of
+one). A run deletes at most 1,000 requests, each request of a chain counted, and never
+splits a chain across runs: a chain that does not fit what is left of the run's 1,000
+waits for the next run, unless it alone holds more than 1,000, and then it goes alone in
+a run. An ended delegation goes, with its events, once its end (the instant `EndAsync`
+ended it, or else its `Ends`, APR-REQ-008) plus the same period has passed; an
+undelivered event of it younger than the period holds it back. An undelivered event
+older than the period holds nothing back and goes with its request or delegation, since
+an event left untaken that long has raised `observer-failing` (APR-REQ-014, T-022); a
+run that deletes any such events logs one entry at the Warning level with their count,
+and nothing of their content (`04` APR-OPS-004). A version of an approval type always
+stays. The job is idempotent: a run deletes only what is due, and a second run finds
+nothing of it left. A run, the period set, whose session lacks `DELETE` on the six
+tables of requests and delegations (`04` APR-OPS-002) throws `InvalidOperationException`
+naming `approvals.retention.notgranted` (`05` APR-ENG-003), so the run fails and
+`job-stalled` is raised (`06` section 5).
 
 **Erasure (T-025).** `IRecordRetention.EraseAsync(person)` erases a person at once, in one
 transaction, and answers a `Result<ErasureReceipt>` (`03` APR-LIB-002): `Changed`, the
@@ -499,7 +505,9 @@ person's entries in each event's `Notify` included, becomes one pseudonym drawn 
 call, `erased:` followed by 128 random bits in base64url, so the person's rows stay
 linked to each other and to no one. The reasons the person wrote are cleared: those of
 the decisions the person made (`Decider`), the closing reason of the requests the person
-closed (`ClosedBy`), and any other free text the record holds that the person wrote. A
+closed (`ClosedBy`), and any other free text the record holds that the person wrote.
+The snapshot of every request whose subject is the person is cleared, left with no
+values, since it holds the host's record about them; those rows count in `Changed`. A
 second erasure of the same reference changes nothing and answers `Changed` 0. The
 erasure first takes the person's lock, exclusive (`04` APR-OPS-003), so no create,
 assignment or delegation naming the person interleaves with it, then checks, in this
@@ -528,15 +536,19 @@ them (`04` APR-OPS-005).
    person, and none that does not.
 3. A request closed one day less than the period ago stays; one closed a day more goes
    with every row of it, and nothing else does.
-4. An undelivered event of a request past its period, or a later request naming it as
-   `Previous` that is not due, holds it back.
-5. An erasure replaces every reference to the person with one pseudonym and clears the
-   person's reasons, and a second call answers 0.
+4. An undelivered event of a request past its period, the event younger than the
+   period, or a later request naming it as `Previous` that is not due, holds it back;
+   an undelivered event older than the period no longer holds it, goes with it, and the
+   run logs one Warning with the count of such events.
+5. An erasure replaces every reference to the person with one pseudonym, clears the
+   person's reasons and the snapshot of every request whose subject they are, counting
+   those rows in `Changed`, and a second call answers 0.
 6. Each refusal of an erasure fires on its condition, and `approvals.retention.notgranted`
    without the privileges, for an erasure and for a `retention` run.
 7. An export of an erased reference, or of an `erased:` pseudonym, is empty.
 8. With the period unset, nothing is deleted.
 9. A delegation ended one day less than the period ago stays; one ended a day more goes
-   with its events, and an undelivered event of it holds it back.
+   with its events; an undelivered event of it younger than the period holds it back,
+   and one older than the period no longer does.
 10. An erasure racing a create naming the person ends with one of them after the other,
     never a deadlock.
