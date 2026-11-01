@@ -45,7 +45,7 @@ failure by an operation.
 | `approvals.delegation.ended` | | Ending a delegation that has ended (`01` APR-REQ-008) |
 | `approvals.directory.unavailable` | | The directory throws or does not answer within `Themis:Timeout` (`03` APR-LIB-005) |
 | `approvals.directory.toomany` | | A step's approvers resolve to more than 200 persons (`01` APR-REQ-003) |
-| `approvals.erasure.pending` | | An erasure of a person who is the requester, the subject or an assignee of a `pending` request, or a delegate of one of its open assignments (`01` APR-REQ-015) |
+| `approvals.erasure.pending` | | An erasure of a person who is the requester, the subject or an assignee of a `pending` request, or a delegate of one of its open assignments, or the subject of an `approved` request (`01` APR-REQ-015) |
 | `approvals.erasure.typeversion` | `type` | An erasure of a person whom the newest version of an approval type names (`01` APR-REQ-015) |
 | `approvals.retention.notgranted` | | An erasure whose session lacks the privileges it needs (`01` APR-REQ-015; `04` APR-OPS-002); a `retention` run that lacks them throws, naming it (`04` APR-OPS-004) |
 
